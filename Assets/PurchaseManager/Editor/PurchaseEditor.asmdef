@@ -1,0 +1,20 @@
+{
+    "name": "PurchaseEditor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:b6326f246b329d040babb554156fd597",
+        "GUID:343deaaf83e0cee4ca978e7df0b80d21",
+        "GUID:7c04f0dfa9243c04681a55d90d3ff3fc"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

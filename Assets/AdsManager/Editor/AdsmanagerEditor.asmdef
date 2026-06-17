@@ -1,0 +1,22 @@
+{
+    "name": "AdsmanagerEditor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:4b6c102cace4bfd4fa863b19ab16ac0f",
+        "GUID:478a2357cc57436488a56e564b08d223",
+        "GUID:7c04f0dfa9243c04681a55d90d3ff3fc",
+        "GUID:343deaaf83e0cee4ca978e7df0b80d21",
+        "GUID:0acc523941302664db1f4e527237feb3"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

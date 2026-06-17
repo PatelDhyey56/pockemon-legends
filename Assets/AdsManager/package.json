@@ -1,0 +1,13 @@
+{
+  "name": "com.gamepad.admob",
+  "version": "1.2.5",
+  "displayName": "AdsManager",
+  "description": "This is custom google admob manager for integration and managing google ads in unity with ease",
+  "samples": [
+    {
+      "displayName": "Sample scene",
+      "description": "This Sample includes Scripts and sample scene",
+      "path": "Samples~/Sample Scene"
+    }
+  ]
+}

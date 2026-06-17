@@ -1,0 +1,9 @@
+{
+  "name": "com.gamepad.purchase-manager",
+  "version": "1.2.9",
+  "displayName": "PurchaseManager",
+  "description": "This is a custom Purchase manager for integration and managing Unity's IAP with ease",
+    "dependencies": {
+        "com.unity.purchasing": "5.0.1"
+    }
+}
