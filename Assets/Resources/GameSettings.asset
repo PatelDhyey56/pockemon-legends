@@ -17,5 +17,5 @@ MonoBehaviour:
   releaseGameName: Unity BaseProject
   popupTitle: 
   adData: {fileID: 11400000, guid: f1b705db686faf943b6b6feaf62bc155, type: 2}
-  inAppData: {fileID: 0}
+  inAppData: {fileID: 11400000, guid: 8c997a2b44c62a14c826bfe36b2f1508, type: 2}
   iOSAppID: 

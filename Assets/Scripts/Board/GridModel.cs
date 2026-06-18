@@ -100,12 +100,24 @@ public class GridModel
                     writeRow--;
                 }
             }
+
+            // Ensure any remaining cells above the compacted column are cleared.
+            for (int r = writeRow; r >= 0; r--)
+            {
+                Grid[r, c] = GemType.Charry;
+            }
         }
     }
 
-    public int Refill()
+    /// <summary>
+    /// Fills every Charry (empty) cell with a random gem.
+    /// Returns the positions of all cells that were refilled so
+    /// the view layer can play a distinct "drop from top" animation
+    /// for brand-new stones vs. existing stones that simply fell down.
+    /// </summary>
+    public List<Vector2Int> Refill()
     {
-        int refilled = 0;
+        List<Vector2Int> refilled = new List<Vector2Int>();
         for (int r = 0; r < ROWS; r++)
         {
             for (int c = 0; c < COLS; c++)
@@ -113,7 +125,7 @@ public class GridModel
                 if (Grid[r, c] == GemType.Charry)
                 {
                     Grid[r, c] = GetRandomGem();
-                    refilled++;
+                    refilled.Add(new Vector2Int(c, r));
                 }
             }
         }

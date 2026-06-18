@@ -30,7 +30,7 @@ public class SplashManager : MonoBehaviour
     {
         GameLaunchFirebaseEvent();
         yield return new WaitForSeconds(delay);
-        AdMobManager.GetInstance().SetAdmobAdsID();
+        // AdMobManager.GetInstance().SetAdmobAdsID();
         SceneManager.LoadScene(Constants.SCENE_MENU);
     }
 
