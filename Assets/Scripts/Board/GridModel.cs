@@ -51,9 +51,11 @@ public class GridModel
             for (int c = 0; c < COLS - 2; c++)
             {
                 GemType g = Grid[r, c];
-                if (g != GemType.Charry && g == Grid[r, c + 1] && g == Grid[r, c + 2])
+                // Charry stones never form match-3 lines
+                if (g == GemType.Charry) continue;
+                if (g == Grid[r, c + 1] && g == Grid[r, c + 2])
                 {
-                    matched.Add(new Vector2Int(c, r));
+                    matched.Add(new Vector2Int(c,     r));
                     matched.Add(new Vector2Int(c + 1, r));
                     matched.Add(new Vector2Int(c + 2, r));
                 }
@@ -65,7 +67,9 @@ public class GridModel
             for (int r = 0; r < ROWS - 2; r++)
             {
                 GemType g = Grid[r, c];
-                if (g != GemType.Charry && g == Grid[r + 1, c] && g == Grid[r + 2, c])
+                // Charry stones never form match-3 lines
+                if (g == GemType.Charry) continue;
+                if (g == Grid[r + 1, c] && g == Grid[r + 2, c])
                 {
                     matched.Add(new Vector2Int(c, r));
                     matched.Add(new Vector2Int(c, r + 1));
@@ -199,8 +203,17 @@ public class GridModel
         return false;
     }
 
+    /// <summary>
+    /// Returns a random gem type. Evolution stones appear at ~8% probability.
+    /// Charry is NEVER returned — it is only set internally for empty cells.
+    /// </summary>
     private GemType GetRandomGem()
     {
-        return (GemType)Random.Range(0, 6);
+        // Weighted pool: 6 normal types + 1 Evolution slot → 7 slots, Evolution = ~14%
+        // Use 12 slots so Evolution is ~8%: 11 normal, 1 Evolution
+        int roll = Random.Range(0, 12);
+        if (roll == 0) return GemType.Evolution;
+        // Distribute remaining 11 rolls across 6 normal types
+        return (GemType)(roll % 6);
     }
 }

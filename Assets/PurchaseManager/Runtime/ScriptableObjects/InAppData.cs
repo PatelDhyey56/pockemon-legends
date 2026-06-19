@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -129,7 +129,9 @@ namespace IAPPurchasing
 #if UNITY_ANDROID
                 return productIdAndroid;
 #elif UNITY_IOS
-            return productIdiOS;
+                return productIdiOS;
+#else
+                return string.Empty;
 #endif
             }
         }

@@ -8,13 +8,50 @@ using DG.Tweening;
 public class BoardInputHandler : MonoBehaviour
 {
     [SerializeField] private Transform boardParent;
-    [SerializeField] private float cellSize = 80f;
-    [SerializeField] private float spacing = 4f;
+    [SerializeField] private float cellSize = 100f; // Inspector fallback — overridden at runtime by AspectRatio.MaxBoardCellSize
+    [SerializeField] private float spacing = 6f;
     [SerializeField] private Color charryColor = new Color(1f, 0.6f, 0f);
     [SerializeField] private Color borderColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
-    [SerializeField] private float borderWidth = 2f;
-    [SerializeField] private Color boardBgColor = new Color(0.15f, 0.15f, 0.2f, 0.8f);
+    [SerializeField] private float borderWidth = 3f;
+    [SerializeField] private Color boardBgColor = new Color(0.05f, 0.05f, 0.05f, 0.7f);
 
+    // Resolved at runtime; driven by AspectRatio.MaxBoardCellSize when available.
+    private float _resolvedCellSize;
+
+    // Fast O(1) gem lookup: maps gem GameObject InstanceID → (row,col)
+    private Dictionary<int, Vector2Int> _gemCoordMap = new Dictionary<int, Vector2Int>(64);
+
+    // Cached reusable WaitForSeconds objects — avoids GC alloc every coroutine step
+    private static readonly WaitForSeconds _wait025 = new WaitForSeconds(0.25f);
+    private static readonly WaitForSeconds _wait03  = new WaitForSeconds(0.3f);
+    private static readonly WaitForSeconds _wait035 = new WaitForSeconds(0.35f);
+    private static readonly WaitForSeconds _waitSwap = new WaitForSeconds(0.2f); // swap animation duration
+
+    // Pre-built gem colors — matched to the new stone artwork dominant hues
+    private static readonly Color[] GemColors = new Color[]
+    {
+        new Color(0.95f, 0.25f, 0.05f), // Fire     — deep orange-red  (element_gem_2)
+        new Color(0.05f, 0.75f, 0.95f), // Water    — vivid cyan-blue  (element_gem_3)
+        new Color(0.35f, 0.90f, 0.15f), // Nature   — bright lime      (element_gem_4)
+        new Color(1.00f, 0.78f, 0.00f), // Electric — amber-yellow     (element_gem_6)
+        new Color(0.70f, 0.15f, 0.95f), // Psychic  — violet-purple    (element_gem_5)
+        new Color(0.58f, 0.42f, 0.22f), // Healing  — warm earth-brown (element_gem_1)
+        new Color(0.95f, 0.10f, 0.10f), // Evolution — crimson-red Pokéball stone
+    };
+    private static readonly Color _pipEmptyColor = new Color(0.18f, 0.18f, 0.18f, 0.7f);
+    private static readonly Color _activePanel   = new Color(0.15f, 0.15f, 0.18f, 0.95f);
+    private static readonly Color _inactivePanel = new Color(0.03f, 0.03f, 0.05f, 0.7f);
+
+    // Drag committed flag to suppress redundant OnGemDrag calls after swap fires
+    private bool _dragCommitted;
+
+    // Evolution stone sprite — loaded once from Resources/Gems/evolution_stone
+    private Sprite _evolutionStoneSprite;
+    // Evolution stone highlight color for board cells
+    private static readonly Color _evolutionGlow = new Color(0.95f, 0.10f, 0.10f);
+
+    [Header("Visuals")]
+    [SerializeField] private Sprite backgroundImage; // The new background image
     [SerializeField] private Sprite[] gemSprites;
     private Sprite fallbackGemSprite;
     private Image[,] gemImages;
@@ -29,30 +66,70 @@ public class BoardInputHandler : MonoBehaviour
     private Sequence hintSequence;
     private float _processingWatchdog = 0f; // safety timeout for stuck IsProcessing
 
-    // Player UI Fields
-    private GameObject playerUIPanel;
-    private TMPro.TextMeshProUGUI p1NameText, p2NameText;
-    private TMPro.TextMeshProUGUI p1MovesText, p2MovesText;
-    private TMPro.TextMeshProUGUI p1HpText, p2HpText;
-    private Image p1HpBar, p2HpBar;
-    private Image p1HpBarTrailing, p2HpBarTrailing;
+    [Header("Player UI Settings")]
+    [SerializeField] private RectTransform playerUIPanel;
+    [SerializeField] private Image p1PanelBg, p2PanelBg;
+    [SerializeField] private TMPro.TextMeshProUGUI messageText;
 
-    // Pokemon 1 UI
-    private Image p1Poke1Avatar, p2Poke1Avatar;
-    private TMPro.TextMeshProUGUI p1Poke1Name, p2Poke1Name;
-    private TMPro.TextMeshProUGUI p1Poke1EnergyText, p2Poke1EnergyText;
-    private Image p1Poke1EnergyBar, p2Poke1EnergyBar;
-    private Image p1Poke1Stone, p2Poke1Stone;
+    [Header("P1 Info")]
+    [SerializeField] private TMPro.TextMeshProUGUI p1NameText;
+    [SerializeField] private TMPro.TextMeshProUGUI p1MovesText;
+    [SerializeField] private TMPro.TextMeshProUGUI p1HpText;
+    [SerializeField] private Image p1HpBar;
+    [SerializeField] private Image p1HpBarTrailing;
 
-    // Pokemon 2 UI
-    private Image p1Poke2Avatar, p2Poke2Avatar;
-    private TMPro.TextMeshProUGUI p1Poke2Name, p2Poke2Name;
-    private TMPro.TextMeshProUGUI p1Poke2EnergyText, p2Poke2EnergyText;
-    private Image p1Poke2EnergyBar, p2Poke2EnergyBar;
-    private Image p1Poke2Stone, p2Poke2Stone;
+    [Header("P1 Pokemon 1")]
+    [SerializeField] private Image p1Poke1Avatar;
+    [SerializeField] private TMPro.TextMeshProUGUI p1Poke1Name;
+    [SerializeField] private TMPro.TextMeshProUGUI p1Poke1EnergyText;
+    [SerializeField] private Image p1Poke1EnergyBar;
+    [SerializeField] private Image p1Poke1Stone;
+    [SerializeField] private Transform p1Poke1EnergyBgTransform;
+    [SerializeField] private TMPro.TextMeshProUGUI p1Poke1AttackLabel;
 
-    private TMPro.TextMeshProUGUI messageText;
-    private Image p1PanelBg, p2PanelBg;
+    [Header("P1 Pokemon 2")]
+    [SerializeField] private Image p1Poke2Avatar;
+    [SerializeField] private TMPro.TextMeshProUGUI p1Poke2Name;
+    [SerializeField] private TMPro.TextMeshProUGUI p1Poke2EnergyText;
+    [SerializeField] private Image p1Poke2EnergyBar;
+    [SerializeField] private Image p1Poke2Stone;
+    [SerializeField] private Transform p1Poke2EnergyBgTransform;
+    [SerializeField] private TMPro.TextMeshProUGUI p1Poke2AttackLabel;
+
+    [Header("P2 Info")]
+    [SerializeField] private TMPro.TextMeshProUGUI p2NameText;
+    [SerializeField] private TMPro.TextMeshProUGUI p2MovesText;
+    [SerializeField] private TMPro.TextMeshProUGUI p2HpText;
+    [SerializeField] private Image p2HpBar;
+    [SerializeField] private Image p2HpBarTrailing;
+
+    [Header("P1 Evolution")]
+    [SerializeField] private Image p1EvoStoneIcon;
+    [SerializeField] private TMPro.TextMeshProUGUI p1EvoStoneText;
+    [SerializeField] private Image p1EvoGlow;   // optional glow ring shown when evolved
+
+    [Header("P2 Pokemon 1")]
+    [SerializeField] private Image p2Poke1Avatar;
+    [SerializeField] private TMPro.TextMeshProUGUI p2Poke1Name;
+    [SerializeField] private TMPro.TextMeshProUGUI p2Poke1EnergyText;
+    [SerializeField] private Image p2Poke1EnergyBar;
+    [SerializeField] private Image p2Poke1Stone;
+    [SerializeField] private Transform p2Poke1EnergyBgTransform;
+    [SerializeField] private TMPro.TextMeshProUGUI p2Poke1AttackLabel;
+
+    [Header("P2 Pokemon 2")]
+    [SerializeField] private Image p2Poke2Avatar;
+    [SerializeField] private TMPro.TextMeshProUGUI p2Poke2Name;
+    [SerializeField] private TMPro.TextMeshProUGUI p2Poke2EnergyText;
+    [SerializeField] private Image p2Poke2EnergyBar;
+    [SerializeField] private Image p2Poke2Stone;
+    [SerializeField] private Transform p2Poke2EnergyBgTransform;
+    [SerializeField] private TMPro.TextMeshProUGUI p2Poke2AttackLabel;
+
+    [Header("P2 Evolution")]
+    [SerializeField] private Image p2EvoStoneIcon;
+    [SerializeField] private TMPro.TextMeshProUGUI p2EvoStoneText;
+    [SerializeField] private Image p2EvoGlow;   // optional glow ring shown when evolved
 
     // --- Pip charge-bar system ---
     // Layout: index = playerIdx * 2 + pokemonIdx  (0=P1/Poke1, 1=P1/Poke2, 2=P2/Poke1, 3=P2/Poke2)
@@ -61,16 +138,31 @@ public class BoardInputHandler : MonoBehaviour
     private Transform[] pokemonEnergyBgTransforms       = new Transform[4];
     private int _pokemonRowIndex; // incremented inside CreatePokemonRow
 
+    private Vector3 _originalMessagePos;
+    private float _displayedP1HP = -1f;
+    private float _displayedP2HP = -1f;
+
     private void Start()
     {
+        // ── Safe-area canvas adjustment ────────────────────────────────────────
+        // Shrinks the root Canvas RectTransform to fit inside the device safe area
+        // so UI is never hidden behind notches, camera punch-outs, or home bars.
+        ApplySafeArea();
+
+        if (messageText != null)
+        {
+            _originalMessagePos = messageText.transform.localPosition;
+            messageText.alpha = 0f;
+        }
+
         // Allow sprites to be assigned in the inspector. If any slots are empty,
         // attempt to fill them from Resources/Gems/element_block_1..6.
-        int expected = 6;
+        int expected = 7;
         if (gemSprites == null || gemSprites.Length != expected)
             gemSprites = new Sprite[expected];
 
         bool anyLoaded = false;
-        for (int i = 0; i < expected; i++)
+        for (int i = 0; i < 6; i++)
         {
             if (gemSprites[i] == null)
                 gemSprites[i] = Resources.Load<Sprite>("Gems/element_block_" + (i + 1));
@@ -78,11 +170,16 @@ public class BoardInputHandler : MonoBehaviour
                 anyLoaded = true;
         }
 
+        if (gemSprites[6] == null)
+            gemSprites[6] = Resources.Load<Sprite>("Gems/evolution_stone");
+        if (gemSprites[6] != null)
+            anyLoaded = true;
+
         if (!anyLoaded)
         {
             UnityEngine.Debug.LogWarning("[BoardInputHandler] No gem sprites found. " +
                 "Place gem sprites in Assets/Resources/Gems/ named element_block_1..element_block_6 " +
-                "or assign the `gemSprites` array in the inspector.");
+                "and evolution_stone, or assign the `gemSprites` array in the inspector.");
         }
 
         for (int i = 0; i < expected; i++)
@@ -109,6 +206,41 @@ public class BoardInputHandler : MonoBehaviour
 
         board.InitBoard();
         ResetInactivityTimer();
+    }
+
+    /// <summary>
+    /// Adjusts the root Canvas RectTransform to sit inside the device safe area.
+    /// This prevents UI elements from being obscured by notches or home indicators.
+    /// </summary>
+    private void ApplySafeArea()
+    {
+        Canvas rootCanvas = GetComponentInParent<Canvas>();
+        if (rootCanvas == null)
+            rootCanvas = FindFirstObjectByType<Canvas>();
+        if (rootCanvas == null) return;
+
+        RectTransform canvasRt = rootCanvas.GetComponent<RectTransform>();
+        if (canvasRt == null) return;
+
+        Rect safe   = Screen.safeArea;
+        Vector2 screenSize = new Vector2(Screen.width, Screen.height);
+
+        Vector2 anchorMin = safe.position / screenSize;
+        Vector2 anchorMax = (safe.position + safe.size) / screenSize;
+
+        canvasRt.anchorMin = anchorMin;
+        canvasRt.anchorMax = anchorMax;
+        canvasRt.offsetMin = Vector2.zero;
+        canvasRt.offsetMax = Vector2.zero;
+    }
+
+    /// <summary>Resolves the cell size to use for the current device screen.</summary>
+    private float ResolveCellSize()
+    {
+        // If AspectRatio has run, use its dynamically computed max board cell size.
+        // Otherwise fall back to the inspector value.
+        float dynamic = AspectRatio.MaxBoardCellSize;
+        return (dynamic > 0f) ? dynamic : cellSize;
     }
 
     private void Update()
@@ -228,58 +360,45 @@ public class BoardInputHandler : MonoBehaviour
         gemImages = null;
         gemRects  = null;
 
-        // ── Destroy old board objects before recreating ────────────────────────
+        // Clear the coord map — old gem InstanceIDs are invalid after Destroy()
+        _gemCoordMap.Clear();
+
         if (boardParent != null)
         {
             for (int i = boardParent.childCount - 1; i >= 0; i--)
                 Destroy(boardParent.GetChild(i).gameObject);
         }
-        if (playerUIPanel != null)
-        {
-            Destroy(playerUIPanel);
-            playerUIPanel = null;
-        }
+
+        // Resolve the dynamic cell size for the current device BEFORE building the grid.
+        _resolvedCellSize = ResolveCellSize();
+
         // Reset pip tracking arrays so InitPips rebuilds them cleanly.
         pokemonPips               = new Image[4][];
         pokemonAttackLabels       = new TMPro.TextMeshProUGUI[4];
         pokemonEnergyBgTransforms = new Transform[4];
         // ────────────────────────────────────────────────────────────────────────
 
-        CreateBackground();
         CreateGrid();
-        _pokemonRowIndex = 0;
         CreatePlayerUI();
         RefreshBoard();
         InitPips();   // build segmented pip bars now that Pokémon types are known
         isInitialized = true;
     }
 
-    // Returns true only if the Image component still refers to a live (non-destroyed) object.
-    // Unity overrides == null for UnityEngine.Object, so this catches destroyed objects too.
     private static bool IsAlive(Image img)   => img != null && img;
     private static bool IsAlive(RectTransform rt) => rt != null && rt;
+    private static bool IsAlive(TMPro.TextMeshProUGUI txt) => txt != null && txt;
 
-    private void CreateBackground()
-    {
-        GameObject bg = new GameObject("BoardBackground", typeof(Image));
-        bg.transform.SetParent(boardParent, false);
-        RectTransform bgRt = bg.GetComponent<RectTransform>();
-        float totalW = GridModel.COLS * cellSize + (GridModel.COLS - 1) * spacing;
-        float totalH = GridModel.ROWS * cellSize + (GridModel.ROWS - 1) * spacing;
-        bgRt.sizeDelta = new Vector2(totalW + cellSize * 0.5f, totalH + cellSize * 0.5f);
-        bgRt.anchoredPosition = Vector2.zero;
-        Image bgImg = bg.GetComponent<Image>();
-        bgImg.color = boardBgColor;
-        bg.transform.SetSiblingIndex(0);
-    }
 
     private void CreateGrid()
     {
         gemImages = new Image[GridModel.ROWS, GridModel.COLS];
         gemRects = new RectTransform[GridModel.ROWS, GridModel.COLS];
 
-        float totalW = GridModel.COLS * cellSize + (GridModel.COLS - 1) * spacing;
-        float totalH = GridModel.ROWS * cellSize + (GridModel.ROWS - 1) * spacing;
+        // Use the device-adaptive cell size resolved in OnBoardInit.
+        float cs     = _resolvedCellSize;
+        float totalW = GridModel.COLS * cs + (GridModel.COLS - 1) * spacing;
+        float totalH = GridModel.ROWS * cs + (GridModel.ROWS - 1) * spacing;
 
         boardRect = boardParent.GetComponent<RectTransform>();
         boardRect.sizeDelta = new Vector2(totalW, totalH);
@@ -291,22 +410,26 @@ public class BoardInputHandler : MonoBehaviour
                 GameObject cell = new GameObject("Gem", typeof(Image));
                 cell.transform.SetParent(boardParent, false);
                 RectTransform rt = cell.GetComponent<RectTransform>();
-                rt.sizeDelta = new Vector2(cellSize, cellSize);
+                rt.sizeDelta = new Vector2(cs, cs);
                 rt.anchoredPosition = new Vector2(
-                    c * (cellSize + spacing) - totalW / 2f + cellSize / 2f,
-                    -(r * (cellSize + spacing) - totalH / 2f + cellSize / 2f)
+                    c * (cs + spacing) - totalW / 2f + cs / 2f,
+                    -(r * (cs + spacing) - totalH / 2f + cs / 2f)
                 );
 
                 Image img = cell.GetComponent<Image>();
                 img.preserveAspect = true;
                 img.raycastTarget = true;
 
-                Outline outline = cell.AddComponent<Outline>();
-                outline.effectColor = borderColor;
-                outline.effectDistance = new Vector2(borderWidth, borderWidth);
+                // NOTE: Outline components are deliberately NOT added here.
+                // Unity UI Outline/Shadow causes a full Canvas rebuild on every
+                // frame the gem moves, which is the #1 cause of gameplay stutter.
+                // Visual separation is handled by the board background color instead.
 
                 gemImages[r, c] = img;
                 gemRects[r, c] = rt;
+
+                // O(1) lookup map: InstanceID → grid coords
+                _gemCoordMap[cell.GetInstanceID()] = new Vector2Int(c, r);
 
                 EventTrigger trigger = cell.AddComponent<EventTrigger>();
 
@@ -335,17 +458,9 @@ public class BoardInputHandler : MonoBehaviour
 
     private Vector2Int? GetGemCoords(GameObject go)
     {
-        if (gemImages == null) return null;
-        for (int r = 0; r < GridModel.ROWS; r++)
-        {
-            for (int c = 0; c < GridModel.COLS; c++)
-            {
-                if (gemImages[r, c] != null && gemImages[r, c].gameObject == go)
-                {
-                    return new Vector2Int(c, r);
-                }
-            }
-        }
+        // O(1) lookup via pre-built instance-ID map (replaces the O(64) linear scan)
+        if (_gemCoordMap.TryGetValue(go.GetInstanceID(), out Vector2Int coords))
+            return coords;
         return null;
     }
 
@@ -373,8 +488,7 @@ public class BoardInputHandler : MonoBehaviour
 
     private void OnGemDrag(PointerEventData data, GameObject cell)
     {
-        if (!isInitialized) return;
-        if (isAnimating) return;
+        if (!isInitialized || isAnimating || _dragCommitted) return;
         if (BoardManager.GetInstance().IsProcessing) return;
         if (firstSelection == null) return;
 
@@ -389,7 +503,7 @@ public class BoardInputHandler : MonoBehaviour
         if (firstSelection.Value.x != col || firstSelection.Value.y != row) return;
 
         Vector2 delta = data.position - data.pressPosition;
-        if (delta.magnitude < 40f) return; // swipe threshold
+        if (delta.magnitude < 30f) return; // reduced threshold — feels snappier
 
         Vector2Int from = firstSelection.Value;
         Vector2Int to = from;
@@ -403,12 +517,14 @@ public class BoardInputHandler : MonoBehaviour
 
         gemRects[from.y, from.x].DOScale(1f, 0.1f);
         firstSelection = null;
+        _dragCommitted = true; // prevent re-entry for this drag gesture
 
         StartCoroutine(AnimateSwap(from, to));
     }
 
     private void OnGemDragEnd(PointerEventData data)
     {
+        _dragCommitted = false; // reset for next gesture
         if (!isInitialized) return;
         if (isAnimating) return;
         if (BoardManager.GetInstance().IsProcessing) return;
@@ -456,6 +572,31 @@ public class BoardInputHandler : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Swaps the entries for two cells in both the gemImages/gemRects arrays
+    /// AND the _gemCoordMap so future drag/click lookups resolve to the correct coords.
+    /// </summary>
+    private void SwapCellData(Vector2Int a, Vector2Int b)
+    {
+        // Update gemImages
+        Image tmpImg = gemImages[a.y, a.x];
+        gemImages[a.y, a.x] = gemImages[b.y, b.x];
+        gemImages[b.y, b.x] = tmpImg;
+
+        // Update gemRects
+        RectTransform tmpRt = gemRects[a.y, a.x];
+        gemRects[a.y, a.x] = gemRects[b.y, b.x];
+        gemRects[b.y, b.x] = tmpRt;
+
+        // *** Critical: keep the lookup map in sync ***
+        // After the swap, gemImages[a] now holds what was at b, and vice-versa.
+        // Update their InstanceID entries to the new coords.
+        if (gemImages[a.y, a.x] != null)
+            _gemCoordMap[gemImages[a.y, a.x].gameObject.GetInstanceID()] = a;
+        if (gemImages[b.y, b.x] != null)
+            _gemCoordMap[gemImages[b.y, b.x].gameObject.GetInstanceID()] = b;
+    }
+
     private IEnumerator AnimateSwap(Vector2Int from, Vector2Int to)
     {
         isAnimating = true;
@@ -468,31 +609,22 @@ public class BoardInputHandler : MonoBehaviour
 
         rtA.DOAnchorPos(posB, 0.2f).SetEase(Ease.InOutQuad);
         rtB.DOAnchorPos(posA, 0.2f).SetEase(Ease.InOutQuad);
-        yield return new WaitForSeconds(0.2f);
+        yield return _waitSwap;
 
-        Image tmpImg = gemImages[from.y, from.x];
-        gemImages[from.y, from.x] = gemImages[to.y, to.x];
-        gemImages[to.y, to.x] = tmpImg;
-
-        RectTransform tmpRt = gemRects[from.y, from.x];
-        gemRects[from.y, from.x] = gemRects[to.y, to.x];
-        gemRects[to.y, to.x] = tmpRt;
+        // Swap arrays + keep _gemCoordMap up-to-date
+        SwapCellData(from, to);
 
         bool valid = board.TrySwap(from, to);
 
         if (!valid)
         {
+            // Revert visual positions
             gemRects[to.y, to.x].DOAnchorPos(posA, 0.2f).SetEase(Ease.InOutQuad);
             gemRects[from.y, from.x].DOAnchorPos(posB, 0.2f).SetEase(Ease.InOutQuad);
-            yield return new WaitForSeconds(0.2f);
+            yield return _waitSwap;
 
-            Image tmpImg2 = gemImages[from.y, from.x];
-            gemImages[from.y, from.x] = gemImages[to.y, to.x];
-            gemImages[to.y, to.x] = tmpImg2;
-
-            RectTransform tmpRt2 = gemRects[from.y, from.x];
-            gemRects[from.y, from.x] = gemRects[to.y, to.x];
-            gemRects[to.y, to.x] = tmpRt2;
+            // Revert arrays + coord map
+            SwapCellData(from, to);
 
             rtA.anchoredPosition = posA;
             rtB.anchoredPosition = posB;
@@ -549,9 +681,9 @@ public class BoardInputHandler : MonoBehaviour
         BoardManager board = BoardManager.GetInstance();
         if (board?.Grid == null) yield break;
 
-        float totalW = GridModel.COLS * cellSize + (GridModel.COLS - 1) * spacing;
-        float totalH = GridModel.ROWS * cellSize + (GridModel.ROWS - 1) * spacing;
-        float dropDistance = cellSize * 2.0f;
+        float totalW = GridModel.COLS * _resolvedCellSize + (GridModel.COLS - 1) * spacing;
+        float totalH = GridModel.ROWS * _resolvedCellSize + (GridModel.ROWS - 1) * spacing;
+        float dropDistance = _resolvedCellSize * 2.0f;
 
         // ── PASS 1: hard-reset every cell synchronously ─────────────────────────
         for (int r = 0; r < GridModel.ROWS; r++)
@@ -574,8 +706,8 @@ public class BoardInputHandler : MonoBehaviour
                 if (cg != null) { cg.DOKill(complete: false); cg.alpha = 1f; }
 
                 Vector2 targetPos = new Vector2(
-                    c * (cellSize + spacing) - totalW / 2f + cellSize / 2f,
-                    -(r * (cellSize + spacing) - totalH / 2f + cellSize / 2f)
+                    c * (_resolvedCellSize + spacing) - totalW / 2f + _resolvedCellSize / 2f,
+                    -(r * (_resolvedCellSize + spacing) - totalH / 2f + _resolvedCellSize / 2f)
                 );
 
                 bool isCharry  = idx == (int)GemType.Charry;
@@ -632,8 +764,8 @@ public class BoardInputHandler : MonoBehaviour
             if (gem2 == GemType.Charry) continue;
 
             Vector2 targetPos2 = new Vector2(
-                c * (cellSize + spacing) - totalW / 2f + cellSize / 2f,
-                -(r * (cellSize + spacing) - totalH / 2f + cellSize / 2f)
+                c * (_resolvedCellSize + spacing) - totalW / 2f + _resolvedCellSize / 2f,
+                -(r * (_resolvedCellSize + spacing) - totalH / 2f + _resolvedCellSize / 2f)
             );
 
             var cg2 = img2.GetComponent<CanvasGroup>();
@@ -664,8 +796,8 @@ public class BoardInputHandler : MonoBehaviour
         var bm = BoardManager.GetInstance();
         if (bm == null || bm.Grid == null) return;
 
-        float totalW = GridModel.COLS * cellSize + (GridModel.COLS - 1) * spacing;
-        float totalH = GridModel.ROWS * cellSize + (GridModel.ROWS - 1) * spacing;
+        float totalW = GridModel.COLS * _resolvedCellSize + (GridModel.COLS - 1) * spacing;
+        float totalH = GridModel.ROWS * _resolvedCellSize + (GridModel.ROWS - 1) * spacing;
 
         for (int r = 0; r < GridModel.ROWS; r++)
         {
@@ -682,8 +814,8 @@ public class BoardInputHandler : MonoBehaviour
                 var canvasGroup = img.GetComponent<CanvasGroup>();
 
                 rt.anchoredPosition = new Vector2(
-                    c * (cellSize + spacing) - totalW / 2f + cellSize / 2f,
-                    -(r * (cellSize + spacing) - totalH / 2f + cellSize / 2f)
+                    c * (_resolvedCellSize + spacing) - totalW / 2f + _resolvedCellSize / 2f,
+                    -(r * (_resolvedCellSize + spacing) - totalH / 2f + _resolvedCellSize / 2f)
                 );
 
                 if (isCharry)
@@ -710,288 +842,17 @@ public class BoardInputHandler : MonoBehaviour
 
     private void CreatePlayerUI()
     {
-        Transform canvasTransform = boardParent.parent;
-        if (canvasTransform == null) canvasTransform = boardParent;
+        pokemonAttackLabels[0] = p1Poke1AttackLabel;
+        pokemonAttackLabels[1] = p1Poke2AttackLabel;
+        pokemonAttackLabels[2] = p2Poke1AttackLabel;
+        pokemonAttackLabels[3] = p2Poke2AttackLabel;
 
-        playerUIPanel = new GameObject("PlayerUIPanel", typeof(RectTransform));
-        playerUIPanel.transform.SetParent(canvasTransform, false);
-        RectTransform panelRt = playerUIPanel.GetComponent<RectTransform>();
-        panelRt.sizeDelta = new Vector2(boardRect.sizeDelta.x + 40f, 200f);
-        panelRt.anchoredPosition = new Vector2(boardRect.anchoredPosition.x, boardRect.anchoredPosition.y + boardRect.sizeDelta.y / 2f + 120f);
-
-        p1PanelBg = CreatePlayerCard(
-            playerUIPanel.transform, 
-            -boardRect.sizeDelta.x / 4f - 10f, 
-            out p1NameText, 
-            out p1MovesText, 
-            out p1HpText, 
-            out p1HpBar,
-            out p1HpBarTrailing,
-            out p1Poke1Avatar, 
-            out p1Poke1Name, 
-            out p1Poke1EnergyText, 
-            out p1Poke1EnergyBar,
-            out p1Poke1Stone,
-            out p1Poke2Avatar, 
-            out p1Poke2Name, 
-            out p1Poke2EnergyText, 
-            out p1Poke2EnergyBar,
-            out p1Poke2Stone,
-            true
-        );
-
-        p2PanelBg = CreatePlayerCard(
-            playerUIPanel.transform, 
-            boardRect.sizeDelta.x / 4f + 10f, 
-            out p2NameText, 
-            out p2MovesText, 
-            out p2HpText, 
-            out p2HpBar,
-            out p2HpBarTrailing,
-            out p2Poke1Avatar, 
-            out p2Poke1Name, 
-            out p2Poke1EnergyText, 
-            out p2Poke1EnergyBar,
-            out p2Poke1Stone,
-            out p2Poke2Avatar, 
-            out p2Poke2Name, 
-            out p2Poke2EnergyText, 
-            out p2Poke2EnergyBar,
-            out p2Poke2Stone,
-            false
-        );
-
-        GameObject msgGo = new GameObject("MessageText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-        msgGo.transform.SetParent(playerUIPanel.transform, false);
-        RectTransform msgRt = msgGo.GetComponent<RectTransform>();
-        msgRt.sizeDelta = new Vector2(boardRect.sizeDelta.x, 60f);
-        msgRt.anchoredPosition = new Vector2(0f, -110f);
-        messageText = msgGo.GetComponent<TMPro.TextMeshProUGUI>();
-        messageText.alignment = TMPro.TextAlignmentOptions.Center;
-        messageText.fontSize = 28f;
-        messageText.fontStyle = TMPro.FontStyles.Bold;
-        messageText.color = new Color(1f, 0.9f, 0.2f);
-        
-        Outline msgOutline = msgGo.AddComponent<Outline>();
-        msgOutline.effectColor = new Color(0, 0, 0, 0.8f);
-        msgOutline.effectDistance = new Vector2(3f, -3f);
+        pokemonEnergyBgTransforms[0] = p1Poke1EnergyBgTransform;
+        pokemonEnergyBgTransforms[1] = p1Poke2EnergyBgTransform;
+        pokemonEnergyBgTransforms[2] = p2Poke1EnergyBgTransform;
+        pokemonEnergyBgTransforms[3] = p2Poke2EnergyBgTransform;
 
         UpdatePlayerUI();
-    }
-
-    private Image CreatePlayerCard(
-        Transform parent, 
-        float posX, 
-        out TMPro.TextMeshProUGUI nameTxt, 
-        out TMPro.TextMeshProUGUI movesTxt, 
-        out TMPro.TextMeshProUGUI hpTxt, 
-        out Image hpBar,
-        out Image hpBarTrailing,
-        out Image p1Av, 
-        out TMPro.TextMeshProUGUI p1Name, 
-        out TMPro.TextMeshProUGUI p1EnergyTxt, 
-        out Image p1EnergyBar,
-        out Image p1Stone,
-        out Image p2Av, 
-        out TMPro.TextMeshProUGUI p2Name, 
-        out TMPro.TextMeshProUGUI p2EnergyTxt, 
-        out Image p2EnergyBar,
-        out Image p2Stone,
-        bool isP1
-    )
-    {
-        GameObject card = new GameObject(isP1 ? "P1Card" : "P2Card", typeof(RectTransform), typeof(Image));
-        card.transform.SetParent(parent, false);
-        RectTransform cardRt = card.GetComponent<RectTransform>();
-        cardRt.sizeDelta = new Vector2(boardRect.sizeDelta.x / 2f - 15f, 190f);
-        cardRt.anchoredPosition = new Vector2(posX, 0f);
-        Image bgImg = card.GetComponent<Image>();
-        bgImg.color = new Color(0.16f, 0.16f, 0.22f, 0.9f);
-
-        Outline outline = card.AddComponent<Outline>();
-        outline.effectColor = isP1 ? new Color(1f, 0.35f, 0.2f, 0.5f) : new Color(0.2f, 0.6f, 1f, 0.5f);
-        outline.effectDistance = new Vector2(2f, 2f);
-
-        Shadow shadow = card.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0, 0, 0, 0.6f);
-        shadow.effectDistance = new Vector2(4f, -4f);
-
-        GameObject nameGo = new GameObject("NameText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-        nameGo.transform.SetParent(card.transform, false);
-        RectTransform nameRt = nameGo.GetComponent<RectTransform>();
-        nameRt.sizeDelta = new Vector2(100f, 25f);
-        nameRt.anchoredPosition = new Vector2(-cardRt.sizeDelta.x / 2f + 55f, 75f);
-        nameTxt = nameGo.GetComponent<TMPro.TextMeshProUGUI>();
-        nameTxt.alignment = TMPro.TextAlignmentOptions.Left;
-        nameTxt.fontSize = 14f;
-        nameTxt.fontStyle = TMPro.FontStyles.Bold;
-        nameTxt.color = Color.white;
-
-        GameObject hpBgGo = new GameObject("HPBarBg", typeof(RectTransform), typeof(Image));
-        hpBgGo.transform.SetParent(card.transform, false);
-        RectTransform hpBgRt = hpBgGo.GetComponent<RectTransform>();
-        hpBgRt.sizeDelta = new Vector2(100f, 8f);
-        hpBgRt.anchoredPosition = new Vector2(cardRt.sizeDelta.x / 2f - 55f, 75f);
-        Image hpBgImg = hpBgGo.GetComponent<Image>();
-        hpBgImg.color = new Color(0.1f, 0.1f, 0.1f, 0.8f);
-
-        // --- Trailing damage bar ---
-        GameObject hpTrailingGo = new GameObject("HPBarTrailing", typeof(RectTransform), typeof(Image));
-        hpTrailingGo.transform.SetParent(hpBgGo.transform, false);
-        RectTransform hpTrailingRt = hpTrailingGo.GetComponent<RectTransform>();
-        hpTrailingRt.sizeDelta = new Vector2(100f, 8f);
-        hpTrailingRt.anchoredPosition = Vector2.zero;
-        hpBarTrailing = hpTrailingGo.GetComponent<Image>();
-        hpBarTrailing.color = new Color(0.9f, 0.25f, 0.2f); // Red catch-up line
-        hpBarTrailing.type = Image.Type.Filled;
-        hpBarTrailing.fillMethod = Image.FillMethod.Horizontal;
-        hpBarTrailing.fillAmount = 1f;
-
-        // --- Main HP bar ---
-        GameObject hpFillGo = new GameObject("HPBarFill", typeof(RectTransform), typeof(Image));
-        hpFillGo.transform.SetParent(hpBgGo.transform, false);
-        RectTransform hpFillRt = hpFillGo.GetComponent<RectTransform>();
-        hpFillRt.sizeDelta = new Vector2(100f, 8f);
-        hpFillRt.anchoredPosition = Vector2.zero;
-        hpBar = hpFillGo.GetComponent<Image>();
-        hpBar.color = new Color(0.2f, 0.8f, 0.3f);
-        hpBar.type = Image.Type.Filled;
-        hpBar.fillMethod = Image.FillMethod.Horizontal;
-        hpBar.fillAmount = 1f;
-
-        GameObject hpTextGo = new GameObject("HPText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-        hpTextGo.transform.SetParent(card.transform, false);
-        RectTransform hpTextRt = hpTextGo.GetComponent<RectTransform>();
-        hpTextRt.sizeDelta = new Vector2(100f, 15f);
-        hpTextRt.anchoredPosition = new Vector2(cardRt.sizeDelta.x / 2f - 55f, 87f);
-        hpTxt = hpTextGo.GetComponent<TMPro.TextMeshProUGUI>();
-        hpTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        hpTxt.fontSize = 9f;
-        hpTxt.color = new Color(0.9f, 0.9f, 0.9f);
-
-        GameObject movesGo = new GameObject("MovesText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-        movesGo.transform.SetParent(card.transform, false);
-        RectTransform movesRt = movesGo.GetComponent<RectTransform>();
-        movesRt.sizeDelta = new Vector2(100f, 18f);
-        movesRt.anchoredPosition = new Vector2(cardRt.sizeDelta.x / 2f - 55f, 55f);
-        movesTxt = movesGo.GetComponent<TMPro.TextMeshProUGUI>();
-        movesTxt.alignment = TMPro.TextAlignmentOptions.Right;
-        movesTxt.fontSize = 11f;
-        movesTxt.color = new Color(0.9f, 0.9f, 0.5f);
-
-        CreatePokemonRow(card.transform, 10f, out p1Av, out p1Name, out p1EnergyTxt, out p1EnergyBar, out p1Stone);
-        CreatePokemonRow(card.transform, -45f, out p2Av, out p2Name, out p2EnergyTxt, out p2EnergyBar, out p2Stone);
-
-        return bgImg;
-    }
-
-    private void CreatePokemonRow(Transform parent, float posY, out Image av, out TMPro.TextMeshProUGUI nameTxt, out TMPro.TextMeshProUGUI energyTxt, out Image energyBar, out Image stoneImg)
-    {
-        int rowIdx = _pokemonRowIndex++; // capture slot index before incrementing
-
-        GameObject row = new GameObject("PokemonRow", typeof(RectTransform));
-        row.transform.SetParent(parent, false);
-        RectTransform rowRt = row.GetComponent<RectTransform>();
-        rowRt.sizeDelta = new Vector2(boardRect.sizeDelta.x / 2f - 30f, 62f); // taller to fit attack label
-        rowRt.anchoredPosition = new Vector2(0f, posY);
-
-        // --- Row Background (soft highlight) ---
-        GameObject rowBgGo = new GameObject("RowBg", typeof(RectTransform), typeof(Image));
-        rowBgGo.transform.SetParent(row.transform, false);
-        RectTransform rowBgRt = rowBgGo.GetComponent<RectTransform>();
-        rowBgRt.sizeDelta = new Vector2(rowRt.sizeDelta.x, rowRt.sizeDelta.y);
-        rowBgRt.anchoredPosition = Vector2.zero;
-        Image rowBgImg = rowBgGo.GetComponent<Image>();
-        rowBgImg.color = new Color(0.1f, 0.1f, 0.15f, 0.4f);
-
-        // --- Avatar Frame ---
-        GameObject avBgGo = new GameObject("AvatarBg", typeof(RectTransform), typeof(Image));
-        avBgGo.transform.SetParent(row.transform, false);
-        RectTransform avBgRt = avBgGo.GetComponent<RectTransform>();
-        avBgRt.sizeDelta = new Vector2(44f, 44f);
-        avBgRt.anchoredPosition = new Vector2(-rowRt.sizeDelta.x / 2f + 25f, 4f);
-        Image avBgImg = avBgGo.GetComponent<Image>();
-        avBgImg.color = new Color(0.05f, 0.05f, 0.08f, 0.9f);
-        Shadow avShadow = avBgGo.AddComponent<Shadow>();
-        avShadow.effectColor = new Color(0, 0, 0, 0.8f);
-        avShadow.effectDistance = new Vector2(2f, -2f);
-
-        // --- Avatar ---
-        GameObject avGo = new GameObject("Avatar", typeof(RectTransform), typeof(Image));
-        avGo.transform.SetParent(row.transform, false);
-        RectTransform avRt = avGo.GetComponent<RectTransform>();
-        avRt.sizeDelta = new Vector2(40f, 40f);
-        avRt.anchoredPosition = new Vector2(-rowRt.sizeDelta.x / 2f + 25f, 4f);
-        av = avGo.GetComponent<Image>();
-        av.preserveAspect = true;
-
-        // --- Pokemon name ---
-        GameObject nameGo = new GameObject("Name", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-        nameGo.transform.SetParent(row.transform, false);
-        RectTransform nameRt = nameGo.GetComponent<RectTransform>();
-        nameRt.sizeDelta = new Vector2(90f, 20f);
-        nameRt.anchoredPosition = new Vector2(-rowRt.sizeDelta.x / 2f + 95f, 16f);
-        nameTxt = nameGo.GetComponent<TMPro.TextMeshProUGUI>();
-        nameTxt.alignment = TMPro.TextAlignmentOptions.Left;
-        nameTxt.fontSize = 11f;
-        nameTxt.fontStyle = TMPro.FontStyles.Bold;
-        nameTxt.color = Color.white;
-
-        // --- Stone Icon ---
-        GameObject stoneGo = new GameObject("StoneImage", typeof(RectTransform), typeof(Image));
-        stoneGo.transform.SetParent(row.transform, false);
-        RectTransform stoneRt = stoneGo.GetComponent<RectTransform>();
-        stoneRt.sizeDelta = new Vector2(16f, 16f);
-        stoneRt.anchoredPosition = new Vector2(-rowRt.sizeDelta.x / 2f + 145f, 16f);
-        stoneImg = stoneGo.GetComponent<Image>();
-        stoneImg.preserveAspect = true;
-
-        // --- Energy pip bar background (pips built later in InitPips) ---
-        GameObject energyBgGo = new GameObject("EnergyBg", typeof(RectTransform), typeof(Image));
-        energyBgGo.transform.SetParent(row.transform, false);
-        RectTransform energyBgRt = energyBgGo.GetComponent<RectTransform>();
-        energyBgRt.sizeDelta = new Vector2(80f, 10f);
-        energyBgRt.anchoredPosition = new Vector2(rowRt.sizeDelta.x / 2f - 45f, 0f);
-        Image energyBgImg = energyBgGo.GetComponent<Image>();
-        energyBgImg.color = new Color(0.05f, 0.05f, 0.05f, 0.9f);
-        // Store transform so InitPips can parent pip images here
-        pokemonEnergyBgTransforms[rowIdx] = energyBgGo.transform;
-
-        // Hidden smooth fill (kept as out param to avoid breaking callers; pips replace it visually)
-        GameObject energyFillGo = new GameObject("EnergyFill", typeof(RectTransform), typeof(Image));
-        energyFillGo.transform.SetParent(energyBgGo.transform, false);
-        RectTransform energyFillRt = energyFillGo.GetComponent<RectTransform>();
-        energyFillRt.sizeDelta = new Vector2(80f, 10f);
-        energyFillRt.anchoredPosition = Vector2.zero;
-        energyBar = energyFillGo.GetComponent<Image>();
-        energyBar.color = Color.clear; // hidden; pips provide the visual
-        energyBar.type = Image.Type.Filled;
-        energyBar.fillMethod = Image.FillMethod.Horizontal;
-        energyBar.fillAmount = 0f;
-
-        // --- Current/Max energy counter ---
-        GameObject energyTextGo = new GameObject("EnergyText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-        energyTextGo.transform.SetParent(row.transform, false);
-        RectTransform energyTextRt = energyTextGo.GetComponent<RectTransform>();
-        energyTextRt.sizeDelta = new Vector2(90f, 15f);
-        energyTextRt.anchoredPosition = new Vector2(-rowRt.sizeDelta.x / 2f + 95f, 0f);
-        energyTxt = energyTextGo.GetComponent<TMPro.TextMeshProUGUI>();
-        energyTxt.alignment = TMPro.TextAlignmentOptions.Left;
-        energyTxt.fontSize = 9f;
-        energyTxt.color = new Color(0.9f, 0.7f, 0.4f);
-
-        // --- Attack label: "Collect N Type → AttackName" (populated in InitPips) ---
-        GameObject attackLabelGo = new GameObject("AttackLabel", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-        attackLabelGo.transform.SetParent(row.transform, false);
-        RectTransform attackLabelRt = attackLabelGo.GetComponent<RectTransform>();
-        attackLabelRt.sizeDelta = new Vector2(rowRt.sizeDelta.x - 10f, 14f);
-        attackLabelRt.anchoredPosition = new Vector2(0f, -20f);
-        TMPro.TextMeshProUGUI attackLabelTxt = attackLabelGo.GetComponent<TMPro.TextMeshProUGUI>();
-        attackLabelTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        attackLabelTxt.fontSize = 8f;
-        attackLabelTxt.color = new Color(0.75f, 0.75f, 0.85f, 0.9f);
-        attackLabelTxt.text = "";
-        pokemonAttackLabels[rowIdx] = attackLabelTxt;
     }
 
     private void UpdatePlayerUI()
@@ -1005,10 +866,44 @@ public class BoardInputHandler : MonoBehaviour
         // on Image.fillAmount / TMPro.text access on destroyed objects.
         if (playerUIPanel == null || !playerUIPanel) return;
 
+        if (p1PanelBg != null) CreateEvolutionUI(0, p1PanelBg.transform);
+        if (p2PanelBg != null) CreateEvolutionUI(1, p2PanelBg.transform);
+        AdjustUIPanelScale();
+
         // P1 Main Info
         p1NameText.text = board.Players[0].Name;
-        p1MovesText.text = "Moves: " + GetMovesIndicator(board.Players[0].MovesRemaining);
-        p1HpText.text = board.Players[0].HP + " / " + board.Players[0].MaxHP + (board.Players[0].Shield > 0 ? " [" + board.Players[0].Shield + " SHIELD]" : "");
+        if (p1MovesText != null)
+        {
+            RectTransform rt = p1MovesText.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(1f, 0.5f);
+                rt.anchoredPosition = new Vector2(185f, 115f);
+                rt.sizeDelta = new Vector2(200f, rt.sizeDelta.y);
+            }
+            p1MovesText.text = "Moves: " + GetMovesIndicator(board.Players[0].MovesRemaining);
+        }
+        
+        if (_displayedP1HP < 0) _displayedP1HP = board.Players[0].HP;
+        float targetP1HP = board.Players[0].HP;
+        
+        if (Mathf.Abs(_displayedP1HP - targetP1HP) > 0.01f && targetP1HP < _displayedP1HP)
+        {
+            // Damage: Animate text down to match the trailing bar
+            DOTween.Kill("P1HPText");
+            DOTween.To(() => _displayedP1HP, x => {
+                _displayedP1HP = x;
+                if (p1HpText != null)
+                    p1HpText.text = Mathf.RoundToInt(_displayedP1HP) + " / " + board.Players[0].MaxHP + (board.Players[0].Shield > 0 ? " [" + board.Players[0].Shield + " SHIELD]" : "");
+            }, targetP1HP, 0.6f).SetId("P1HPText").SetEase(Ease.OutCubic).SetDelay(0.2f);
+        }
+        else
+        {
+            _displayedP1HP = targetP1HP;
+            p1HpText.text = board.Players[0].HP + " / " + board.Players[0].MaxHP + (board.Players[0].Shield > 0 ? " [" + board.Players[0].Shield + " SHIELD]" : "");
+        }
         if (IsAlive(p1HpBar) && IsAlive(p1HpBarTrailing))
         {
             float target = (float)board.Players[0].HP / board.Players[0].MaxHP;
@@ -1032,7 +927,7 @@ public class BoardInputHandler : MonoBehaviour
         // P1 Pokemon 1
         var p1Poke1 = board.Players[0].Pokemons[0];
         p1Poke1Avatar.sprite = p1Poke1.Avatar;
-        p1Poke1Name.text = p1Poke1.Name + " (" + p1Poke1.Type + ")";
+        p1Poke1Name.text = (p1Poke1.IsEvolved ? "★ Evolved " : "") + p1Poke1.Name + " (" + p1Poke1.Type + ")";
         p1Poke1EnergyText.text = "Energy: " + p1Poke1.CurrentEnergy + "/" + p1Poke1.MaxEnergy;
         if (p1Poke1EnergyBar != null && p1Poke1EnergyBar) p1Poke1EnergyBar.fillAmount = (float)p1Poke1.CurrentEnergy / p1Poke1.MaxEnergy;
         if (IsAlive(p1Poke1Stone))
@@ -1046,7 +941,7 @@ public class BoardInputHandler : MonoBehaviour
         // P1 Pokemon 2
         var p1Poke2 = board.Players[0].Pokemons[1];
         p1Poke2Avatar.sprite = p1Poke2.Avatar;
-        p1Poke2Name.text = p1Poke2.Name + " (" + p1Poke2.Type + ")";
+        p1Poke2Name.text = (p1Poke2.IsEvolved ? "★ Evolved " : "") + p1Poke2.Name + " (" + p1Poke2.Type + ")";
         p1Poke2EnergyText.text = "Energy: " + p1Poke2.CurrentEnergy + "/" + p1Poke2.MaxEnergy;
         if (p1Poke2EnergyBar != null && p1Poke2EnergyBar) p1Poke2EnergyBar.fillAmount = (float)p1Poke2.CurrentEnergy / p1Poke2.MaxEnergy;
         if (IsAlive(p1Poke2Stone))
@@ -1059,8 +954,38 @@ public class BoardInputHandler : MonoBehaviour
 
         // P2 Main Info
         p2NameText.text = board.Players[1].Name;
-        p2MovesText.text = "Moves: " + GetMovesIndicator(board.Players[1].MovesRemaining);
-        p2HpText.text = board.Players[1].HP + " / " + board.Players[1].MaxHP + (board.Players[1].Shield > 0 ? " [" + board.Players[1].Shield + " SHIELD]" : "");
+        if (p2MovesText != null)
+        {
+            RectTransform rt = p2MovesText.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(1f, 0.5f);
+                rt.anchoredPosition = new Vector2(185f, 115f);
+                rt.sizeDelta = new Vector2(200f, rt.sizeDelta.y);
+            }
+            p2MovesText.text = "Moves: " + GetMovesIndicator(board.Players[1].MovesRemaining);
+        }
+        
+        if (_displayedP2HP < 0) _displayedP2HP = board.Players[1].HP;
+        float targetP2HP = board.Players[1].HP;
+        
+        if (Mathf.Abs(_displayedP2HP - targetP2HP) > 0.01f && targetP2HP < _displayedP2HP)
+        {
+            // Damage: Animate text down to match the trailing bar
+            DOTween.Kill("P2HPText");
+            DOTween.To(() => _displayedP2HP, x => {
+                _displayedP2HP = x;
+                if (p2HpText != null)
+                    p2HpText.text = Mathf.RoundToInt(_displayedP2HP) + " / " + board.Players[1].MaxHP + (board.Players[1].Shield > 0 ? " [" + board.Players[1].Shield + " SHIELD]" : "");
+            }, targetP2HP, 0.6f).SetId("P2HPText").SetEase(Ease.OutCubic).SetDelay(0.2f);
+        }
+        else
+        {
+            _displayedP2HP = targetP2HP;
+            p2HpText.text = board.Players[1].HP + " / " + board.Players[1].MaxHP + (board.Players[1].Shield > 0 ? " [" + board.Players[1].Shield + " SHIELD]" : "");
+        }
         if (IsAlive(p2HpBar) && IsAlive(p2HpBarTrailing))
         {
             float target = (float)board.Players[1].HP / board.Players[1].MaxHP;
@@ -1084,7 +1009,7 @@ public class BoardInputHandler : MonoBehaviour
         // P2 Pokemon 1
         var p2Poke1 = board.Players[1].Pokemons[0];
         p2Poke1Avatar.sprite = p2Poke1.Avatar;
-        p2Poke1Name.text = p2Poke1.Name + " (" + p2Poke1.Type + ")";
+        p2Poke1Name.text = (p2Poke1.IsEvolved ? "★ Evolved " : "") + p2Poke1.Name + " (" + p2Poke1.Type + ")";
         p2Poke1EnergyText.text = "Energy: " + p2Poke1.CurrentEnergy + "/" + p2Poke1.MaxEnergy;
         if (p2Poke1EnergyBar != null && p2Poke1EnergyBar) p2Poke1EnergyBar.fillAmount = (float)p2Poke1.CurrentEnergy / p2Poke1.MaxEnergy;
         if (IsAlive(p2Poke1Stone))
@@ -1098,7 +1023,7 @@ public class BoardInputHandler : MonoBehaviour
         // P2 Pokemon 2
         var p2Poke2 = board.Players[1].Pokemons[1];
         p2Poke2Avatar.sprite = p2Poke2.Avatar;
-        p2Poke2Name.text = p2Poke2.Name + " (" + p2Poke2.Type + ")";
+        p2Poke2Name.text = (p2Poke2.IsEvolved ? "★ Evolved " : "") + p2Poke2.Name + " (" + p2Poke2.Type + ")";
         p2Poke2EnergyText.text = "Energy: " + p2Poke2.CurrentEnergy + "/" + p2Poke2.MaxEnergy;
         if (p2Poke2EnergyBar != null && p2Poke2EnergyBar) p2Poke2EnergyBar.fillAmount = (float)p2Poke2.CurrentEnergy / p2Poke2.MaxEnergy;
         if (IsAlive(p2Poke2Stone))
@@ -1109,12 +1034,13 @@ public class BoardInputHandler : MonoBehaviour
             p2Poke2Stone.color = hasSprite ? Color.white : GetGemColor(p2Poke2.Type);
         }
 
-        Color activeColor = new Color(0.24f, 0.24f, 0.32f, 1f);
-        Color inactiveColor = new Color(0.12f, 0.12f, 0.16f, 0.8f);
+        // Highlight active turn with brighter translucent dark
+        Color activeColor   = board.ActivePlayerIndex == 0 ? _activePanel   : _inactivePanel;
+        Color inactiveColor = board.ActivePlayerIndex == 0 ? _inactivePanel : _activePanel;
 
         if (board.ActivePlayerIndex == 0)
         {
-            p1PanelBg.DOColor(activeColor, 0.3f);
+            p1PanelBg.DOColor(activeColor,   0.3f);
             p2PanelBg.DOColor(inactiveColor, 0.3f);
             p1PanelBg.transform.DOScale(1.03f, 0.3f);
             p2PanelBg.transform.DOScale(0.97f, 0.3f);
@@ -1122,9 +1048,38 @@ public class BoardInputHandler : MonoBehaviour
         else
         {
             p1PanelBg.DOColor(inactiveColor, 0.3f);
-            p2PanelBg.DOColor(activeColor, 0.3f);
+            p2PanelBg.DOColor(activeColor,   0.3f);
             p1PanelBg.transform.DOScale(0.97f, 0.3f);
             p2PanelBg.transform.DOScale(1.03f, 0.3f);
+        }
+
+        // Evolution Stone UI updates
+        if (IsAlive(p1EvoStoneIcon))
+        {
+            p1EvoStoneIcon.sprite = (gemSprites != null && gemSprites.Length > 6) ? gemSprites[6] : fallbackGemSprite;
+        }
+        if (IsAlive(p1EvoStoneText))
+        {
+            p1EvoStoneText.text = board.Players[0].EvolutionStones + "/" + PlayerState.EvolutionRequired;
+        }
+        if (IsAlive(p1EvoGlow))
+        {
+            bool anyEvolved = board.Players[0].Pokemons.Exists(p => p.IsEvolved);
+            p1EvoGlow.gameObject.SetActive(anyEvolved);
+        }
+
+        if (IsAlive(p2EvoStoneIcon))
+        {
+            p2EvoStoneIcon.sprite = (gemSprites != null && gemSprites.Length > 6) ? gemSprites[6] : fallbackGemSprite;
+        }
+        if (IsAlive(p2EvoStoneText))
+        {
+            p2EvoStoneText.text = board.Players[1].EvolutionStones + "/" + PlayerState.EvolutionRequired;
+        }
+        if (IsAlive(p2EvoGlow))
+        {
+            bool anyEvolved = board.Players[1].Pokemons.Exists(p => p.IsEvolved);
+            p2EvoGlow.gameObject.SetActive(anyEvolved);
         }
 
         RefreshPips();
@@ -1156,13 +1111,12 @@ public class BoardInputHandler : MonoBehaviour
 
                 PokemonState poke = board.Players[p].Pokemons[k];
                 AttackRule rule   = board.GetAttackRule(poke.Type);
-                int stonesRequired = (rule != null && rule.StonesRequired > 0)
-                    ? rule.StonesRequired
-                    : poke.MaxEnergy;
-                int n = stonesRequired; // e.g. 6 for Fire, 4 for Water
+                int stonesRequired = poke.MaxEnergy;
+                int n = stonesRequired; // Pokemon-specific energy limit (max 9)
 
-                float barW   = 80f;
-                float barH   = 8f;
+                RectTransform bgRt = bgTf.GetComponent<RectTransform>();
+                float barW   = bgRt.sizeDelta.x;
+                float barH   = bgRt.sizeDelta.y;
                 float gap    = 2f;
                 float pipW   = (barW - (n - 1) * gap) / n;
 
@@ -1181,12 +1135,12 @@ public class BoardInputHandler : MonoBehaviour
                 }
                 pokemonPips[idx] = pips;
 
-                // Attack label: "Collect 6 Fire → Ember (15 dmg)"
+                // Attack label: e.g. "Collect 6 Fire → Ember (10 dmg)"
                 if (pokemonAttackLabels[idx] != null)
                 {
-                    string dmgPart = rule.Damage > 0
-                        ? $" ({rule.Damage} dmg)"
-                        : " (no dmg)";
+                    string valUnit = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "heal" : "dmg";
+                    int actualVal = poke.BaseValue + poke.EvolutionDamageBonus;
+                    string dmgPart = $" ({actualVal} {valUnit})";
                     pokemonAttackLabels[idx].text =
                         $"Collect {n} {poke.Type} → {rule.AttackName}{dmgPart}";
                     pokemonAttackLabels[idx].color = GetGemColor(poke.Type) * 0.9f;
@@ -1211,13 +1165,9 @@ public class BoardInputHandler : MonoBehaviour
                 if (pips == null) continue;
 
                 PokemonState poke = board.Players[p].Pokemons[k];
-                Color gemCol   = GetGemColor(poke.Type);
-                Color emptyCol = new Color(0.18f, 0.18f, 0.18f, 0.7f);
+                Color gemCol   = GetGemColor(poke.Type); // uses static array — zero alloc
 
-                AttackRule rule = board.GetAttackRule(poke.Type);
-                int stonesRequired = (rule != null && rule.StonesRequired > 0)
-                    ? rule.StonesRequired
-                    : poke.MaxEnergy;
+                int stonesRequired = poke.MaxEnergy;
 
                 for (int i = 0; i < pips.Length; i++)
                 {
@@ -1225,10 +1175,12 @@ public class BoardInputHandler : MonoBehaviour
                     if (!IsAlive(pips[i])) continue;
 
                     bool filled = i < poke.CurrentEnergy;
-                    pips[i].color = filled ? gemCol : emptyCol;
-                    pips[i].transform.localScale = filled
-                        ? new Vector3(1f, 1.15f, 1f)
-                        : Vector3.one * 0.85f;
+                    Color c = filled ? gemCol : _pipEmptyColor; // cached — no alloc
+                    if (pips[i].color != c)
+                        pips[i].color = c; // only dirty the canvas if the value changed
+                    Vector3 scale = filled ? new Vector3(1f, 1.15f, 1f) : new Vector3(0.85f, 0.85f, 0.85f);
+                    if (pips[i].transform.localScale != scale)
+                        pips[i].transform.localScale = scale;
                 }
 
                 // Update the numeric energy label
@@ -1237,60 +1189,68 @@ public class BoardInputHandler : MonoBehaviour
                                             : (idx == 2) ? p2Poke1EnergyText
                                             :              p2Poke2EnergyText;
                 if (label != null)
-                    label.text = poke.CurrentEnergy + "/" + stonesRequired + " stones";
+                    label.text = poke.CurrentEnergy + "/" + stonesRequired;
             }
         }
     }
 
-    // Returns a vivid colour matching the gem type for pip/label colouring
-    private Color GetGemColor(GemType type)
+    // Returns a vivid colour matching the gem type (uses pre-built array — zero alloc)
+    private static Color GetGemColor(GemType type)
     {
-        switch (type)
-        {
-            case GemType.Fire:     return new Color(1f,   0.38f, 0.12f);
-            case GemType.Water:    return new Color(0.2f, 0.65f, 1f);
-            case GemType.Nature:   return new Color(0.3f, 0.85f, 0.3f);
-            case GemType.Electric: return new Color(1f,   0.92f, 0.1f);
-            case GemType.Psychic:  return new Color(0.85f,0.3f,  1f);
-            case GemType.Healing:  return new Color(1f,   0.55f, 0.8f);
-            default:               return Color.white;
-        }
+        int idx = (int)type;
+        return (idx >= 0 && idx < GemColors.Length) ? GemColors[idx] : Color.white;
     }
 
-    private string GetMovesIndicator(int count)
+    // Pre-built move indicator strings — avoid string concat GC every moves event
+    private static readonly string[] MovesIndicators = { "None", "●", "●●", "●●●" };
+
+    private static string GetMovesIndicator(int count)
     {
-        string text = "";
-        for (int i = 0; i < count; i++)
-        {
-            text += "●";
-        }
-        if (count == 0) text = "None";
-        return text;
+        if (count <= 0) return "None";
+        if (count < MovesIndicators.Length) return MovesIndicators[count];
+        // Fallback for unusual counts
+        return new string('●', count);
     }
 
     private void ShowMessage(string message)
     {
-        // messageText is a child of playerUIPanel; bail if the panel has been destroyed.
+        // messageText is a child of MessageBanner; bail if destroyed.
         if (messageText == null || !messageText) return;
         
         // Reset base state
         messageText.transform.DOKill(complete: true);
-        messageText.transform.localPosition = new Vector3(messageText.transform.localPosition.x, -110f, 0f);
+        
+        // Keep messageText perfectly centered inside the banner
+        messageText.transform.localPosition = Vector3.zero;
         
         messageText.text = message;
         messageText.alpha = 0f;
         messageText.transform.localScale = Vector3.one * 1.5f;
 
+        // Fade the banner background as well
+        Transform banner = messageText.transform.parent;
+        if (banner != null)
+        {
+            CanvasGroup bannerCg = banner.GetComponent<CanvasGroup>();
+            if (bannerCg != null)
+            {
+                bannerCg.DOKill();
+                bannerCg.alpha = 0f;
+                bannerCg.DOFade(1f, 0.2f);
+            }
+        }
+
         Sequence seq = DOTween.Sequence();
         seq.Join(messageText.DOFade(1f, 0.2f));
         seq.Join(messageText.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack));
         
-        // Add a gentle continuous floating effect
-        messageText.transform.DOBlendableLocalMoveBy(new Vector3(0, 8f, 0), 1.5f)
+        // Add a gentle continuous floating effect without drifting away completely
+        messageText.transform.DOLocalMoveY(4f, 1.5f)
+            .SetRelative(true)
             .SetEase(Ease.InOutSine)
             .SetLoops(-1, LoopType.Yoyo)
             .SetLink(messageText.gameObject);
-            
+        
         seq.SetLink(messageText.gameObject);
     }
 
@@ -1306,6 +1266,8 @@ public class BoardInputHandler : MonoBehaviour
         BoardManager.OnShowMessage   += ShowMessage;
         // Refresh pip bars whenever any Pokémon collects stones mid-turn
         BoardManager.OnEnergyChanged += RefreshPips;
+        BoardManager.OnEvolutionStonesChanged += OnEvolutionUpdate;
+        BoardManager.OnEvolved                 += OnEvolutionUpdate;
     }
 
     private void OnDisable()
@@ -1319,5 +1281,97 @@ public class BoardInputHandler : MonoBehaviour
         BoardManager.OnHPChanged     -= UpdatePlayerUI;
         BoardManager.OnShowMessage   -= ShowMessage;
         BoardManager.OnEnergyChanged -= RefreshPips;
+        BoardManager.OnEvolutionStonesChanged -= OnEvolutionUpdate;
+        BoardManager.OnEvolved                 -= OnEvolutionUpdate;
+    }
+
+    private void CreateEvolutionUI(int playerIndex, Transform cardTransform)
+    {
+        // Check if already created or assigned
+        if (playerIndex == 0 && p1EvoStoneIcon != null) return;
+        if (playerIndex == 1 && p2EvoStoneIcon != null) return;
+
+        // Create container GameObject
+        GameObject container = new GameObject("EvolutionUI_Group", typeof(RectTransform));
+        container.transform.SetParent(cardTransform, false);
+        
+        RectTransform containerRt = container.GetComponent<RectTransform>();
+        containerRt.anchorMin = new Vector2(0.5f, 0.5f);
+        containerRt.anchorMax = new Vector2(0.5f, 0.5f);
+        containerRt.pivot = new Vector2(0.5f, 0.5f);
+        containerRt.sizeDelta = new Vector2(100f, 40f);
+        // Position it right in the middle between the two Pokemon columns
+        containerRt.anchoredPosition = new Vector2(0f, -30f);
+
+        // Create Image for Pokéball Icon
+        GameObject iconGo = new GameObject("EvoStoneIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        iconGo.transform.SetParent(container.transform, false);
+        RectTransform iconRt = iconGo.GetComponent<RectTransform>();
+        iconRt.anchorMin = new Vector2(0f, 0.5f);
+        iconRt.anchorMax = new Vector2(0f, 0.5f);
+        iconRt.pivot = new Vector2(0f, 0.5f);
+        iconRt.sizeDelta = new Vector2(30f, 30f);
+        iconRt.anchoredPosition = new Vector2(5f, 0f);
+        
+        Image iconImg = iconGo.GetComponent<Image>();
+        iconImg.sprite = (gemSprites != null && gemSprites.Length > 6) ? gemSprites[6] : fallbackGemSprite;
+        iconImg.preserveAspect = true;
+
+        // Create Text for Stone Count
+        GameObject textGo = new GameObject("EvoStoneText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        textGo.transform.SetParent(container.transform, false);
+        RectTransform textRt = textGo.GetComponent<RectTransform>();
+        textRt.anchorMin = new Vector2(0f, 0.5f);
+        textRt.anchorMax = new Vector2(1f, 0.5f);
+        textRt.pivot = new Vector2(0f, 0.5f);
+        textRt.offsetMin = new Vector2(40f, -15f);
+        textRt.offsetMax = new Vector2(0f, 15f);
+
+        TMPro.TextMeshProUGUI tmpText = textGo.GetComponent<TMPro.TextMeshProUGUI>();
+        tmpText.fontSize = 16f;
+        tmpText.alignment = TMPro.TextAlignmentOptions.Left;
+        tmpText.font = messageText != null ? messageText.font : tmpText.font; // inherit font
+        tmpText.color = Color.white;
+
+        // Assign to fields
+        if (playerIndex == 0)
+        {
+            p1EvoStoneIcon = iconImg;
+            p1EvoStoneText = tmpText;
+        }
+        else
+        {
+            p2EvoStoneIcon = iconImg;
+            p2EvoStoneText = tmpText;
+        }
+    }
+
+    private void AdjustUIPanelScale()
+    {
+        if (playerUIPanel == null) return;
+        
+        // Find Canvas reference width
+        Canvas rootCanvas = playerUIPanel.GetComponentInParent<Canvas>();
+        if (rootCanvas == null) return;
+
+        RectTransform canvasRt = rootCanvas.GetComponent<RectTransform>();
+        if (canvasRt == null) return;
+
+        float canvasWidth = canvasRt.rect.width;
+        // The default panel width is 840. Add a margin of 40px (880 total).
+        if (canvasWidth < 880f && canvasWidth > 0f)
+        {
+            float targetScale = canvasWidth / 880f;
+            playerUIPanel.localScale = new Vector3(targetScale, targetScale, 1f);
+        }
+        else
+        {
+            playerUIPanel.localScale = new Vector3(1.15f, 1.15f, 1f); // default scale is 1.15f in scene properties
+        }
+    }
+
+    private void OnEvolutionUpdate(int playerIndex)
+    {
+        UpdatePlayerUI();
     }
 }

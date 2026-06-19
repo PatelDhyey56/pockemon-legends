@@ -15,6 +15,6 @@ EditorBuildSettings:
     path: Assets/Scenes/WebScene.unity
     guid: 0497a0af7c790a446877c969b6aaaffc
   - enabled: 1
-    path: Assets/Scenes/pokemon.unity
+    path: Assets/Scenes/battleScene.unity
     guid: 637f3f8e31d87e7da8cd95d2402fc9ab
   m_configObjects: {}

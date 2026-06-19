@@ -4,11 +4,12 @@ using UnityEngine;
 
 public enum GemType
 {
-    Fire,
-    Water,
-    Nature,
-    Electric,
-    Psychic,
-    Healing,
-    Charry
+    Fire      = 0,
+    Water     = 1,
+    Nature    = 2,
+    Electric  = 3,
+    Psychic   = 4,
+    Healing   = 5,
+    Evolution = 6,  // Special evolution stone — collect 4 to evolve active Pokémon (+5 bonus damage)
+    Charry    = 7   // Empty / placeholder cell
 }

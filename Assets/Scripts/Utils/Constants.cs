@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,9 +7,9 @@ public static class Constants
     //add alll scenes here
     #region SCENES
 
-    public const string SCENE_MENU = "pokemon";
+    public const string SCENE_MENU = "battleScene";
     public const string SCENE_WEB = "webscene";
-    public const string SCENE_POKEMON = "pokemon";
+    public const string SCENE_POKEMON = "battleScene";
 
     #endregion
 

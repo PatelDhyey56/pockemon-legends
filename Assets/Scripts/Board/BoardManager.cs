@@ -10,6 +10,14 @@ public class PokemonState
     public Sprite Avatar;
     public int CurrentEnergy;
     public int MaxEnergy;
+
+    // The individual base damage or healing value for this specific Pokemon
+    public int BaseValue;
+
+    // Evolution state — set to true when the owning player collects 4 evolution stones
+    public bool IsEvolved;
+    // Extra damage added to every attack after evolution (+5 base)
+    public int EvolutionDamageBonus;
 }
 
 public class PlayerState
@@ -20,6 +28,10 @@ public class PlayerState
     public int MaxHP = 80;
     public int Shield;
     public List<PokemonState> Pokemons = new List<PokemonState>();
+
+    // Evolution stone tracking: needs 4 to trigger evolution
+    public int EvolutionStones;
+    public const int EvolutionRequired = 4;
 }
 
 public class BoardManager : MonoBehaviour
@@ -47,9 +59,12 @@ public class BoardManager : MonoBehaviour
     public static Action OnMovesChanged;
     public static Action OnHPChanged;
     public static Action<string> OnShowMessage;
-    // Fired whenever any Pokémon's collected-stone count changes so the UI
-    // can refresh pip charge bars without waiting for a full HP/turn update.
+    // Fired whenever any Pokémon's collected-stone count changes
     public static Action OnEnergyChanged;
+    // Fired when a player picks up an evolution stone (carries playerIndex)
+    public static Action<int> OnEvolutionStonesChanged;
+    // Fired when a Pokémon evolves (carries playerIndex)
+    public static Action<int> OnEvolved;
 
     #endregion
 
@@ -77,17 +92,35 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    private int GetMaxEnergyForType(GemType type)
+    public static int GetMaxEnergyForPokemon(string name)
     {
-        switch (type)
+        switch (name)
         {
-            case GemType.Fire: return 6;
-            case GemType.Water: return 4;
-            case GemType.Nature: return 5;
-            case GemType.Electric: return 5;
-            case GemType.Psychic: return 5;
-            case GemType.Healing: return 4;
-            default: return 5;
+            // Fire
+            case "Charmander": return 6;
+            case "Growlithe":  return 8;
+            
+            // Water
+            case "Squirtle":   return 4;
+            case "Psyduck":    return 6;
+            
+            // Nature
+            case "Bulbasaur":  return 5;
+            case "Oddish":     return 7;
+            
+            // Electric
+            case "Pikachu":    return 6;
+            case "Magnemite":  return 4;
+            
+            // Psychic
+            case "Abra":       return 4;
+            case "Gastly":     return 6;
+            
+            // Healing
+            case "Chansey":    return 8;
+            case "Jigglypuff": return 5;
+            
+            default:           return 5;
         }
     }
 
@@ -114,8 +147,41 @@ public class BoardManager : MonoBehaviour
                 Type = type,
                 Avatar = AvatarGenerator.CreatePokemonSprite(pokemonName),
                 CurrentEnergy = 0,
-                MaxEnergy = GetMaxEnergyForType(type)
+                MaxEnergy = GetMaxEnergyForPokemon(pokemonName),
+                BaseValue = GetBaseValueForPokemon(pokemonName)
             });
+        }
+    }
+
+    public static int GetBaseValueForPokemon(string name)
+    {
+        switch (name)
+        {
+            // Fire
+            case "Charmander": return 10;
+            case "Growlithe":  return 20;
+            
+            // Water
+            case "Squirtle":   return 8;
+            case "Psyduck":    return 12;
+            
+            // Nature
+            case "Bulbasaur":  return 12;
+            case "Oddish":     return 18;
+            
+            // Electric
+            case "Pikachu":    return 12;
+            case "Magnemite":  return 8;
+            
+            // Psychic
+            case "Abra":       return 6;
+            case "Gastly":     return 10;
+            
+            // Healing
+            case "Chansey":    return 25;
+            case "Jigglypuff": return 15;
+            
+            default:           return 10;
         }
     }
 
@@ -148,6 +214,10 @@ public class BoardManager : MonoBehaviour
 
     public void InitBoard()
     {
+        // Reset attack-config cache so it's reloaded fresh each game
+        _attackConfigLoaded = false;
+        _cachedAttackConfig  = null;
+
         Grid = new GridModel();
         Grid.Init();
         InitGame();
@@ -180,6 +250,18 @@ public class BoardManager : MonoBehaviour
         return true;
     }
 
+    // Cached attack config — loaded once, not every GetAttackRule() call
+    private PokemonAttackConfig _cachedAttackConfig;
+    private bool _attackConfigLoaded;
+
+    // Pre-allocated reusable objects to avoid GC pressure in the hot coroutine path
+    private static readonly WaitForSeconds _waitMatch   = new WaitForSeconds(0.35f);
+    private static readonly WaitForSeconds _waitCascade = new WaitForSeconds(0.3f);
+    private static readonly WaitForSeconds _waitReset   = new WaitForSeconds(3f);
+
+    // Reused dictionary to count gem types per match — avoids per-loop allocation
+    private readonly Dictionary<GemType, int> _typeCounts = new Dictionary<GemType, int>(8);
+
     // Abilities that fire mid-energy-calculation are queued here and executed
     // AFTER the matched gems have been removed + cascaded so the grid is clean.
     private readonly System.Collections.Generic.Queue<GemType> _pendingAbilities
@@ -200,15 +282,58 @@ public class BoardManager : MonoBehaviour
             {
                 OnMatchesFound?.Invoke(matches);
 
-                // Count gem types in the matched set (ignore already-empty slots)
-                Dictionary<GemType, int> typeCounts = new Dictionary<GemType, int>();
+                PlayerState active = Players[ActivePlayerIndex];
+
+                // Reuse preallocated dictionary — no allocation per loop
+                _typeCounts.Clear();
+                int evolutionStonesThisBatch = 0;
                 foreach (Vector2Int pos in matches)
                 {
                     GemType type = Grid.Grid[pos.y, pos.x];
-                    if (type != GemType.Charry)
+                    if (type == GemType.Charry) continue;
+                    if (type == GemType.Evolution)
                     {
-                        if (!typeCounts.ContainsKey(type)) typeCounts[type] = 0;
-                        typeCounts[type]++;
+                        evolutionStonesThisBatch++;
+                        continue;
+                    }
+                    if (!_typeCounts.ContainsKey(type)) _typeCounts[type] = 0;
+                    _typeCounts[type]++;
+                }
+
+                // ── Evolution stone pickup ──────────────────────────────────────
+                if (evolutionStonesThisBatch > 0)
+                {
+                    active.EvolutionStones += evolutionStonesThisBatch;
+                    OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
+
+                    // Trigger evolution when threshold is reached
+                    while (active.EvolutionStones >= PlayerState.EvolutionRequired)
+                    {
+                        active.EvolutionStones -= PlayerState.EvolutionRequired;
+
+                        // Evolve each Pokémon that isn't evolved yet (first unevolved wins)
+                        bool evolved = false;
+                        foreach (var poke in active.Pokemons)
+                        {
+                            if (!poke.IsEvolved)
+                            {
+                                poke.IsEvolved = true;
+                                poke.EvolutionDamageBonus += 5; // +5 damage bonus
+                                evolved = true;
+                                OnEvolved?.Invoke(ActivePlayerIndex);
+                                OnShowMessage?.Invoke(active.Name + "'s " + poke.Name + " evolved! +5 bonus damage!");
+                                break;
+                            }
+                        }
+                        // If all Pokémon already evolved, give bonus to all
+                        if (!evolved)
+                        {
+                            foreach (var poke in active.Pokemons)
+                                poke.EvolutionDamageBonus += 2;
+                            OnEvolved?.Invoke(ActivePlayerIndex);
+                            OnShowMessage?.Invoke(active.Name + "'s team is fully evolved! +2 more damage!");
+                        }
+                        OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
                     }
                 }
 
@@ -216,9 +341,8 @@ public class BoardManager : MonoBehaviour
 
                 // Charge matching Pokémon energy; queue any ability that fires
                 // (abilities that mutate the grid are deferred until after cascade)
-                PlayerState active = Players[ActivePlayerIndex];
                 _pendingAbilities.Clear();
-                foreach (var kvp in typeCounts)
+                foreach (var kvp in _typeCounts)  // reuse cached dict
                 {
                     GemType matchType = kvp.Key;
                     int count = kvp.Value;
@@ -234,10 +358,7 @@ public class BoardManager : MonoBehaviour
                             pokemon.CurrentEnergy += count;
                             OnEnergyChanged?.Invoke();
 
-                            // Use the attack rule's StonesRequired so UI and logic
-                            // stay in sync with configurable attacks.
-                            AttackRule rule = GetAttackRule(pokemon.Type);
-                            int stonesRequired = (rule != null && rule.StonesRequired > 0) ? rule.StonesRequired : pokemon.MaxEnergy;
+                            int stonesRequired = pokemon.MaxEnergy;
 
                             // Fire the attack (and deal damage) once per full bar filled.
                             // Multiple fires in one turn are possible for very large matches.
@@ -261,7 +382,7 @@ public class BoardManager : MonoBehaviour
 
             if (errorOccurred) break;
 
-            yield return new WaitForSeconds(0.5f);
+            yield return _waitMatch;   // cached — no GC alloc
 
             List<Vector2Int> newStonePositions;
             try
@@ -308,7 +429,7 @@ public class BoardManager : MonoBehaviour
             // Pass the set of brand-new stone positions to the view layer so it can
             // animate them falling in from the top while cascading existing stones.
             OnCascadeComplete?.Invoke(newStonePositions);
-            yield return new WaitForSeconds(0.5f);
+            yield return _waitCascade; // cached — no GC alloc
 
             try { matches = Grid.FindMatches(); }
             catch (System.Exception e)
@@ -331,95 +452,136 @@ public class BoardManager : MonoBehaviour
     /// </summary>
     private bool ExecuteAbility(GemType type)
     {
-        int activeIdx = ActivePlayerIndex;
+        int activeIdx   = ActivePlayerIndex;
         int opponentIdx = (ActivePlayerIndex == 0) ? 1 : 0;
 
-        PlayerState active = Players[activeIdx];
-        PlayerState opponent = Players[opponentIdx];
+        PlayerState active   = Players[activeIdx];
+        PlayerState opponent  = Players[opponentIdx];
 
+        // Find the Pokémon that owns this gem type so we can read its evolution bonus and individual base value
         string pokemonName = "";
+        int evolutionBonus = 0;
+        bool evolvedLabel  = false;
+        int pokemonBaseValue = 10;
+        int collectLimit = 5;
         foreach (var p in active.Pokemons)
         {
             if (p.Type == type)
             {
-                pokemonName = p.Name;
+                pokemonName    = p.Name;
+                evolutionBonus = p.EvolutionDamageBonus;
+                evolvedLabel   = p.IsEvolved;
+                pokemonBaseValue = p.BaseValue;
+                collectLimit   = p.MaxEnergy;
                 break;
             }
         }
 
-        AttackRule rule = GetAttackRule(type);
-        string attackName = rule != null ? rule.AttackName : "Ability";
-        int ruleDamage    = rule != null ? rule.Damage    : 0;
+        AttackRule rule    = GetAttackRule(type);
+        string attackName  = rule != null ? rule.AttackName : "Ability";
+
+        // Helper: apply evolution bonus to damage-dealing attacks
+        // Shows "(+N evolved)" in the message when bonus is active
+        string EvolvedTag(int bonus) => bonus > 0 ? $" (+{bonus} evolved)" : "";
 
         if (type == GemType.Fire)
         {
-            int damage = ruleDamage > 0 ? ruleDamage : 15;
+            int damage = pokemonBaseValue + evolutionBonus;
             ApplyDamage(opponentIdx, damage);
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + "! Dealt " + damage + " damage!");
-            return false; // grid unchanged
+            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                "! Dealt " + damage + " damage!" + EvolvedTag(evolutionBonus));
+            return false;
         }
         else if (type == GemType.Water)
         {
-            // Collect all non-empty tiles, shuffle the first 3, then remove them.
             List<Vector2Int> allTiles = new List<Vector2Int>();
             for (int r = 0; r < GridModel.ROWS; r++)
                 for (int c = 0; c < GridModel.COLS; c++)
                     if (Grid.Grid[r, c] != GemType.Charry)
                         allTiles.Add(new Vector2Int(c, r));
 
-            int actualRemove = Mathf.Min(3, allTiles.Count);
+            int removeLimit = 1;
+            if (pokemonName == "Psyduck") removeLimit = 3;
+            else if (pokemonName == "Squirtle") removeLimit = 2;
+
+            int actualRemove = Mathf.Min(removeLimit, allTiles.Count);
             for (int i = 0; i < actualRemove; i++)
             {
                 int randIdx = UnityEngine.Random.Range(i, allTiles.Count);
-                Vector2Int temp = allTiles[i];
-                allTiles[i] = allTiles[randIdx];
-                allTiles[randIdx] = temp;
+                Vector2Int temp = allTiles[i]; allTiles[i] = allTiles[randIdx]; allTiles[randIdx] = temp;
             }
+            if (actualRemove > 0) Grid.RemoveGems(allTiles.GetRange(0, actualRemove));
 
-            if (actualRemove > 0)
-                Grid.RemoveGems(allTiles.GetRange(0, actualRemove));
-
-            int waterDamage = ruleDamage > 0 ? ruleDamage : 10;
+            int waterDamage = pokemonBaseValue + evolutionBonus;
             ApplyDamage(opponentIdx, waterDamage);
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + "! Dealt " + waterDamage + " dmg & removed " + actualRemove + " stones!");
-            return actualRemove > 0; // grid modified only if tiles were actually removed
+            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                "! Dealt " + waterDamage + " dmg & removed " + actualRemove + " opponent stones!" + EvolvedTag(evolutionBonus));
+            return actualRemove > 0;
         }
         else if (type == GemType.Nature)
         {
-            int heal = ruleDamage > 0 ? ruleDamage : 15; // reuse Damage field for heal amount if set
+            int heal = pokemonBaseValue + evolutionBonus;
             ApplyHeal(activeIdx, heal);
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + "! Healed " + heal + " HP!");
+            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + 
+                "! Healed " + heal + " HP!" + EvolvedTag(evolutionBonus));
             return false;
         }
         else if (type == GemType.Electric)
         {
-            int damage = ruleDamage > 0 ? ruleDamage : 10;
+            int damage = pokemonBaseValue + evolutionBonus;
             ApplyDamage(opponentIdx, damage);
 
-            int randRow = UnityEngine.Random.Range(0, GridModel.ROWS);
-            List<Vector2Int> rowTiles = new List<Vector2Int>();
-            for (int c = 0; c < GridModel.COLS; c++)
-                rowTiles.Add(new Vector2Int(c, randRow));
-            Grid.RemoveGems(rowTiles);
+            if (collectLimit >= 6)
+            {
+                bool isRow = UnityEngine.Random.value < 0.5f;
+                if (isRow)
+                {
+                    int randRow = UnityEngine.Random.Range(0, GridModel.ROWS);
+                    List<Vector2Int> rowTiles = new List<Vector2Int>();
+                    for (int c = 0; c < GridModel.COLS; c++)
+                        rowTiles.Add(new Vector2Int(c, randRow));
+                    Grid.RemoveGems(rowTiles);
 
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + "! Dealt " + damage + " dmg and cleared Row " + (randRow + 1) + "!");
-            return true; // row cleared → grid modified
+                    OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                        "! Dealt " + damage + " dmg & cleared Row " + (randRow + 1) + "!" + EvolvedTag(evolutionBonus));
+                }
+                else
+                {
+                    int randCol = UnityEngine.Random.Range(0, GridModel.COLS);
+                    List<Vector2Int> colTiles = new List<Vector2Int>();
+                    for (int r = 0; r < GridModel.ROWS; r++)
+                        colTiles.Add(new Vector2Int(randCol, r));
+                    Grid.RemoveGems(colTiles);
+
+                    OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                        "! Dealt " + damage + " dmg & cleared Column " + (randCol + 1) + "!" + EvolvedTag(evolutionBonus));
+                }
+                return true;
+            }
+            else
+            {
+                OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                    "! Dealt " + damage + " dmg!" + EvolvedTag(evolutionBonus));
+                return false;
+            }
         }
         else if (type == GemType.Psychic)
         {
-            int damage = ruleDamage > 0 ? ruleDamage : 8;
+            int damage = pokemonBaseValue + evolutionBonus;
             int shield = 8;
             ApplyDamage(opponentIdx, damage);
             active.Shield += shield;
-            OnHPChanged?.Invoke(); // shield value shows in HP display
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + "! Dealt " + damage + " dmg & got " + shield + " Shield!");
+            OnHPChanged?.Invoke();
+            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                "! Dealt " + damage + " dmg & got " + shield + " Shield!" + EvolvedTag(evolutionBonus));
             return false;
         }
         else if (type == GemType.Healing)
         {
-            int heal = ruleDamage > 0 ? ruleDamage : 20;
+            int heal = pokemonBaseValue + evolutionBonus;
             ApplyHeal(activeIdx, heal);
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + "! Healed " + heal + " HP!");
+            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + 
+                "! Healed " + heal + " HP!" + EvolvedTag(evolutionBonus));
             return false;
         }
 
@@ -463,10 +625,7 @@ public class BoardManager : MonoBehaviour
 
     private IEnumerator ResetGameAfterDelay()
     {
-        yield return new WaitForSeconds(3f);
-        // Stop the ProcessMatches coroutine (and any others) that may still be
-        // running from the finished game before we reinitialise the board.
-        // Without this the old coroutine keeps accessing and mutating the new grid.
+        yield return _waitReset; // cached — no GC alloc
         StopAllCoroutines();
         IsProcessing = false;
         _pendingAbilities.Clear();
@@ -486,9 +645,14 @@ public class BoardManager : MonoBehaviour
     /// </summary>
     public AttackRule GetAttackRule(GemType type)
     {
-        PokemonAttackConfig cfg = PokemonAttackConfig.Load();
-        if (cfg != null) return cfg.GetRule(type);
-        // Hard-coded fallback mirroring GetMaxEnergyForType
+        // Load config once and cache it — prevents Resources.Load on every call
+        if (!_attackConfigLoaded)
+        {
+            _cachedAttackConfig = PokemonAttackConfig.Load();
+            _attackConfigLoaded = true;
+        }
+        if (_cachedAttackConfig != null) return _cachedAttackConfig.GetRule(type);
+        // Hard-coded fallback
         switch (type)
         {
             case GemType.Fire:     return new AttackRule { Type = type, StonesRequired = 6, Damage = 15, AttackName = "Ember",       EffectDescription = "Deals 15 dmg" };

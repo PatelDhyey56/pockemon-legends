@@ -54,6 +54,8 @@ public class PurchaseController : MonoBehaviour, IPurchaseListeners
         return _nonConsumableProduct_Android;
 #elif UNITY_IOS
         return _nonConsumableProduct_iOS;
+#else
+        return string.Empty;
 #endif
     }
 
