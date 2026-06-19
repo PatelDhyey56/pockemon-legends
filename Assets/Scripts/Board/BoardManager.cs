@@ -65,6 +65,12 @@ public class BoardManager : MonoBehaviour
     public static Action<int> OnEvolutionStonesChanged;
     // Fired when a Pokémon evolves (carries playerIndex)
     public static Action<int> OnEvolved;
+    // Fired when a player's HP drops to 0 or below (carries index of losing player)
+    public static Action<int> OnGameOver;
+    // Fired when a player reaches 4 or more evolution stones (carries playerIndex and the selection callback)
+    public static Action<int, Action<PokemonState>> OnRequestEvolutionSelection;
+    // Fired when a Pokémon successfully evolves (carries evolved PokemonState, old value, new value, and complete callback)
+    public static Action<PokemonState, int, int, Action> OnShowEvolutionSuccessPopup;
 
     #endregion
 
@@ -80,6 +86,7 @@ public class BoardManager : MonoBehaviour
 
     public GridModel Grid { get; private set; }
     public bool IsProcessing { get; set; }
+    public bool IsWaitingForEvolutionSelection { get; set; }
 
     public PlayerState[] Players { get; private set; }
     public int ActivePlayerIndex { get; private set; }
@@ -256,7 +263,7 @@ public class BoardManager : MonoBehaviour
 
     // Pre-allocated reusable objects to avoid GC pressure in the hot coroutine path
     private static readonly WaitForSeconds _waitMatch   = new WaitForSeconds(0.35f);
-    private static readonly WaitForSeconds _waitCascade = new WaitForSeconds(0.3f);
+    private static readonly WaitForSeconds _waitCascade = new WaitForSeconds(0.6f);
     private static readonly WaitForSeconds _waitReset   = new WaitForSeconds(3f);
 
     // Reused dictionary to count gem types per match — avoids per-loop allocation
@@ -269,11 +276,9 @@ public class BoardManager : MonoBehaviour
 
     private IEnumerator ProcessMatches(List<Vector2Int> matches)
     {
-        // previously rewardedExtraThisTurn controlled an extra-move bonus
-        // for large matches; that feature caused unintended extra moves
-        // and has been removed.
-
         try { IsProcessing = true; } catch { }
+
+        bool isPlayerSwapMatch = true;
 
         while (matches.Count > 0)
         {
@@ -283,6 +288,12 @@ public class BoardManager : MonoBehaviour
                 OnMatchesFound?.Invoke(matches);
 
                 PlayerState active = Players[ActivePlayerIndex];
+
+                if (isPlayerSwapMatch && HasMatchGroupOfSizeFourOrMore(matches))
+                {
+                    AddExtraMove();
+                }
+                isPlayerSwapMatch = false;
 
                 // Reuse preallocated dictionary — no allocation per loop
                 _typeCounts.Clear();
@@ -305,39 +316,7 @@ public class BoardManager : MonoBehaviour
                 {
                     active.EvolutionStones += evolutionStonesThisBatch;
                     OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
-
-                    // Trigger evolution when threshold is reached
-                    while (active.EvolutionStones >= PlayerState.EvolutionRequired)
-                    {
-                        active.EvolutionStones -= PlayerState.EvolutionRequired;
-
-                        // Evolve each Pokémon that isn't evolved yet (first unevolved wins)
-                        bool evolved = false;
-                        foreach (var poke in active.Pokemons)
-                        {
-                            if (!poke.IsEvolved)
-                            {
-                                poke.IsEvolved = true;
-                                poke.EvolutionDamageBonus += 5; // +5 damage bonus
-                                evolved = true;
-                                OnEvolved?.Invoke(ActivePlayerIndex);
-                                OnShowMessage?.Invoke(active.Name + "'s " + poke.Name + " evolved! +5 bonus damage!");
-                                break;
-                            }
-                        }
-                        // If all Pokémon already evolved, give bonus to all
-                        if (!evolved)
-                        {
-                            foreach (var poke in active.Pokemons)
-                                poke.EvolutionDamageBonus += 2;
-                            OnEvolved?.Invoke(ActivePlayerIndex);
-                            OnShowMessage?.Invoke(active.Name + "'s team is fully evolved! +2 more damage!");
-                        }
-                        OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
-                    }
                 }
-
-                // Extra-move reward removed: no action here.
 
                 // Charge matching Pokémon energy; queue any ability that fires
                 // (abilities that mutate the grid are deferred until after cascade)
@@ -430,6 +409,60 @@ public class BoardManager : MonoBehaviour
             // animate them falling in from the top while cascading existing stones.
             OnCascadeComplete?.Invoke(newStonePositions);
             yield return _waitCascade; // cached — no GC alloc
+
+            // Trigger evolution selection when threshold is reached AFTER cascade settles
+            PlayerState activePlayer = Players[ActivePlayerIndex];
+            if (activePlayer.EvolutionStones >= PlayerState.EvolutionRequired)
+            {
+                if (OnRequestEvolutionSelection != null)
+                {
+                    IsWaitingForEvolutionSelection = true;
+                    OnRequestEvolutionSelection.Invoke(ActivePlayerIndex, (selectedPokemon) =>
+                    {
+                        int oldVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
+                        
+                        selectedPokemon.IsEvolved = true;
+                        selectedPokemon.EvolutionDamageBonus += 5; // +5 damage bonus
+
+                        int newVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
+
+                        activePlayer.EvolutionStones = 0; // Set to 0 after evolution completes
+
+                        OnEvolved?.Invoke(ActivePlayerIndex);
+                        OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
+
+                        if (OnShowEvolutionSuccessPopup != null)
+                        {
+                            OnShowEvolutionSuccessPopup.Invoke(selectedPokemon, oldVal, newVal, () =>
+                            {
+                                IsWaitingForEvolutionSelection = false;
+                            });
+                        }
+                        else
+                        {
+                            IsWaitingForEvolutionSelection = false;
+                        }
+                    });
+
+                    yield return new WaitUntil(() => !IsWaitingForEvolutionSelection);
+                }
+                else
+                {
+                    // Fallback: auto-evolve first unevolved Pokemon
+                    foreach (var poke in activePlayer.Pokemons)
+                    {
+                        if (!poke.IsEvolved)
+                        {
+                            poke.IsEvolved = true;
+                            poke.EvolutionDamageBonus += 5;
+                            activePlayer.EvolutionStones = 0;
+                            OnEvolved?.Invoke(ActivePlayerIndex);
+                            OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
+                            break;
+                        }
+                    }
+                }
+            }
 
             try { matches = Grid.FindMatches(); }
             catch (System.Exception e)
@@ -612,7 +645,7 @@ public class BoardManager : MonoBehaviour
         {
             PlayerState winner = Players[targetIdx == 0 ? 1 : 0];
             OnShowMessage?.Invoke(winner.Name + " Wins!");
-            StartCoroutine(ResetGameAfterDelay());
+            OnGameOver?.Invoke(targetIdx);
         }
     }
 
@@ -637,6 +670,68 @@ public class BoardManager : MonoBehaviour
         Players[ActivePlayerIndex].MovesRemaining++;
         OnMovesChanged?.Invoke();
         OnShowMessage?.Invoke("+1 Extra Move!");
+    }
+
+    private bool HasMatchGroupOfSizeFourOrMore(List<Vector2Int> matches)
+    {
+        if (matches == null || matches.Count < 4) return false;
+
+        // Group matches into connected components of the same GemType
+        HashSet<Vector2Int> unvisited = new HashSet<Vector2Int>(matches);
+
+        while (unvisited.Count > 0)
+        {
+            // Pick any unvisited element
+            Vector2Int start = default;
+            foreach (var pos in unvisited)
+            {
+                start = pos;
+                break;
+            }
+
+            // Start BFS for this component
+            List<Vector2Int> component = new List<Vector2Int>();
+            Queue<Vector2Int> queue = new Queue<Vector2Int>();
+            
+            GemType targetType = Grid.Grid[start.y, start.x];
+            
+            queue.Enqueue(start);
+            unvisited.Remove(start);
+
+            while (queue.Count > 0)
+            {
+                Vector2Int current = queue.Dequeue();
+                component.Add(current);
+
+                // Check 4-way neighbors
+                Vector2Int[] neighbors = {
+                    new Vector2Int(current.x + 1, current.y),
+                    new Vector2Int(current.x - 1, current.y),
+                    new Vector2Int(current.x, current.y + 1),
+                    new Vector2Int(current.x, current.y - 1)
+                };
+
+                foreach (var nb in neighbors)
+                {
+                    if (unvisited.Contains(nb))
+                    {
+                        // Check if it has the same type
+                        if (Grid.Grid[nb.y, nb.x] == targetType)
+                        {
+                            queue.Enqueue(nb);
+                            unvisited.Remove(nb);
+                        }
+                    }
+                }
+            }
+
+            if (component.Count >= 4)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

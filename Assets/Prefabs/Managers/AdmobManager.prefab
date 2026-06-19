@@ -24,12 +24,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7556682315683854183}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7556682315683854185
 MonoBehaviour:
@@ -40,14 +41,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 7556682315683854183}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9cf6eb2655f913f45bcc58e1cb60001f, type: 3}
+  m_Script: {fileID: 11500000, guid: 01337d94dbbe28740b85d9e5b2e95b63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _bannerAdID: 
-  _interstitialAdID: 
-  _rewardedInterstitialAdID: 
-  _rewardedAdID: 
-  _openAdID: 
-  _rectBannerAdID: 
-  adData: {fileID: 11400000, guid: 3ff7882106d40624bab28c875527ddda, type: 2}
-  isSdkInitialized: 0
+  adData: {fileID: 0}
+  AppOpenAdAutoLoad: 0
+  RequestInterstitialOnInitialize: 1
+  tagForChildDirectedTreatment: 0
+  maxContentRating: 3

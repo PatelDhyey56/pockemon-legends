@@ -7,7 +7,7 @@ public static class Constants
     //add alll scenes here
     #region SCENES
 
-    public const string SCENE_MENU = "battleScene";
+    public const string SCENE_MENU = "MenuScene";
     public const string SCENE_WEB = "webscene";
     public const string SCENE_POKEMON = "battleScene";
 

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -14,6 +14,8 @@ public class SplashManager : MonoBehaviour
 
     private void Start()
     {
+        // Set target frame rate to 60 FPS for buttery smooth animations and responsiveness
+        Application.targetFrameRate = 60;
         FadeEffect();
 
         StartCoroutine(LoadScene());

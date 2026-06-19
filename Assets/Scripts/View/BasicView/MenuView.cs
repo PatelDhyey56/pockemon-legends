@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -35,7 +35,6 @@ public class MenuView : View
 
     private IEnumerator Start()
     {
-
         Show();
 
         if (PreferenceHelper.IsAdRemoved())
@@ -47,16 +46,26 @@ public class MenuView : View
         {
             Hide();
             SettingView.GetInstance().Show();
-            AdMobManager.GetInstance().HideBanner();
+            if (AdMobManager.GetInstance() != null)
+            {
+                AdMobManager.GetInstance().HideBanner();
+            }
         }
 
         LogHelper.Info("MenView", "waiting..");
 
-        yield return new WaitUntil(() => AdMobManager.GetInstance().IsSdkInitialized);
+        if (AdMobManager.GetInstance() != null)
+        {
+            yield return new WaitUntil(() => AdMobManager.GetInstance().IsSdkInitialized);
 
-        LogHelper.Info("MenView", "waiting done..");
+            LogHelper.Info("MenView", "waiting done..");
 
-        AdMobManager.GetInstance().RequestBanner(BannerAdPosition.Bottom, AdStatusDelegate: AdStatusDelegate);
+            AdMobManager.GetInstance().RequestBanner(BannerAdPosition.Bottom, AdStatusDelegate: AdStatusDelegate);
+        }
+        else
+        {
+            LogHelper.Info("MenView", "AdMobManager instance is null, skipping banner initialization");
+        }
     }
 
     private void AdStatusDelegate(AdStatusCode adStatusCode)
@@ -65,7 +74,7 @@ public class MenuView : View
 
         if (adStatusCode == AdStatusCode.ADLoadSuccess)
         {
-            if (isViewVisible && !_isIAPOpen)
+            if (isViewVisible && !_isIAPOpen && AdMobManager.GetInstance() != null)
             {
                 AdMobManager.GetInstance().ShowBanner();
             }
@@ -82,13 +91,28 @@ public class MenuView : View
     {
         base.OnViewShow();
 
-        AdMobManager.GetInstance().ShowBanner();
+        if (AdMobManager.GetInstance() != null)
+        {
+            AdMobManager.GetInstance().ShowBanner();
+        }
+    }
+
+    public void OnPlayButtonClick()
+    {
+        if (AdMobManager.GetInstance() != null)
+        {
+            AdMobManager.GetInstance().HideBanner();
+        }
+        UnityEngine.SceneManagement.SceneManager.LoadScene("battleScene");
     }
 
     public void OnSettingButtonClick()
     {
         Hide();
-        AdMobManager.GetInstance().HideBanner();
+        if (AdMobManager.GetInstance() != null)
+        {
+            AdMobManager.GetInstance().HideBanner();
+        }
         SettingView.GetInstance().Show();
     }
 
@@ -100,7 +124,10 @@ public class MenuView : View
         }
         else
         {
-            AdMobManager.GetInstance().HideBanner();
+            if (AdMobManager.GetInstance() != null)
+            {
+                AdMobManager.GetInstance().HideBanner();
+            }
 
             _isIAPOpen = true;
 
@@ -119,6 +146,9 @@ public class MenuView : View
     {
         _isIAPOpen = false;
 
-        AdMobManager.GetInstance().ShowBanner();
+        if (AdMobManager.GetInstance() != null)
+        {
+            AdMobManager.GetInstance().ShowBanner();
+        }
     }
 }

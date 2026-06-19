@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -141,6 +142,10 @@ public class BoardInputHandler : MonoBehaviour
     private Vector3 _originalMessagePos;
     private float _displayedP1HP = -1f;
     private float _displayedP2HP = -1f;
+
+    private GameObject _gameOverPopupInstance;
+    private GameObject _evoSelectionPopupInstance;
+    private GameObject _evoSuccessPopupInstance;
 
     private void Start()
     {
@@ -407,16 +412,24 @@ public class BoardInputHandler : MonoBehaviour
         {
             for (int c = 0; c < GridModel.COLS; c++)
             {
-                GameObject cell = new GameObject("Gem", typeof(Image));
+                GameObject cell = new GameObject("Gem");
                 cell.transform.SetParent(boardParent, false);
-                RectTransform rt = cell.GetComponent<RectTransform>();
+                RectTransform rt = cell.AddComponent<RectTransform>();
                 rt.sizeDelta = new Vector2(cs, cs);
                 rt.anchoredPosition = new Vector2(
                     c * (cs + spacing) - totalW / 2f + cs / 2f,
                     -(r * (cs + spacing) - totalH / 2f + cs / 2f)
                 );
 
-                Image img = cell.GetComponent<Image>();
+                GameObject spriteObj = new GameObject("Sprite", typeof(Image));
+                spriteObj.transform.SetParent(cell.transform, false);
+                RectTransform spriteRt = spriteObj.GetComponent<RectTransform>();
+                spriteRt.anchorMin = Vector2.zero;
+                spriteRt.anchorMax = Vector2.one;
+                spriteRt.sizeDelta = Vector2.zero;
+                spriteRt.localScale = Vector3.one;
+
+                Image img = spriteObj.GetComponent<Image>();
                 img.preserveAspect = true;
                 img.raycastTarget = true;
 
@@ -589,12 +602,12 @@ public class BoardInputHandler : MonoBehaviour
         gemRects[b.y, b.x] = tmpRt;
 
         // *** Critical: keep the lookup map in sync ***
-        // After the swap, gemImages[a] now holds what was at b, and vice-versa.
+        // After the swap, gemRects[a] now holds what was at b, and vice-versa.
         // Update their InstanceID entries to the new coords.
-        if (gemImages[a.y, a.x] != null)
-            _gemCoordMap[gemImages[a.y, a.x].gameObject.GetInstanceID()] = a;
-        if (gemImages[b.y, b.x] != null)
-            _gemCoordMap[gemImages[b.y, b.x].gameObject.GetInstanceID()] = b;
+        if (gemRects[a.y, a.x] != null)
+            _gemCoordMap[gemRects[a.y, a.x].gameObject.GetInstanceID()] = a;
+        if (gemRects[b.y, b.x] != null)
+            _gemCoordMap[gemRects[b.y, b.x].gameObject.GetInstanceID()] = b;
     }
 
     private IEnumerator AnimateSwap(Vector2Int from, Vector2Int to)
@@ -721,6 +734,7 @@ public class BoardInputHandler : MonoBehaviour
                     rt2.anchoredPosition = targetPos;
                     rt2.localScale = Vector3.zero;
                     img.raycastTarget = false;
+                    img.transform.localScale = Vector3.one;
                 }
                 else if (isNew)
                 {
@@ -730,6 +744,7 @@ public class BoardInputHandler : MonoBehaviour
                     rt2.anchoredPosition = targetPos + new Vector2(0f, dropDistance);
                     rt2.localScale = Vector3.one * 0.6f;
                     img.raycastTarget = false;
+                    img.transform.localScale = (gem == GemType.Evolution) ? new Vector3(1.35f, 1.35f, 1f) : Vector3.one;
                 }
                 else
                 {
@@ -739,6 +754,7 @@ public class BoardInputHandler : MonoBehaviour
                     rt2.anchoredPosition = targetPos;
                     rt2.localScale = Vector3.one;
                     img.raycastTarget = true;
+                    img.transform.localScale = (gem == GemType.Evolution) ? new Vector3(1.35f, 1.35f, 1f) : Vector3.one;
                 }
             }
         }
@@ -825,6 +841,7 @@ public class BoardInputHandler : MonoBehaviour
                     if (canvasGroup != null) canvasGroup.alpha = 0f;
                     rt.localScale = Vector3.zero;
                     img.raycastTarget = false;
+                    img.transform.localScale = Vector3.one;
                 }
                 else
                 {
@@ -835,6 +852,7 @@ public class BoardInputHandler : MonoBehaviour
                     img.sprite = hasSprite ? gemSprites[idx] : fallbackGemSprite;
                     img.color  = hasSprite ? Color.white : GetGemColor(gem);
                     img.raycastTarget = true;
+                    img.transform.localScale = (gem == GemType.Evolution) ? new Vector3(1.35f, 1.35f, 1f) : Vector3.one;
                 }
             }
         }
@@ -1268,6 +1286,9 @@ public class BoardInputHandler : MonoBehaviour
         BoardManager.OnEnergyChanged += RefreshPips;
         BoardManager.OnEvolutionStonesChanged += OnEvolutionUpdate;
         BoardManager.OnEvolved                 += OnEvolutionUpdate;
+        BoardManager.OnGameOver                += ShowGameOverPopup;
+        BoardManager.OnRequestEvolutionSelection += ShowEvolutionSelectionPopup;
+        BoardManager.OnShowEvolutionSuccessPopup += ShowEvolutionSuccessPopup;
     }
 
     private void OnDisable()
@@ -1283,6 +1304,9 @@ public class BoardInputHandler : MonoBehaviour
         BoardManager.OnEnergyChanged -= RefreshPips;
         BoardManager.OnEvolutionStonesChanged -= OnEvolutionUpdate;
         BoardManager.OnEvolved                 -= OnEvolutionUpdate;
+        BoardManager.OnGameOver                -= ShowGameOverPopup;
+        BoardManager.OnRequestEvolutionSelection -= ShowEvolutionSelectionPopup;
+        BoardManager.OnShowEvolutionSuccessPopup -= ShowEvolutionSuccessPopup;
     }
 
     private void CreateEvolutionUI(int playerIndex, Transform cardTransform)
@@ -1373,5 +1397,452 @@ public class BoardInputHandler : MonoBehaviour
     private void OnEvolutionUpdate(int playerIndex)
     {
         UpdatePlayerUI();
+    }
+
+    private void ShowGameOverPopup(int losingPlayerIdx)
+    {
+        if (_gameOverPopupInstance != null)
+        {
+            Destroy(_gameOverPopupInstance);
+        }
+
+        // Find canvas transform as root
+        Canvas rootCanvas = boardParent != null ? boardParent.GetComponentInParent<Canvas>() : null;
+        if (rootCanvas == null) rootCanvas = FindFirstObjectByType<Canvas>();
+        if (rootCanvas == null) return;
+
+        // 1. Create Overlay Panel (Background blocker)
+        _gameOverPopupInstance = new GameObject("GameOverPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _gameOverPopupInstance.transform.SetParent(rootCanvas.transform, false);
+
+        RectTransform overlayRt = _gameOverPopupInstance.GetComponent<RectTransform>();
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+
+        Image overlayImg = _gameOverPopupInstance.GetComponent<Image>();
+        overlayImg.color = new Color(0f, 0f, 0f, 0.75f); // Semi-transparent black blocker
+
+        // 2. Create Modal Window
+        GameObject modalWindow = new GameObject("ModalWindow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        modalWindow.transform.SetParent(_gameOverPopupInstance.transform, false);
+
+        RectTransform modalRt = modalWindow.GetComponent<RectTransform>();
+        modalRt.anchorMin = new Vector2(0.5f, 0.5f);
+        modalRt.anchorMax = new Vector2(0.5f, 0.5f);
+        modalRt.pivot = new Vector2(0.5f, 0.5f);
+        modalRt.sizeDelta = new Vector2(400f, 300f);
+        modalRt.anchoredPosition = Vector2.zero;
+
+        Image modalImg = modalWindow.GetComponent<Image>();
+        modalImg.color = new Color(0.12f, 0.12f, 0.16f, 1f); // Slate dark background
+
+        // Add inner border
+        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        borderGo.transform.SetParent(modalWindow.transform, false);
+        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
+        borderRt.anchorMin = Vector2.zero;
+        borderRt.anchorMax = Vector2.one;
+        borderRt.offsetMin = new Vector2(4f, 4f);
+        borderRt.offsetMax = new Vector2(-4f, -4f);
+        Image borderImg = borderGo.GetComponent<Image>();
+        borderImg.color = new Color(0.18f, 0.18f, 0.24f, 1f); // Dark inner body
+
+        // 3. Create Title Text
+        GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        titleGo.transform.SetParent(borderGo.transform, false);
+        RectTransform titleRt = titleGo.GetComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.pivot = new Vector2(0.5f, 1f);
+        titleRt.offsetMin = new Vector2(10f, -60f);
+        titleRt.offsetMax = new Vector2(-10f, -10f);
+
+        TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
+        titleTxt.text = "GAME OVER";
+        titleTxt.fontSize = 32f;
+        titleTxt.fontStyle = TMPro.FontStyles.Bold;
+        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        titleTxt.color = new Color(1f, 0.3f, 0.3f, 1f); // Soft Red
+        if (messageText != null) titleTxt.font = messageText.font;
+
+        // 4. Create Message Text (Winner / Loser details)
+        GameObject msgGo = new GameObject("MessageText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        msgGo.transform.SetParent(borderGo.transform, false);
+        RectTransform msgRt = msgGo.GetComponent<RectTransform>();
+        msgRt.anchorMin = new Vector2(0f, 0.5f);
+        msgRt.anchorMax = new Vector2(1f, 0.5f);
+        msgRt.pivot = new Vector2(0.5f, 0.5f);
+        msgRt.offsetMin = new Vector2(15f, -40f);
+        msgRt.offsetMax = new Vector2(-15f, 40f);
+
+        int winningPlayerIdx = losingPlayerIdx == 0 ? 1 : 0;
+        string winnerName = BoardManager.GetInstance().Players[winningPlayerIdx].Name;
+        string loserName = BoardManager.GetInstance().Players[losingPlayerIdx].Name;
+
+        TMPro.TextMeshProUGUI msgTxt = msgGo.GetComponent<TMPro.TextMeshProUGUI>();
+        msgTxt.text = $"<color=#00FF88>{winnerName} Wins!</color>\n<color=#FF4444>{loserName} Lost the Game!</color>";
+        msgTxt.fontSize = 22f;
+        msgTxt.lineSpacing = 1.2f;
+        msgTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        msgTxt.color = Color.white;
+        if (messageText != null) msgTxt.font = messageText.font;
+
+        // 5. Create Button ("Play Again")
+        GameObject btnGo = new GameObject("PlayAgainButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+        btnGo.transform.SetParent(borderGo.transform, false);
+        RectTransform btnRt = btnGo.GetComponent<RectTransform>();
+        btnRt.anchorMin = new Vector2(0.5f, 0f);
+        btnRt.anchorMax = new Vector2(0.5f, 0f);
+        btnRt.pivot = new Vector2(0.5f, 0f);
+        btnRt.sizeDelta = new Vector2(180f, 45f);
+        btnRt.anchoredPosition = new Vector2(0f, 25f);
+
+        Image btnImg = btnGo.GetComponent<Image>();
+        btnImg.color = new Color(0.2f, 0.6f, 1f, 1f); // Bright blue button
+
+        // Button text
+        GameObject btnTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        btnTextGo.transform.SetParent(btnGo.transform, false);
+        RectTransform btnTextRt = btnTextGo.GetComponent<RectTransform>();
+        btnTextRt.anchorMin = Vector2.zero;
+        btnTextRt.anchorMax = Vector2.one;
+        btnTextRt.offsetMin = Vector2.zero;
+        btnTextRt.offsetMax = Vector2.zero;
+
+        TMPro.TextMeshProUGUI btnTxt = btnTextGo.GetComponent<TMPro.TextMeshProUGUI>();
+        btnTxt.text = "Play Again";
+        btnTxt.fontSize = 18f;
+        btnTxt.fontStyle = TMPro.FontStyles.Bold;
+        btnTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        btnTxt.color = Color.white;
+        if (messageText != null) btnTxt.font = messageText.font;
+
+        // Set up click action
+        UnityEngine.UI.Button button = btnGo.GetComponent<UnityEngine.UI.Button>();
+        button.onClick.AddListener(() =>
+        {
+            Destroy(_gameOverPopupInstance);
+            BoardManager.GetInstance().InitBoard();
+        });
+
+        // Small bounce animation to the popup card
+        modalWindow.transform.localScale = Vector3.zero;
+        modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
+    }
+
+    private void ShowEvolutionSelectionPopup(int playerIdx, Action<PokemonState> onSelected)
+    {
+        if (_evoSelectionPopupInstance != null)
+        {
+            Destroy(_evoSelectionPopupInstance);
+        }
+
+        Canvas rootCanvas = boardParent != null ? boardParent.GetComponentInParent<Canvas>() : null;
+        if (rootCanvas == null) rootCanvas = FindFirstObjectByType<Canvas>();
+        if (rootCanvas == null) return;
+
+        PlayerState player = BoardManager.GetInstance().Players[playerIdx];
+
+        // 1. Blocker Overlay
+        _evoSelectionPopupInstance = new GameObject("EvoSelectionPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _evoSelectionPopupInstance.transform.SetParent(rootCanvas.transform, false);
+
+        RectTransform overlayRt = _evoSelectionPopupInstance.GetComponent<RectTransform>();
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+
+        Image overlayImg = _evoSelectionPopupInstance.GetComponent<Image>();
+        overlayImg.color = new Color(0f, 0f, 0f, 0.8f);
+
+        // 2. Modal Window
+        GameObject modalWindow = new GameObject("ModalWindow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        modalWindow.transform.SetParent(_evoSelectionPopupInstance.transform, false);
+
+        RectTransform modalRt = modalWindow.GetComponent<RectTransform>();
+        modalRt.anchorMin = new Vector2(0.5f, 0.5f);
+        modalRt.anchorMax = new Vector2(0.5f, 0.5f);
+        modalRt.pivot = new Vector2(0.5f, 0.5f);
+        modalRt.sizeDelta = new Vector2(500f, 350f);
+        modalRt.anchoredPosition = Vector2.zero;
+
+        Image modalImg = modalWindow.GetComponent<Image>();
+        modalImg.color = new Color(0.1f, 0.1f, 0.15f, 1f); // Dark purple-grey
+
+        // Inner Border
+        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        borderGo.transform.SetParent(modalWindow.transform, false);
+        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
+        borderRt.anchorMin = Vector2.zero;
+        borderRt.anchorMax = Vector2.one;
+        borderRt.offsetMin = new Vector2(4f, 4f);
+        borderRt.offsetMax = new Vector2(-4f, -4f);
+        Image borderImg = borderGo.GetComponent<Image>();
+        borderImg.color = new Color(0.15f, 0.15f, 0.2f, 1f);
+
+        // 3. Title Text
+        GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        titleGo.transform.SetParent(borderGo.transform, false);
+        RectTransform titleRt = titleGo.GetComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.pivot = new Vector2(0.5f, 1f);
+        titleRt.offsetMin = new Vector2(10f, -60f);
+        titleRt.offsetMax = new Vector2(-10f, -15f);
+
+        TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
+        titleTxt.text = "CHOOSE POKEMON TO EVOLVE";
+        titleTxt.fontSize = 24f;
+        titleTxt.fontStyle = TMPro.FontStyles.Bold;
+        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        titleTxt.color = new Color(1f, 0.8f, 0.2f, 1f); // Gold title
+        if (messageText != null) titleTxt.font = messageText.font;
+
+        // 4. Create columns for the two Pokémon
+        float cardWidth = 200f;
+        float cardHeight = 220f;
+        float spacing = 20f;
+
+        for (int i = 0; i < player.Pokemons.Count && i < 2; i++)
+        {
+            PokemonState poke = player.Pokemons[i];
+            
+            // Create Column Panel (Button)
+            GameObject cardGo = new GameObject($"PokeCard_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+            cardGo.transform.SetParent(borderGo.transform, false);
+            
+            RectTransform cardRt = cardGo.GetComponent<RectTransform>();
+            cardRt.anchorMin = new Vector2(0.5f, 0.5f);
+            cardRt.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRt.pivot = new Vector2(0.5f, 0.5f);
+            cardRt.sizeDelta = new Vector2(cardWidth, cardHeight);
+            
+            float xOffset = (i == 0) ? -(cardWidth / 2f + spacing / 2f) : (cardWidth / 2f + spacing / 2f);
+            cardRt.anchoredPosition = new Vector2(xOffset, -20f);
+
+            Image cardImg = cardGo.GetComponent<Image>();
+            cardImg.color = new Color(0.2f, 0.2f, 0.28f, 1f); // Dark card body
+
+            // Outer outline for the pokemon card
+            GameObject cardOutlineGo = new GameObject("Outline", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            cardOutlineGo.transform.SetParent(cardGo.transform, false);
+            RectTransform outlineRt = cardOutlineGo.GetComponent<RectTransform>();
+            outlineRt.anchorMin = Vector2.zero;
+            outlineRt.anchorMax = Vector2.one;
+            outlineRt.offsetMin = new Vector2(2f, 2f);
+            outlineRt.offsetMax = new Vector2(-2f, -2f);
+            Image outlineImg = cardOutlineGo.GetComponent<Image>();
+            outlineImg.color = new Color(0.12f, 0.12f, 0.18f, 1f);
+
+            // Pokémon Avatar/Sprite
+            GameObject avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            avatarGo.transform.SetParent(cardOutlineGo.transform, false);
+            RectTransform avatarRt = avatarGo.GetComponent<RectTransform>();
+            avatarRt.anchorMin = new Vector2(0.5f, 1f);
+            avatarRt.anchorMax = new Vector2(0.5f, 1f);
+            avatarRt.pivot = new Vector2(0.5f, 1f);
+            avatarRt.sizeDelta = new Vector2(90f, 90f);
+            avatarRt.anchoredPosition = new Vector2(0f, -15f);
+
+            Image avatarImg = avatarGo.GetComponent<Image>();
+            avatarImg.sprite = poke.Avatar;
+            avatarImg.preserveAspect = true;
+
+            // Pokémon Name
+            GameObject nameGo = new GameObject("NameText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+            nameGo.transform.SetParent(cardOutlineGo.transform, false);
+            RectTransform nameRt = nameGo.GetComponent<RectTransform>();
+            nameRt.anchorMin = new Vector2(0f, 0f);
+            nameRt.anchorMax = new Vector2(1f, 0f);
+            nameRt.pivot = new Vector2(0.5f, 0f);
+            nameRt.offsetMin = new Vector2(5f, 50f);
+            nameRt.offsetMax = new Vector2(-5f, 90f);
+
+            TMPro.TextMeshProUGUI nameTxt = nameGo.GetComponent<TMPro.TextMeshProUGUI>();
+            nameTxt.text = poke.Name;
+            nameTxt.fontSize = 20f;
+            nameTxt.fontStyle = TMPro.FontStyles.Bold;
+            nameTxt.alignment = TMPro.TextAlignmentOptions.Center;
+            nameTxt.color = Color.white;
+            if (messageText != null) nameTxt.font = messageText.font;
+
+            // Pokémon Stats Description
+            GameObject statGo = new GameObject("StatText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+            statGo.transform.SetParent(cardOutlineGo.transform, false);
+            RectTransform statRt = statGo.GetComponent<RectTransform>();
+            statRt.anchorMin = new Vector2(0f, 0f);
+            statRt.anchorMax = new Vector2(1f, 0f);
+            statRt.pivot = new Vector2(0.5f, 0f);
+            statRt.offsetMin = new Vector2(5f, 10f);
+            statRt.offsetMax = new Vector2(-5f, 45f);
+
+            string valUnit = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "Heal" : "Dmg";
+            int baseVal = poke.BaseValue + poke.EvolutionDamageBonus;
+
+            TMPro.TextMeshProUGUI statTxt = statGo.GetComponent<TMPro.TextMeshProUGUI>();
+            statTxt.text = $"{valUnit}: {baseVal} (Limit: {poke.MaxEnergy})";
+            statTxt.fontSize = 14f;
+            statTxt.alignment = TMPro.TextAlignmentOptions.Center;
+            statTxt.color = GetGemColor(poke.Type) * 1.2f;
+            if (messageText != null) statTxt.font = messageText.font;
+
+            // Set up click action
+            UnityEngine.UI.Button button = cardGo.GetComponent<UnityEngine.UI.Button>();
+            PokemonState capturedPoke = poke; // local scope capture
+            button.onClick.AddListener(() =>
+            {
+                Destroy(_evoSelectionPopupInstance);
+                onSelected?.Invoke(capturedPoke);
+            });
+        }
+
+        modalWindow.transform.localScale = Vector3.zero;
+        modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
+    }
+
+    private void ShowEvolutionSuccessPopup(PokemonState poke, int oldVal, int newVal, Action onClose)
+    {
+        if (_evoSuccessPopupInstance != null)
+        {
+            Destroy(_evoSuccessPopupInstance);
+        }
+
+        Canvas rootCanvas = boardParent != null ? boardParent.GetComponentInParent<Canvas>() : null;
+        if (rootCanvas == null) rootCanvas = FindFirstObjectByType<Canvas>();
+        if (rootCanvas == null) return;
+
+        // 1. Blocker Overlay
+        _evoSuccessPopupInstance = new GameObject("EvoSuccessPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _evoSuccessPopupInstance.transform.SetParent(rootCanvas.transform, false);
+
+        RectTransform overlayRt = _evoSuccessPopupInstance.GetComponent<RectTransform>();
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+
+        Image overlayImg = _evoSuccessPopupInstance.GetComponent<Image>();
+        overlayImg.color = new Color(0f, 0f, 0f, 0.8f);
+
+        // 2. Modal Window
+        GameObject modalWindow = new GameObject("ModalWindow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        modalWindow.transform.SetParent(_evoSuccessPopupInstance.transform, false);
+
+        RectTransform modalRt = modalWindow.GetComponent<RectTransform>();
+        modalRt.anchorMin = new Vector2(0.5f, 0.5f);
+        modalRt.anchorMax = new Vector2(0.5f, 0.5f);
+        modalRt.pivot = new Vector2(0.5f, 0.5f);
+        modalRt.sizeDelta = new Vector2(400f, 320f);
+        modalRt.anchoredPosition = Vector2.zero;
+
+        Image modalImg = modalWindow.GetComponent<Image>();
+        modalImg.color = new Color(0.12f, 0.12f, 0.16f, 1f);
+
+        // Inner Border
+        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        borderGo.transform.SetParent(modalWindow.transform, false);
+        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
+        borderRt.anchorMin = Vector2.zero;
+        borderRt.anchorMax = Vector2.one;
+        borderRt.offsetMin = new Vector2(4f, 4f);
+        borderRt.offsetMax = new Vector2(-4f, -4f);
+        Image borderImg = borderGo.GetComponent<Image>();
+        borderImg.color = new Color(0.18f, 0.18f, 0.24f, 1f);
+
+        // 3. Title Text
+        GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        titleGo.transform.SetParent(borderGo.transform, false);
+        RectTransform titleRt = titleGo.GetComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.pivot = new Vector2(0.5f, 1f);
+        titleRt.offsetMin = new Vector2(10f, -60f);
+        titleRt.offsetMax = new Vector2(-10f, -15f);
+
+        TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
+        titleTxt.text = $"{poke.Name.ToUpper()} EVOLVED!";
+        titleTxt.fontSize = 26f;
+        titleTxt.fontStyle = TMPro.FontStyles.Bold;
+        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        titleTxt.color = new Color(0f, 1f, 0.6f, 1f); // Neon green
+        if (messageText != null) titleTxt.font = messageText.font;
+
+        // 4. Pokémon Avatar
+        GameObject avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        avatarGo.transform.SetParent(borderGo.transform, false);
+        RectTransform avatarRt = avatarGo.GetComponent<RectTransform>();
+        avatarRt.anchorMin = new Vector2(0.5f, 0.5f);
+        avatarRt.anchorMax = new Vector2(0.5f, 0.5f);
+        avatarRt.pivot = new Vector2(0.5f, 0.5f);
+        avatarRt.sizeDelta = new Vector2(80f, 80f);
+        avatarRt.anchoredPosition = new Vector2(0f, 40f);
+
+        Image avatarImg = avatarGo.GetComponent<Image>();
+        avatarImg.sprite = poke.Avatar;
+        avatarImg.preserveAspect = true;
+
+        // 5. Stat change description
+        GameObject statGo = new GameObject("StatText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        statGo.transform.SetParent(borderGo.transform, false);
+        RectTransform statRt = statGo.GetComponent<RectTransform>();
+        statRt.anchorMin = new Vector2(0f, 0f);
+        statRt.anchorMax = new Vector2(1f, 0f);
+        statRt.pivot = new Vector2(0.5f, 0f);
+        statRt.offsetMin = new Vector2(15f, 75f);
+        statRt.offsetMax = new Vector2(-15f, 125f);
+
+        string valType = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "Healing" : "Damage";
+
+        TMPro.TextMeshProUGUI statTxt = statGo.GetComponent<TMPro.TextMeshProUGUI>();
+        statTxt.text = $"{valType}: {oldVal} <color=#00FF88>➔ {newVal}</color>\n<color=#FFFF00>+5 Evolution Bonus!</color>";
+        statTxt.fontSize = 18f;
+        statTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        statTxt.color = Color.white;
+        if (messageText != null) statTxt.font = messageText.font;
+
+        // 6. Dismiss Button
+        GameObject btnGo = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+        btnGo.transform.SetParent(borderGo.transform, false);
+        RectTransform btnRt = btnGo.GetComponent<RectTransform>();
+        btnRt.anchorMin = new Vector2(0.5f, 0f);
+        btnRt.anchorMax = new Vector2(0.5f, 0f);
+        btnRt.pivot = new Vector2(0.5f, 0f);
+        btnRt.sizeDelta = new Vector2(150f, 40f);
+        btnRt.anchoredPosition = new Vector2(0f, 20f);
+
+        Image btnImg = btnGo.GetComponent<Image>();
+        btnImg.color = new Color(0f, 1f, 0.6f, 1f); // Neon green button
+
+        // Button text
+        GameObject btnTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        btnTextGo.transform.SetParent(btnGo.transform, false);
+        RectTransform btnTextRt = btnTextGo.GetComponent<RectTransform>();
+        btnTextRt.anchorMin = Vector2.zero;
+        btnTextRt.anchorMax = Vector2.one;
+        btnTextRt.offsetMin = Vector2.zero;
+        btnTextRt.offsetMax = Vector2.zero;
+
+        TMPro.TextMeshProUGUI btnTxt = btnTextGo.GetComponent<TMPro.TextMeshProUGUI>();
+        btnTxt.text = "Awesome!";
+        btnTxt.fontSize = 16f;
+        btnTxt.fontStyle = TMPro.FontStyles.Bold;
+        btnTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        btnTxt.color = new Color(0.05f, 0.05f, 0.08f, 1f); // dark text
+        if (messageText != null) btnTxt.font = messageText.font;
+
+        // Set up click action
+        UnityEngine.UI.Button button = btnGo.GetComponent<UnityEngine.UI.Button>();
+        button.onClick.AddListener(() =>
+        {
+            Destroy(_evoSuccessPopupInstance);
+            onClose?.Invoke();
+        });
+
+        // Small bounce animation to the popup card
+        modalWindow.transform.localScale = Vector3.zero;
+        modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
     }
 }
