@@ -21,7 +21,7 @@ public class View : MonoBehaviour
     public void OnViewClosed()
     {
         canvasGameObject.SetActive(false);
-        viewCamera.enabled = false;
+        if (viewCamera != null) viewCamera.enabled = false;
         viewCanvasGroup.alpha = 0;
         isViewVisible = false;
         DisbaleUI();
@@ -38,7 +38,7 @@ public class View : MonoBehaviour
             return;
 
         canvasGameObject.SetActive(true);
-        viewCamera.enabled = true;
+        if (viewCamera != null) viewCamera.enabled = true;
         viewCanvasGroup.alpha = 1;
         isViewVisible = true;
         EnableUI();

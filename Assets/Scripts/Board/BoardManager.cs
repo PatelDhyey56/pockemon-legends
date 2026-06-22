@@ -52,7 +52,8 @@ public class BoardManager : MonoBehaviour
     public static Action OnBoardInitialized;
     public static Action<List<Vector2Int>> OnMatchesFound;
     // carries the positions that were refilled as brand-new stones (appeared at the top)
-    public static Action<List<Vector2Int>> OnCascadeComplete;
+    // and the list of existing stones that fell during cascade (from→to)
+    public static Action<List<Vector2Int>, List<CascadeMove>> OnCascadeComplete;
     public static Action OnSwapDone;
 
     public static Action OnTurnChanged;
@@ -364,13 +365,14 @@ public class BoardManager : MonoBehaviour
             yield return _waitMatch;   // cached — no GC alloc
 
             List<Vector2Int> newStonePositions;
+            List<CascadeMove> cascadeMoves = new List<CascadeMove>();
             try
             {
                 // Remove matched gems, cascade, refill BEFORE abilities mutate the grid.
                 // Cascade: existing stones fall down to fill gaps (gravity toward ROWS-1).
                 // Refill: brand-new random stones fill every remaining Charry slot (top rows).
                 Grid.RemoveGems(matches);
-                Grid.Cascade();
+                cascadeMoves = Grid.Cascade();
                 newStonePositions = Grid.Refill();
             }
             catch (System.Exception e)
@@ -399,15 +401,16 @@ public class BoardManager : MonoBehaviour
             // always full with no Charry holes before the visual refresh fires.
             if (abilitiesModifiedGrid)
             {
-                Grid.Cascade();
+                List<CascadeMove> abilityMoves = Grid.Cascade();
+                cascadeMoves.AddRange(abilityMoves);
                 List<Vector2Int> extraNew = Grid.Refill();
                 // Merge extra new positions so the UI can animate them dropping in too
                 newStonePositions.AddRange(extraNew);
             }
 
-            // Pass the set of brand-new stone positions to the view layer so it can
-            // animate them falling in from the top while cascading existing stones.
-            OnCascadeComplete?.Invoke(newStonePositions);
+            // Pass the set of brand-new stone positions and cascade move data to the
+            // view layer so it can animate both new stones AND falling existing stones.
+            OnCascadeComplete?.Invoke(newStonePositions, cascadeMoves);
             yield return _waitCascade; // cached — no GC alloc
 
             // Trigger evolution selection when threshold is reached AFTER cascade settles
@@ -419,27 +422,37 @@ public class BoardManager : MonoBehaviour
                     IsWaitingForEvolutionSelection = true;
                     OnRequestEvolutionSelection.Invoke(ActivePlayerIndex, (selectedPokemon) =>
                     {
-                        int oldVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
-                        
-                        selectedPokemon.IsEvolved = true;
-                        selectedPokemon.EvolutionDamageBonus += 5; // +5 damage bonus
-
-                        int newVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
-
-                        activePlayer.EvolutionStones = 0; // Set to 0 after evolution completes
-
-                        OnEvolved?.Invoke(ActivePlayerIndex);
-                        OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
-
-                        if (OnShowEvolutionSuccessPopup != null)
+                        if (selectedPokemon != null)
                         {
-                            OnShowEvolutionSuccessPopup.Invoke(selectedPokemon, oldVal, newVal, () =>
+                            int oldVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
+                            
+                            selectedPokemon.IsEvolved = true;
+                            selectedPokemon.EvolutionDamageBonus += 5; // +5 damage bonus
+
+                            int newVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
+
+                            activePlayer.EvolutionStones = 0; // Set to 0 after evolution completes
+                            activePlayer.MovesRemaining--; // Evolving charges 1 move!
+                            OnMovesChanged?.Invoke();
+
+                            OnEvolved?.Invoke(ActivePlayerIndex);
+                            OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
+
+                            if (OnShowEvolutionSuccessPopup != null)
+                            {
+                                OnShowEvolutionSuccessPopup.Invoke(selectedPokemon, oldVal, newVal, () =>
+                                {
+                                    IsWaitingForEvolutionSelection = false;
+                                });
+                            }
+                            else
                             {
                                 IsWaitingForEvolutionSelection = false;
-                            });
+                            }
                         }
                         else
                         {
+                            // Player canceled the evolution selection
                             IsWaitingForEvolutionSelection = false;
                         }
                     });
@@ -456,6 +469,8 @@ public class BoardManager : MonoBehaviour
                             poke.IsEvolved = true;
                             poke.EvolutionDamageBonus += 5;
                             activePlayer.EvolutionStones = 0;
+                            activePlayer.MovesRemaining--; // Evolving charges 1 move!
+                            OnMovesChanged?.Invoke();
                             OnEvolved?.Invoke(ActivePlayerIndex);
                             OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
                             break;

@@ -2,6 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+public class CascadeMove
+{
+    public Vector2Int from;
+    public Vector2Int to;
+    public CascadeMove(Vector2Int from, Vector2Int to) { this.from = from; this.to = to; }
+}
+
 public class GridModel
 {
     public const int ROWS = 8;
@@ -89,8 +96,13 @@ public class GridModel
         }
     }
 
-    public void Cascade()
+    /// <summary>
+    /// Applies gravity: existing stones fall down to fill Charry gaps.
+    /// Returns a list of stones that moved, with their old and new positions.
+    /// </summary>
+    public List<CascadeMove> Cascade()
     {
+        List<CascadeMove> moves = new List<CascadeMove>();
         for (int c = 0; c < COLS; c++)
         {
             int writeRow = ROWS - 1;
@@ -98,9 +110,12 @@ public class GridModel
             {
                 if (Grid[r, c] != GemType.Charry)
                 {
-                    Grid[writeRow, c] = Grid[r, c];
                     if (writeRow != r)
+                    {
+                        moves.Add(new CascadeMove(new Vector2Int(c, r), new Vector2Int(c, writeRow)));
+                        Grid[writeRow, c] = Grid[r, c];
                         Grid[r, c] = GemType.Charry;
+                    }
                     writeRow--;
                 }
             }
@@ -111,6 +126,7 @@ public class GridModel
                 Grid[r, c] = GemType.Charry;
             }
         }
+        return moves;
     }
 
     /// <summary>

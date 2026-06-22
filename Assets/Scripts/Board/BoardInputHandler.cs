@@ -66,6 +66,7 @@ public class BoardInputHandler : MonoBehaviour
     private bool hintShowing = false;
     private Sequence hintSequence;
     private float _processingWatchdog = 0f; // safety timeout for stuck IsProcessing
+    private GameObject _boardBlurOverlay;
 
     [Header("Player UI Settings")]
     [SerializeField] private RectTransform playerUIPanel;
@@ -373,6 +374,7 @@ public class BoardInputHandler : MonoBehaviour
             for (int i = boardParent.childCount - 1; i >= 0; i--)
                 Destroy(boardParent.GetChild(i).gameObject);
         }
+        _boardBlurOverlay = null;
 
         // Resolve the dynamic cell size for the current device BEFORE building the grid.
         _resolvedCellSize = ResolveCellSize();
@@ -388,6 +390,7 @@ public class BoardInputHandler : MonoBehaviour
         RefreshBoard();
         InitPips();   // build segmented pip bars now that Pokémon types are known
         isInitialized = true;
+        UpdateBoardBlur();
     }
 
     private static bool IsAlive(Image img)   => img != null && img;
@@ -648,6 +651,15 @@ public class BoardInputHandler : MonoBehaviour
         isAnimating = false;
     }
 
+    public void ExecuteBotSwap(Vector2Int from, Vector2Int to)
+    {
+        if (!isInitialized) return;
+        if (isAnimating) return;
+        if (BoardManager.GetInstance().IsProcessing) return;
+
+        StartCoroutine(AnimateSwap(from, to));
+    }
+
     private void OnMatchesFound(List<Vector2Int> matches)
     {
         if (gemImages == null || gemRects == null) return;
@@ -679,17 +691,27 @@ public class BoardInputHandler : MonoBehaviour
         }
     }
 
-    private void OnCascadeComplete(List<Vector2Int> newStonePositions)
+    private void OnCascadeComplete(List<Vector2Int> newStonePositions, List<CascadeMove> cascadeMoves)
     {
-        StartCoroutine(AnimateCascade(newStonePositions));
+        StartCoroutine(AnimateCascade(newStonePositions, cascadeMoves));
     }
 
-    private IEnumerator AnimateCascade(List<Vector2Int> newStonePositions)
+    private IEnumerator AnimateCascade(List<Vector2Int> newStonePositions, List<CascadeMove> cascadeMoves)
     {
         // Guard: arrays may have been cleared by OnBoardInit during a game reset.
         if (gemImages == null || gemRects == null) yield break;
 
         HashSet<Vector2Int> newSet = new HashSet<Vector2Int>(newStonePositions);
+
+        // Build a lookup: for each position that an existing stone fell TO,
+        // store where it came FROM so we can animate the fall.
+        Dictionary<Vector2Int, Vector2Int> fallFromMap = new Dictionary<Vector2Int, Vector2Int>();
+        foreach (CascadeMove move in cascadeMoves)
+        {
+            if (!fallFromMap.ContainsKey(move.to))
+                fallFromMap[move.to] = move.from;
+        }
+        HashSet<Vector2Int> fallToSet = new HashSet<Vector2Int>(fallFromMap.Keys);
 
         BoardManager board = BoardManager.GetInstance();
         if (board?.Grid == null) yield break;
@@ -697,6 +719,15 @@ public class BoardInputHandler : MonoBehaviour
         float totalW = GridModel.COLS * _resolvedCellSize + (GridModel.COLS - 1) * spacing;
         float totalH = GridModel.ROWS * _resolvedCellSize + (GridModel.ROWS - 1) * spacing;
         float dropDistance = _resolvedCellSize * 2.0f;
+
+        // Helper to convert grid coords to anchored position
+        Vector2 GridToAnchored(int row, int col)
+        {
+            return new Vector2(
+                col * (_resolvedCellSize + spacing) - totalW / 2f + _resolvedCellSize / 2f,
+                -(row * (_resolvedCellSize + spacing) - totalH / 2f + _resolvedCellSize / 2f)
+            );
+        }
 
         // ── PASS 1: hard-reset every cell synchronously ─────────────────────────
         for (int r = 0; r < GridModel.ROWS; r++)
@@ -718,14 +749,12 @@ public class BoardInputHandler : MonoBehaviour
                 var cg = img.GetComponent<CanvasGroup>();
                 if (cg != null) { cg.DOKill(complete: false); cg.alpha = 1f; }
 
-                Vector2 targetPos = new Vector2(
-                    c * (_resolvedCellSize + spacing) - totalW / 2f + _resolvedCellSize / 2f,
-                    -(r * (_resolvedCellSize + spacing) - totalH / 2f + _resolvedCellSize / 2f)
-                );
+                Vector2 targetPos = GridToAnchored(r, c);
 
                 bool isCharry  = idx == (int)GemType.Charry;
                 bool hasSprite = gemSprites != null && idx >= 0 && idx < gemSprites.Length && gemSprites[idx] != null;
-                bool isNew     = newSet.Contains(new Vector2Int(c, r));
+                bool isFalling = fallToSet.Contains(new Vector2Int(c, r));
+                bool isNew     = !isFalling && newSet.Contains(new Vector2Int(c, r));
 
                 if (isCharry)
                 {
@@ -735,6 +764,25 @@ public class BoardInputHandler : MonoBehaviour
                     rt2.localScale = Vector3.zero;
                     img.raycastTarget = false;
                     img.transform.localScale = Vector3.one;
+                }
+                else if (isFalling)
+                {
+                    // Existing stone that fell during cascade — position at OLD
+                    // position so PASS 2 can animate it falling to the new position.
+                    Vector2Int oldPos = fallFromMap[new Vector2Int(c, r)];
+                    Vector2 oldAnchored = GridToAnchored(oldPos.y, oldPos.x);
+
+                    img.sprite = hasSprite ? gemSprites[idx] : fallbackGemSprite;
+                    img.color  = hasSprite ? Color.white : GetGemColor(gem);
+                    if (cg != null) cg.alpha = 1f;
+                    rt2.anchoredPosition = oldAnchored;
+                    rt2.localScale = Vector3.one;
+                    img.raycastTarget = false;
+                    img.transform.localScale = (gem == GemType.Evolution) ? new Vector3(1.35f, 1.35f, 1f) : Vector3.one;
+
+                    // Bring this cell to front so it renders above other cells
+                    // during the falling animation (avoids overlap artifacts).
+                    rt2.SetAsLastSibling();
                 }
                 else if (isNew)
                 {
@@ -748,6 +796,7 @@ public class BoardInputHandler : MonoBehaviour
                 }
                 else
                 {
+                    // Stationary existing stone — already at the right position.
                     img.sprite = hasSprite ? gemSprites[idx] : fallbackGemSprite;
                     img.color  = hasSprite ? Color.white : GetGemColor(gem);
                     if (cg != null) cg.alpha = 1f;
@@ -764,10 +813,59 @@ public class BoardInputHandler : MonoBehaviour
         // ── PASS 2: guard again — board may have reset during the yield ──────────
         if (gemImages == null || gemRects == null) yield break;
 
-        // Animate only brand-new stones dropping in from the top
+        // Animate falling stones AND new stones dropping in
+        HashSet<Vector2Int> fallingAnimated = new HashSet<Vector2Int>();
+
+        // First, animate existing stones that fell (cascade moves)
+        foreach (CascadeMove move in cascadeMoves)
+        {
+            if (gemImages == null || gemRects == null) yield break;
+
+            // Skip if this cell was already animated (duplicate to-position from
+            // ability-triggered cascades invalidating earlier cascade moves).
+            if (fallingAnimated.Contains(move.to)) continue;
+
+            int r = move.to.y;
+            int c = move.to.x;
+
+            Image         img2 = gemImages[r, c];
+            RectTransform rt2b = gemRects[r, c];
+            if (!IsAlive(img2) || !IsAlive(rt2b)) continue;
+
+            GemType gem2 = board.Grid.Grid[r, c];
+            if (gem2 == GemType.Charry) continue;
+
+            Vector2 targetPos2 = GridToAnchored(r, c);
+
+            var cg2 = img2.GetComponent<CanvasGroup>();
+            float delay = c * 0.03f;
+
+            rt2b.DOAnchorPos(targetPos2, 0.30f)
+                .SetEase(Ease.OutBounce)
+                .SetDelay(delay)
+                .SetLink(img2.gameObject);
+
+            rt2b.DOScale(1f, 0.22f)
+                .SetEase(Ease.OutBack)
+                .SetDelay(delay)
+                .SetLink(img2.gameObject);
+
+            if (cg2 != null)
+                cg2.DOFade(1f, 0.20f)
+                    .SetDelay(delay)
+                    .SetLink(img2.gameObject);
+
+            img2.raycastTarget = true;
+            fallingAnimated.Add(move.to);
+        }
+
+        // Then, animate brand-new stones dropping in from the top
         foreach (Vector2Int cell in newStonePositions)
         {
             if (gemImages == null || gemRects == null) yield break;
+
+            // Skip if already animated as a falling stone (shouldn't happen, but guard)
+            if (fallingAnimated.Contains(cell)) continue;
 
             int r = cell.y;
             int c = cell.x;
@@ -779,10 +877,7 @@ public class BoardInputHandler : MonoBehaviour
             GemType gem2 = board.Grid.Grid[r, c];
             if (gem2 == GemType.Charry) continue;
 
-            Vector2 targetPos2 = new Vector2(
-                c * (_resolvedCellSize + spacing) - totalW / 2f + _resolvedCellSize / 2f,
-                -(r * (_resolvedCellSize + spacing) - totalH / 2f + _resolvedCellSize / 2f)
-            );
+            Vector2 targetPos2 = GridToAnchored(r, c);
 
             var cg2 = img2.GetComponent<CanvasGroup>();
             float delay = c * 0.03f;
@@ -858,6 +953,16 @@ public class BoardInputHandler : MonoBehaviour
         }
     }
 
+    private void EnforceFilledImage(Image img)
+    {
+        if (img != null && img)
+        {
+            img.type = Image.Type.Filled;
+            img.fillMethod = Image.FillMethod.Horizontal;
+            img.fillOrigin = (int)Image.OriginHorizontal.Left;
+        }
+    }
+
     private void CreatePlayerUI()
     {
         pokemonAttackLabels[0] = p1Poke1AttackLabel;
@@ -869,6 +974,15 @@ public class BoardInputHandler : MonoBehaviour
         pokemonEnergyBgTransforms[1] = p1Poke2EnergyBgTransform;
         pokemonEnergyBgTransforms[2] = p2Poke1EnergyBgTransform;
         pokemonEnergyBgTransforms[3] = p2Poke2EnergyBgTransform;
+
+        EnforceFilledImage(p1HpBar);
+        EnforceFilledImage(p1HpBarTrailing);
+        EnforceFilledImage(p2HpBar);
+        EnforceFilledImage(p2HpBarTrailing);
+        EnforceFilledImage(p1Poke1EnergyBar);
+        EnforceFilledImage(p1Poke2EnergyBar);
+        EnforceFilledImage(p2Poke1EnergyBar);
+        EnforceFilledImage(p2Poke2EnergyBar);
 
         UpdatePlayerUI();
     }
@@ -1103,6 +1217,65 @@ public class BoardInputHandler : MonoBehaviour
         RefreshPips();
     }
 
+    private void UpdateBoardBlur()
+    {
+        BoardManager board = BoardManager.GetInstance();
+        if (board == null || boardParent == null) return;
+
+        bool isBotTurn = (board.ActivePlayerIndex == 1);
+
+        // CanvasGroup dimming + input blocking
+        var cg = boardParent.GetComponent<CanvasGroup>();
+        if (cg == null) cg = boardParent.gameObject.AddComponent<CanvasGroup>();
+        cg.alpha = isBotTurn ? 0.5f : 1f;
+        cg.interactable = !isBotTurn;
+        cg.blocksRaycasts = !isBotTurn;
+
+        // Overlay with a "Opponent's Turn" label
+        if (isBotTurn)
+        {
+            if (_boardBlurOverlay == null)
+            {
+                _boardBlurOverlay = new GameObject("BoardBlurOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                _boardBlurOverlay.transform.SetParent(boardParent, false);
+                var rt = _boardBlurOverlay.GetComponent<RectTransform>();
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+                
+                var img = _boardBlurOverlay.GetComponent<Image>();
+                img.color = new Color(0.05f, 0.05f, 0.1f, 0.6f); // dark blue-tinted overlay
+                
+                // Add a text saying "OPPONENT'S TURN"
+                GameObject txtGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+                txtGo.transform.SetParent(_boardBlurOverlay.transform, false);
+                var txtRt = txtGo.GetComponent<RectTransform>();
+                txtRt.anchorMin = Vector2.zero;
+                txtRt.anchorMax = Vector2.one;
+                txtRt.offsetMin = Vector2.zero;
+                txtRt.offsetMax = Vector2.zero;
+                
+                var txt = txtGo.GetComponent<TMPro.TextMeshProUGUI>();
+                txt.text = "OPPONENT'S TURN";
+                txt.fontSize = 28f;
+                txt.fontStyle = TMPro.FontStyles.Bold;
+                txt.alignment = TMPro.TextAlignmentOptions.Center;
+                txt.color = new Color(1f, 0.3f, 0.3f, 1f); // Reddish/Coral text
+                if (messageText != null) txt.font = messageText.font;
+            }
+            _boardBlurOverlay.SetActive(true);
+            _boardBlurOverlay.transform.SetAsLastSibling(); // ensure it is on top of gems
+        }
+        else
+        {
+            if (_boardBlurOverlay != null)
+            {
+                _boardBlurOverlay.SetActive(false);
+            }
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Pip charge bar initialisation — called once after board + pokemon are set
     // -------------------------------------------------------------------------
@@ -1279,6 +1452,7 @@ public class BoardInputHandler : MonoBehaviour
         BoardManager.OnCascadeComplete  += OnCascadeComplete;
 
         BoardManager.OnTurnChanged   += UpdatePlayerUI;
+        BoardManager.OnTurnChanged   += UpdateBoardBlur;
         BoardManager.OnMovesChanged  += UpdatePlayerUI;
         BoardManager.OnHPChanged     += UpdatePlayerUI;
         BoardManager.OnShowMessage   += ShowMessage;
@@ -1298,6 +1472,7 @@ public class BoardInputHandler : MonoBehaviour
         BoardManager.OnCascadeComplete  -= OnCascadeComplete;
 
         BoardManager.OnTurnChanged   -= UpdatePlayerUI;
+        BoardManager.OnTurnChanged   -= UpdateBoardBlur;
         BoardManager.OnMovesChanged  -= UpdatePlayerUI;
         BoardManager.OnHPChanged     -= UpdatePlayerUI;
         BoardManager.OnShowMessage   -= ShowMessage;
@@ -1534,6 +1709,30 @@ public class BoardInputHandler : MonoBehaviour
 
     private void ShowEvolutionSelectionPopup(int playerIdx, Action<PokemonState> onSelected)
     {
+        if (playerIdx == 1)
+        {
+            PlayerState botPlayer = BoardManager.GetInstance().Players[1];
+            PokemonState chosen = null;
+            foreach (var p in botPlayer.Pokemons)
+            {
+                if (!p.IsEvolved)
+                {
+                    chosen = p;
+                    break;
+                }
+            }
+            if (chosen == null && botPlayer.Pokemons.Count > 0)
+            {
+                chosen = botPlayer.Pokemons[UnityEngine.Random.Range(0, botPlayer.Pokemons.Count)];
+            }
+
+            if (chosen != null)
+            {
+                onSelected?.Invoke(chosen);
+            }
+            return;
+        }
+
         if (_evoSelectionPopupInstance != null)
         {
             Destroy(_evoSelectionPopupInstance);
@@ -1566,7 +1765,7 @@ public class BoardInputHandler : MonoBehaviour
         modalRt.anchorMin = new Vector2(0.5f, 0.5f);
         modalRt.anchorMax = new Vector2(0.5f, 0.5f);
         modalRt.pivot = new Vector2(0.5f, 0.5f);
-        modalRt.sizeDelta = new Vector2(500f, 350f);
+        modalRt.sizeDelta = new Vector2(500f, 430f);
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
@@ -1603,7 +1802,7 @@ public class BoardInputHandler : MonoBehaviour
 
         // 4. Create columns for the two Pokémon
         float cardWidth = 200f;
-        float cardHeight = 220f;
+        float cardHeight = 260f;
         float spacing = 20f;
 
         for (int i = 0; i < player.Pokemons.Count && i < 2; i++)
@@ -1621,7 +1820,7 @@ public class BoardInputHandler : MonoBehaviour
             cardRt.sizeDelta = new Vector2(cardWidth, cardHeight);
             
             float xOffset = (i == 0) ? -(cardWidth / 2f + spacing / 2f) : (cardWidth / 2f + spacing / 2f);
-            cardRt.anchoredPosition = new Vector2(xOffset, -20f);
+            cardRt.anchoredPosition = new Vector2(xOffset, 10f);
 
             Image cardImg = cardGo.GetComponent<Image>();
             cardImg.color = new Color(0.2f, 0.2f, 0.28f, 1f); // Dark card body
@@ -1658,8 +1857,8 @@ public class BoardInputHandler : MonoBehaviour
             nameRt.anchorMin = new Vector2(0f, 0f);
             nameRt.anchorMax = new Vector2(1f, 0f);
             nameRt.pivot = new Vector2(0.5f, 0f);
-            nameRt.offsetMin = new Vector2(5f, 50f);
-            nameRt.offsetMax = new Vector2(-5f, 90f);
+            nameRt.offsetMin = new Vector2(5f, 130f);
+            nameRt.offsetMax = new Vector2(-5f, 160f);
 
             TMPro.TextMeshProUGUI nameTxt = nameGo.GetComponent<TMPro.TextMeshProUGUI>();
             nameTxt.text = poke.Name;
@@ -1676,18 +1875,39 @@ public class BoardInputHandler : MonoBehaviour
             statRt.anchorMin = new Vector2(0f, 0f);
             statRt.anchorMax = new Vector2(1f, 0f);
             statRt.pivot = new Vector2(0.5f, 0f);
-            statRt.offsetMin = new Vector2(5f, 10f);
-            statRt.offsetMax = new Vector2(-5f, 45f);
+            statRt.offsetMin = new Vector2(5f, 75f);
+            statRt.offsetMax = new Vector2(-5f, 120f);
 
             string valUnit = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "Heal" : "Dmg";
             int baseVal = poke.BaseValue + poke.EvolutionDamageBonus;
+            int nextVal = baseVal + 5;
 
             TMPro.TextMeshProUGUI statTxt = statGo.GetComponent<TMPro.TextMeshProUGUI>();
-            statTxt.text = $"{valUnit}: {baseVal} (Limit: {poke.MaxEnergy})";
-            statTxt.fontSize = 14f;
+            statTxt.text = $"{valUnit}: {baseVal} <color=#00FF88>➔ {nextVal}</color>\n(Limit: {poke.MaxEnergy})";
+            statTxt.fontSize = 13f;
             statTxt.alignment = TMPro.TextAlignmentOptions.Center;
             statTxt.color = GetGemColor(poke.Type) * 1.2f;
             if (messageText != null) statTxt.font = messageText.font;
+
+            // Pokémon Ability Text
+            GameObject abilityGo = new GameObject("AbilityText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+            abilityGo.transform.SetParent(cardOutlineGo.transform, false);
+            RectTransform abilityRt = abilityGo.GetComponent<RectTransform>();
+            abilityRt.anchorMin = new Vector2(0f, 0f);
+            abilityRt.anchorMax = new Vector2(1f, 0f);
+            abilityRt.pivot = new Vector2(0.5f, 0f);
+            abilityRt.offsetMin = new Vector2(5f, 10f);
+            abilityRt.offsetMax = new Vector2(-5f, 65f);
+
+            TMPro.TextMeshProUGUI abilityTxt = abilityGo.GetComponent<TMPro.TextMeshProUGUI>();
+            AttackRule attackRule = BoardManager.GetInstance().GetAttackRule(poke.Type);
+            string abilityName = attackRule != null ? attackRule.AttackName : "Ability";
+            string abilityDesc = attackRule != null ? attackRule.EffectDescription : "";
+            abilityTxt.text = $"<color=#FFFF00>{abilityName}</color>\n<size=11>{abilityDesc}</size>";
+            abilityTxt.fontSize = 13f;
+            abilityTxt.alignment = TMPro.TextAlignmentOptions.Center;
+            abilityTxt.color = Color.white;
+            if (messageText != null) abilityTxt.font = messageText.font;
 
             // Set up click action
             UnityEngine.UI.Button button = cardGo.GetComponent<UnityEngine.UI.Button>();
@@ -1699,12 +1919,58 @@ public class BoardInputHandler : MonoBehaviour
             });
         }
 
+        // 5. Cancel Button
+        GameObject cancelGo = new GameObject("CancelButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+        cancelGo.transform.SetParent(borderGo.transform, false);
+        
+        RectTransform cancelRt = cancelGo.GetComponent<RectTransform>();
+        cancelRt.anchorMin = new Vector2(0.5f, 0f);
+        cancelRt.anchorMax = new Vector2(0.5f, 0f);
+        cancelRt.pivot = new Vector2(0.5f, 0f);
+        cancelRt.sizeDelta = new Vector2(160f, 40f);
+        cancelRt.anchoredPosition = new Vector2(0f, 20f);
+
+        Image cancelImg = cancelGo.GetComponent<Image>();
+        cancelImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Grey button background
+
+        // Button text
+        GameObject cancelTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        cancelTextGo.transform.SetParent(cancelGo.transform, false);
+        RectTransform cancelTextRt = cancelTextGo.GetComponent<RectTransform>();
+        cancelTextRt.anchorMin = Vector2.zero;
+        cancelTextRt.anchorMax = Vector2.one;
+        cancelTextRt.offsetMin = Vector2.zero;
+        cancelTextRt.offsetMax = Vector2.zero;
+
+        TMPro.TextMeshProUGUI cancelTxt = cancelTextGo.GetComponent<TMPro.TextMeshProUGUI>();
+        cancelTxt.text = "Cancel";
+        cancelTxt.fontSize = 16f;
+        cancelTxt.fontStyle = TMPro.FontStyles.Bold;
+        cancelTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        cancelTxt.color = Color.white;
+        if (messageText != null) cancelTxt.font = messageText.font;
+
+        // Set up click action
+        UnityEngine.UI.Button cancelButton = cancelGo.GetComponent<UnityEngine.UI.Button>();
+        cancelButton.onClick.AddListener(() =>
+        {
+            Destroy(_evoSelectionPopupInstance);
+            onSelected?.Invoke(null); // Pass null to indicate cancel
+        });
+
         modalWindow.transform.localScale = Vector3.zero;
         modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
     }
 
     private void ShowEvolutionSuccessPopup(PokemonState poke, int oldVal, int newVal, Action onClose)
     {
+        bool isBot = false;
+        var bm = BoardManager.GetInstance();
+        if (bm != null && bm.Players != null && bm.Players.Length > 1)
+        {
+            isBot = bm.Players[1].Pokemons.Contains(poke);
+        }
+
         if (_evoSuccessPopupInstance != null)
         {
             Destroy(_evoSuccessPopupInstance);
@@ -1735,7 +2001,7 @@ public class BoardInputHandler : MonoBehaviour
         modalRt.anchorMin = new Vector2(0.5f, 0.5f);
         modalRt.anchorMax = new Vector2(0.5f, 0.5f);
         modalRt.pivot = new Vector2(0.5f, 0.5f);
-        modalRt.sizeDelta = new Vector2(400f, 320f);
+        modalRt.sizeDelta = new Vector2(400f, 380f);
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
@@ -1778,7 +2044,7 @@ public class BoardInputHandler : MonoBehaviour
         avatarRt.anchorMax = new Vector2(0.5f, 0.5f);
         avatarRt.pivot = new Vector2(0.5f, 0.5f);
         avatarRt.sizeDelta = new Vector2(80f, 80f);
-        avatarRt.anchoredPosition = new Vector2(0f, 40f);
+        avatarRt.anchoredPosition = new Vector2(0f, 70f);
 
         Image avatarImg = avatarGo.GetComponent<Image>();
         avatarImg.sprite = poke.Avatar;
@@ -1791,8 +2057,8 @@ public class BoardInputHandler : MonoBehaviour
         statRt.anchorMin = new Vector2(0f, 0f);
         statRt.anchorMax = new Vector2(1f, 0f);
         statRt.pivot = new Vector2(0.5f, 0f);
-        statRt.offsetMin = new Vector2(15f, 75f);
-        statRt.offsetMax = new Vector2(-15f, 125f);
+        statRt.offsetMin = new Vector2(15f, 135f);
+        statRt.offsetMax = new Vector2(-15f, 185f);
 
         string valType = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "Healing" : "Damage";
 
@@ -1802,6 +2068,26 @@ public class BoardInputHandler : MonoBehaviour
         statTxt.alignment = TMPro.TextAlignmentOptions.Center;
         statTxt.color = Color.white;
         if (messageText != null) statTxt.font = messageText.font;
+
+        // 5b. Ability Description
+        GameObject abilityGo = new GameObject("AbilityText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        abilityGo.transform.SetParent(borderGo.transform, false);
+        RectTransform abilityRt = abilityGo.GetComponent<RectTransform>();
+        abilityRt.anchorMin = new Vector2(0f, 0f);
+        abilityRt.anchorMax = new Vector2(1f, 0f);
+        abilityRt.pivot = new Vector2(0.5f, 0f);
+        abilityRt.offsetMin = new Vector2(15f, 70f);
+        abilityRt.offsetMax = new Vector2(-15f, 125f);
+
+        TMPro.TextMeshProUGUI abilityTxt = abilityGo.GetComponent<TMPro.TextMeshProUGUI>();
+        AttackRule attackRule = BoardManager.GetInstance().GetAttackRule(poke.Type);
+        string abilityName = attackRule != null ? attackRule.AttackName : "Ability";
+        string abilityDesc = attackRule != null ? attackRule.EffectDescription : "";
+        abilityTxt.text = $"<color=#FFFF00>{abilityName}</color>\n<size=14>{abilityDesc}</size>";
+        abilityTxt.fontSize = 16f;
+        abilityTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        abilityTxt.color = Color.white;
+        if (messageText != null) abilityTxt.font = messageText.font;
 
         // 6. Dismiss Button
         GameObject btnGo = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
@@ -1837,12 +2123,30 @@ public class BoardInputHandler : MonoBehaviour
         UnityEngine.UI.Button button = btnGo.GetComponent<UnityEngine.UI.Button>();
         button.onClick.AddListener(() =>
         {
-            Destroy(_evoSuccessPopupInstance);
-            onClose?.Invoke();
+            if (_evoSuccessPopupInstance != null)
+            {
+                Destroy(_evoSuccessPopupInstance);
+                onClose?.Invoke();
+            }
         });
 
         // Small bounce animation to the popup card
         modalWindow.transform.localScale = Vector3.zero;
         modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
+
+        if (isBot)
+        {
+            StartCoroutine(AutoCloseSuccessPopup(1.5f, onClose));
+        }
+    }
+
+    private IEnumerator AutoCloseSuccessPopup(float delay, Action onClose)
+    {
+        yield return new WaitForSeconds(delay);
+        if (_evoSuccessPopupInstance != null)
+        {
+            Destroy(_evoSuccessPopupInstance);
+            onClose?.Invoke();
+        }
     }
 }
