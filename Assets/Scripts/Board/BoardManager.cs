@@ -32,6 +32,9 @@ public class PlayerState
     // Evolution stone tracking: needs 4 to trigger evolution
     public int EvolutionStones;
     public const int EvolutionRequired = 4;
+
+    // Tracker to show auto evolution selection popup only once per 4 stones
+    public bool HasPromptedEvolution;
 }
 
 public class BoardManager : MonoBehaviour
@@ -77,12 +80,12 @@ public class BoardManager : MonoBehaviour
 
     private static readonly Dictionary<GemType, string[]> PokemonDatabase = new Dictionary<GemType, string[]>
     {
-        { GemType.Fire, new string[] { "Charmander", "Growlithe" } },
-        { GemType.Water, new string[] { "Squirtle", "Psyduck" } },
-        { GemType.Nature, new string[] { "Bulbasaur", "Oddish" } },
-        { GemType.Electric, new string[] { "Pikachu", "Magnemite" } },
-        { GemType.Psychic, new string[] { "Abra", "Gastly" } },
-        { GemType.Healing, new string[] { "Chansey", "Jigglypuff" } }
+        { GemType.Fire, new string[] { "Charmander", "Growlithe", "Ponyta", "Vulpix" } },
+        { GemType.Water, new string[] { "Squirtle", "Psyduck", "Staryu", "Gyarados" } },
+        { GemType.Nature, new string[] { "Bulbasaur", "Oddish", "Chikorita", "Tangela" } },
+        { GemType.Electric, new string[] { "Pikachu", "Magnemite", "Voltorb", "Electrabuzz" } },
+        { GemType.Psychic, new string[] { "Abra", "Gastly", "Ralts", "Mewtwo" } },
+        { GemType.Healing, new string[] { "Chansey", "Jigglypuff", "Clefairy", "Togepi" } }
     };
 
     public GridModel Grid { get; private set; }
@@ -106,27 +109,39 @@ public class BoardManager : MonoBehaviour
         {
             // Fire
             case "Charmander": return 6;
+            case "Ponyta":     return 5;
+            case "Vulpix":     return 6;
             case "Growlithe":  return 8;
             
             // Water
             case "Squirtle":   return 4;
             case "Psyduck":    return 6;
+            case "Staryu":     return 7;
+            case "Gyarados":   return 8;
             
             // Nature
             case "Bulbasaur":  return 5;
+            case "Chikorita":  return 4;
+            case "Tangela":    return 6;
             case "Oddish":     return 7;
             
             // Electric
-            case "Pikachu":    return 6;
             case "Magnemite":  return 4;
+            case "Voltorb":    return 5;
+            case "Electrabuzz":return 7;
+            case "Pikachu":    return 6;
             
             // Psychic
             case "Abra":       return 4;
+            case "Ralts":      return 5;
             case "Gastly":     return 6;
+            case "Mewtwo":     return 8;
             
             // Healing
-            case "Chansey":    return 8;
+            case "Clefairy":   return 4;
             case "Jigglypuff": return 5;
+            case "Togepi":     return 6;
+            case "Chansey":    return 8;
             
             default:           return 5;
         }
@@ -167,27 +182,39 @@ public class BoardManager : MonoBehaviour
         {
             // Fire
             case "Charmander": return 10;
+            case "Ponyta":     return 10;
+            case "Vulpix":     return 15;
             case "Growlithe":  return 20;
             
             // Water
-            case "Squirtle":   return 8;
-            case "Psyduck":    return 12;
+            case "Squirtle":   return 10;
+            case "Psyduck":    return 15;
+            case "Staryu":     return 20;
+            case "Gyarados":   return 25;
             
             // Nature
-            case "Bulbasaur":  return 12;
-            case "Oddish":     return 18;
+            case "Bulbasaur":  return 15;
+            case "Chikorita":  return 10;
+            case "Tangela":    return 15;
+            case "Oddish":     return 20;
             
             // Electric
-            case "Pikachu":    return 12;
-            case "Magnemite":  return 8;
+            case "Magnemite":  return 10;
+            case "Voltorb":    return 15;
+            case "Electrabuzz":return 20;
+            case "Pikachu":    return 25;
             
             // Psychic
-            case "Abra":       return 6;
-            case "Gastly":     return 10;
+            case "Abra":       return 10;
+            case "Ralts":      return 15;
+            case "Gastly":     return 25;
+            case "Mewtwo":     return 25;
             
             // Healing
-            case "Chansey":    return 25;
+            case "Clefairy":   return 10;
             case "Jigglypuff": return 15;
+            case "Togepi":     return 20;
+            case "Chansey":    return 25;
             
             default:           return 10;
         }
@@ -196,29 +223,61 @@ public class BoardManager : MonoBehaviour
     public void InitGame()
     {
         Players = new PlayerState[2];
+
+        // ── Player 1: use the team selected in PlayerProfileManager ──────────────
         Players[0] = new PlayerState
         {
-            Name = "Player 1",
+            Name          = "You",
             MovesRemaining = 2,
-            HP = 80,
-            MaxHP = 80,
-            Shield = 0
+            HP            = 80,
+            MaxHP         = 80,
+            Shield        = 0
         };
-        AssignRandomPokemons(Players[0]);
 
+        var profile = PlayerProfileManager.GetInstance();
+        bool profileTeamReady = profile != null && profile.OwnedPokemons != null && profile.OwnedPokemons.Count >= 2;
+
+        if (profileTeamReady)
+        {
+            // Use the player's first two owned Pokémon
+            Players[0].Name = profile.Username;
+            Players[0].Pokemons.Clear();
+            for (int i = 0; i < 2; i++)
+            {
+                string pokeName = profile.OwnedPokemons[i];
+                GemType type = GetTypeForPokemon(pokeName);
+                Players[0].Pokemons.Add(new PokemonState
+                {
+                    Name        = pokeName,
+                    Type        = type,
+                    Avatar      = AvatarGenerator.CreatePokemonSprite(pokeName),
+                    CurrentEnergy = 0,
+                    MaxEnergy   = GetMaxEnergyForPokemon(pokeName),
+                    BaseValue   = GetBaseValueForPokemon(pokeName)
+                });
+            }
+        }
+        else
+        {
+            // Fallback: assign random Pokémon (editor / testing)
+            AssignRandomPokemons(Players[0]);
+        }
+
+        // ── Player 2: Bot — always random ────────────────────────────────────────
         Players[1] = new PlayerState
         {
-            Name = "Player 2",
+            Name          = "Bot",
             MovesRemaining = 2,
-            HP = 80,
-            MaxHP = 80,
-            Shield = 0
+            HP            = 80,
+            MaxHP         = 80,
+            Shield        = 0
         };
         AssignRandomPokemons(Players[1]);
 
-        ActivePlayerIndex = 0;
+        ActivePlayerIndex = UnityEngine.Random.Range(0, 2);
         IsProcessing = false;
     }
+
 
     public void InitBoard()
     {
@@ -230,6 +289,9 @@ public class BoardManager : MonoBehaviour
         Grid.Init();
         InitGame();
         OnBoardInitialized?.Invoke();
+        OnTurnChanged?.Invoke();
+        OnMovesChanged?.Invoke();
+        OnShowMessage?.Invoke(Players[ActivePlayerIndex].Name + "'s Turn!");
     }
 
     public bool TrySwap(Vector2Int from, Vector2Int to)
@@ -415,8 +477,9 @@ public class BoardManager : MonoBehaviour
 
             // Trigger evolution selection when threshold is reached AFTER cascade settles
             PlayerState activePlayer = Players[ActivePlayerIndex];
-            if (activePlayer.EvolutionStones >= PlayerState.EvolutionRequired)
+            if (activePlayer.EvolutionStones >= PlayerState.EvolutionRequired && !activePlayer.HasPromptedEvolution)
             {
+                activePlayer.HasPromptedEvolution = true; // Mark as prompted
                 if (OnRequestEvolutionSelection != null)
                 {
                     IsWaitingForEvolutionSelection = true;
@@ -432,6 +495,7 @@ public class BoardManager : MonoBehaviour
                             int newVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
 
                             activePlayer.EvolutionStones = 0; // Set to 0 after evolution completes
+                            activePlayer.HasPromptedEvolution = false; // Reset prompted flag
                             activePlayer.MovesRemaining--; // Evolving charges 1 move!
                             OnMovesChanged?.Invoke();
 
@@ -469,6 +533,7 @@ public class BoardManager : MonoBehaviour
                             poke.IsEvolved = true;
                             poke.EvolutionDamageBonus += 5;
                             activePlayer.EvolutionStones = 0;
+                            activePlayer.HasPromptedEvolution = false; // Reset prompted flag
                             activePlayer.MovesRemaining--; // Evolving charges 1 move!
                             OnMovesChanged?.Invoke();
                             OnEvolved?.Invoke(ActivePlayerIndex);
@@ -549,8 +614,9 @@ public class BoardManager : MonoBehaviour
                         allTiles.Add(new Vector2Int(c, r));
 
             int removeLimit = 1;
-            if (pokemonName == "Psyduck") removeLimit = 3;
-            else if (pokemonName == "Squirtle") removeLimit = 2;
+            if (pokemonName == "Squirtle") removeLimit = 2;
+            else if (pokemonName == "Psyduck" || pokemonName == "Staryu") removeLimit = 3;
+            else if (pokemonName == "Gyarados") removeLimit = 4;
 
             int actualRemove = Mathf.Min(removeLimit, allTiles.Count);
             for (int i = 0; i < actualRemove; i++)
@@ -570,8 +636,10 @@ public class BoardManager : MonoBehaviour
         {
             int heal = pokemonBaseValue + evolutionBonus;
             ApplyHeal(activeIdx, heal);
+            ApplyDamage(opponentIdx, heal);
+
             OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + 
-                "! Healed " + heal + " HP!" + EvolvedTag(evolutionBonus));
+                "! Healed " + heal + " HP & dealt " + heal + " damage!" + EvolvedTag(evolutionBonus));
             return false;
         }
         else if (type == GemType.Electric)
@@ -628,8 +696,10 @@ public class BoardManager : MonoBehaviour
         {
             int heal = pokemonBaseValue + evolutionBonus;
             ApplyHeal(activeIdx, heal);
+            ApplyDamage(opponentIdx, heal);
+
             OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + 
-                "! Healed " + heal + " HP!" + EvolvedTag(evolutionBonus));
+                "! Healed " + heal + " HP & dealt " + heal + " damage!" + EvolvedTag(evolutionBonus));
             return false;
         }
 
@@ -661,6 +731,15 @@ public class BoardManager : MonoBehaviour
             PlayerState winner = Players[targetIdx == 0 ? 1 : 0];
             OnShowMessage?.Invoke(winner.Name + " Wins!");
             OnGameOver?.Invoke(targetIdx);
+
+            // Record battle result in the persistent profile.
+            // Player 1 (index 0) wins → isWin = true for the profile player.
+            var profile = PlayerProfileManager.GetInstance();
+            if (profile != null)
+            {
+                bool playerWon = (targetIdx != 0); // targetIdx is the LOSER
+                profile.RecordBattleResult(playerWon);
+            }
         }
     }
 
@@ -767,12 +846,39 @@ public class BoardManager : MonoBehaviour
         {
             case GemType.Fire:     return new AttackRule { Type = type, StonesRequired = 6, Damage = 15, AttackName = "Ember",       EffectDescription = "Deals 15 dmg" };
             case GemType.Water:    return new AttackRule { Type = type, StonesRequired = 4, Damage = 10, AttackName = "Water Gun",   EffectDescription = "10 dmg + remove 3 stones" };
-            case GemType.Nature:   return new AttackRule { Type = type, StonesRequired = 5, Damage = 0,  AttackName = "Mega Drain",  EffectDescription = "Heal 15 HP" };
+            case GemType.Nature:   return new AttackRule { Type = type, StonesRequired = 5, Damage = 15, AttackName = "Mega Drain",  EffectDescription = "Heals HP & deals equal damage to opponent" };
             case GemType.Electric: return new AttackRule { Type = type, StonesRequired = 5, Damage = 10, AttackName = "Spark",       EffectDescription = "10 dmg + clear row" };
             case GemType.Psychic:  return new AttackRule { Type = type, StonesRequired = 5, Damage = 8,  AttackName = "Psybeam",     EffectDescription = "8 dmg + 8 shield" };
-            case GemType.Healing:  return new AttackRule { Type = type, StonesRequired = 4, Damage = 0,  AttackName = "Soft-Boiled", EffectDescription = "Heal 20 HP" };
+            case GemType.Healing:  return new AttackRule { Type = type, StonesRequired = 4, Damage = 20, AttackName = "Soft-Boiled", EffectDescription = "Heals HP & deals equal damage to opponent" };
             default:               return new AttackRule { Type = type, StonesRequired = 5, Damage = 5,  AttackName = "Tackle",      EffectDescription = "5 dmg" };
         }
+    }
+
+    public bool TryManualEvolve(int playerIdx, PokemonState poke)
+    {
+        if (IsProcessing || IsWaitingForEvolutionSelection) return false;
+        PlayerState player = Players[playerIdx];
+        if (player.EvolutionStones < PlayerState.EvolutionRequired) return false;
+        if (player.MovesRemaining <= 0) return false;
+
+        int oldVal = poke.BaseValue + poke.EvolutionDamageBonus;
+        poke.IsEvolved = true;
+        poke.EvolutionDamageBonus += 5;
+        int newVal = poke.BaseValue + poke.EvolutionDamageBonus;
+
+        player.EvolutionStones = 0;
+        player.MovesRemaining--;
+        OnMovesChanged?.Invoke();
+        OnEvolved?.Invoke(playerIdx);
+        OnEvolutionStonesChanged?.Invoke(playerIdx);
+
+        if (OnShowEvolutionSuccessPopup != null)
+        {
+            OnShowEvolutionSuccessPopup.Invoke(poke, oldVal, newVal, () => { });
+        }
+        
+        EndPlayerMove();
+        return true;
     }
 
     private void EndPlayerMove()
@@ -784,6 +890,54 @@ public class BoardManager : MonoBehaviour
             OnTurnChanged?.Invoke();
             OnMovesChanged?.Invoke();
             OnShowMessage?.Invoke(Players[ActivePlayerIndex].Name + "'s Turn!");
+        }
+    }
+
+    /// <summary>
+    /// Returns the GemType associated with a Pokémon by name.
+    /// Used when constructing PokemonState from a saved team.
+    /// </summary>
+    public static GemType GetTypeForPokemon(string name)
+    {
+        switch (name)
+        {
+            // Fire
+            case "Charmander":
+            case "Ponyta":
+            case "Vulpix":
+            case "Growlithe":  return GemType.Fire;
+            
+            // Water
+            case "Squirtle":
+            case "Psyduck":
+            case "Staryu":
+            case "Gyarados":   return GemType.Water;
+            
+            // Nature
+            case "Bulbasaur":
+            case "Chikorita":
+            case "Tangela":
+            case "Oddish":     return GemType.Nature;
+            
+            // Electric
+            case "Pikachu":
+            case "Magnemite":
+            case "Voltorb":
+            case "Electrabuzz":return GemType.Electric;
+            
+            // Psychic
+            case "Abra":
+            case "Ralts":
+            case "Gastly":
+            case "Mewtwo":     return GemType.Psychic;
+            
+            // Healing
+            case "Clefairy":
+            case "Jigglypuff":
+            case "Togepi":
+            case "Chansey":    return GemType.Healing;
+            
+            default:           return GemType.Fire;
         }
     }
 }

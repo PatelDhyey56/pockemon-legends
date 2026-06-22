@@ -67,6 +67,7 @@ public class BoardInputHandler : MonoBehaviour
     private Sequence hintSequence;
     private float _processingWatchdog = 0f; // safety timeout for stuck IsProcessing
     private GameObject _boardBlurOverlay;
+    private GameObject _manualEvoPopupInstance;
 
     [Header("Player UI Settings")]
     [SerializeField] private RectTransform playerUIPanel;
@@ -983,6 +984,8 @@ public class BoardInputHandler : MonoBehaviour
         EnforceFilledImage(p1Poke2EnergyBar);
         EnforceFilledImage(p2Poke1EnergyBar);
         EnforceFilledImage(p2Poke2EnergyBar);
+
+        SetupPokemonClickListeners();
 
         UpdatePlayerUI();
     }
@@ -2138,6 +2141,244 @@ public class BoardInputHandler : MonoBehaviour
         {
             StartCoroutine(AutoCloseSuccessPopup(1.5f, onClose));
         }
+    }
+
+    private void SetupPokemonClickListeners()
+    {
+        if (p1Poke1Avatar != null)
+        {
+            var btn = p1Poke1Avatar.gameObject.GetComponent<UnityEngine.UI.Button>();
+            if (btn == null) btn = p1Poke1Avatar.gameObject.AddComponent<UnityEngine.UI.Button>();
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OnPokemonAvatarClicked(0, 0));
+        }
+        if (p1Poke2Avatar != null)
+        {
+            var btn = p1Poke2Avatar.gameObject.GetComponent<UnityEngine.UI.Button>();
+            if (btn == null) btn = p1Poke2Avatar.gameObject.AddComponent<UnityEngine.UI.Button>();
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OnPokemonAvatarClicked(0, 1));
+        }
+    }
+
+    private void OnPokemonAvatarClicked(int playerIdx, int pokemonIdx)
+    {
+        BoardManager board = BoardManager.GetInstance();
+        if (board == null || board.Players == null) return;
+        if (board.ActivePlayerIndex != playerIdx) return; // only on own turn
+        if (board.IsProcessing || board.IsWaitingForEvolutionSelection) return;
+        if (board.Players[playerIdx].MovesRemaining <= 0) return; // needs at least 1 move
+
+        PlayerState player = board.Players[playerIdx];
+        PokemonState poke = player.Pokemons[pokemonIdx];
+
+        ShowManualEvolutionPopup(playerIdx, poke);
+    }
+
+    private void ShowManualEvolutionPopup(int playerIdx, PokemonState poke)
+    {
+        if (_manualEvoPopupInstance != null)
+        {
+            Destroy(_manualEvoPopupInstance);
+        }
+
+        Canvas rootCanvas = boardParent != null ? boardParent.GetComponentInParent<Canvas>() : null;
+        if (rootCanvas == null) rootCanvas = FindFirstObjectByType<Canvas>();
+        if (rootCanvas == null) return;
+
+        PlayerState player = BoardManager.GetInstance().Players[playerIdx];
+        bool canEvolve = player.EvolutionStones >= PlayerState.EvolutionRequired;
+
+        // 1. Blocker Overlay
+        _manualEvoPopupInstance = new GameObject("ManualEvoPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _manualEvoPopupInstance.transform.SetParent(rootCanvas.transform, false);
+
+        RectTransform overlayRt = _manualEvoPopupInstance.GetComponent<RectTransform>();
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+
+        Image overlayImg = _manualEvoPopupInstance.GetComponent<Image>();
+        overlayImg.color = new Color(0f, 0f, 0f, 0.8f);
+
+        // 2. Modal Window
+        GameObject modalWindow = new GameObject("ModalWindow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        modalWindow.transform.SetParent(_manualEvoPopupInstance.transform, false);
+
+        RectTransform modalRt = modalWindow.GetComponent<RectTransform>();
+        modalRt.anchorMin = new Vector2(0.5f, 0.5f);
+        modalRt.anchorMax = new Vector2(0.5f, 0.5f);
+        modalRt.pivot = new Vector2(0.5f, 0.5f);
+        modalRt.sizeDelta = new Vector2(400f, 250f);
+        modalRt.anchoredPosition = Vector2.zero;
+
+        Image modalImg = modalWindow.GetComponent<Image>();
+        modalImg.color = new Color(0.12f, 0.12f, 0.16f, 1f);
+
+        // Inner Border
+        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        borderGo.transform.SetParent(modalWindow.transform, false);
+        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
+        borderRt.anchorMin = Vector2.zero;
+        borderRt.anchorMax = Vector2.one;
+        borderRt.offsetMin = new Vector2(4f, 4f);
+        borderRt.offsetMax = new Vector2(-4f, -4f);
+        Image borderImg = borderGo.GetComponent<Image>();
+        borderImg.color = new Color(0.18f, 0.18f, 0.24f, 1f);
+
+        // 3. Title Text
+        GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        titleGo.transform.SetParent(borderGo.transform, false);
+        RectTransform titleRt = titleGo.GetComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0f, 1f);
+        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.pivot = new Vector2(0.5f, 1f);
+        titleRt.offsetMin = new Vector2(10f, -50f);
+        titleRt.offsetMax = new Vector2(-10f, -15f);
+
+        TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
+        titleTxt.text = canEvolve ? "EVOLUTION AVAILABLE" : "EVOLUTION LOCKED";
+        titleTxt.fontSize = 22f;
+        titleTxt.fontStyle = TMPro.FontStyles.Bold;
+        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        titleTxt.color = canEvolve ? new Color(0f, 1f, 0.6f, 1f) : new Color(0.9f, 0.3f, 0.3f, 1f);
+        if (messageText != null) titleTxt.font = messageText.font;
+
+        // 4. Description Text
+        GameObject descGo = new GameObject("DescriptionText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        descGo.transform.SetParent(borderGo.transform, false);
+        RectTransform descRt = descGo.GetComponent<RectTransform>();
+        descRt.anchorMin = new Vector2(0f, 0f);
+        descRt.anchorMax = new Vector2(1f, 1f);
+        descRt.offsetMin = new Vector2(15f, 80f);
+        descRt.offsetMax = new Vector2(-15f, -60f);
+
+        TMPro.TextMeshProUGUI descTxt = descGo.GetComponent<TMPro.TextMeshProUGUI>();
+        if (canEvolve)
+        {
+            descTxt.text = $"Do you want to evolve {poke.Name}?\n<color=#FFFF00>(Costs 1 Move & resets Evolution Stones)</color>";
+        }
+        else
+        {
+            descTxt.text = $"{poke.Name} requires {PlayerState.EvolutionRequired} evolution stones to evolve. You currently have {player.EvolutionStones}/{PlayerState.EvolutionRequired}.";
+        }
+        descTxt.fontSize = 16f;
+        descTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        descTxt.color = Color.white;
+        if (messageText != null) descTxt.font = messageText.font;
+
+        // 5. Buttons Container
+        if (canEvolve)
+        {
+            // Evolve Button
+            GameObject evolveGo = new GameObject("EvolveButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+            evolveGo.transform.SetParent(borderGo.transform, false);
+            RectTransform evolveRt = evolveGo.GetComponent<RectTransform>();
+            evolveRt.anchorMin = new Vector2(0.5f, 0f);
+            evolveRt.anchorMax = new Vector2(0.5f, 0f);
+            evolveRt.pivot = new Vector2(0.5f, 0f);
+            evolveRt.sizeDelta = new Vector2(130f, 40f);
+            evolveRt.anchoredPosition = new Vector2(-75f, 20f);
+
+            Image evolveImg = evolveGo.GetComponent<Image>();
+            evolveImg.color = new Color(0f, 1f, 0.6f, 1f); // Green
+
+            GameObject evolveTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+            evolveTextGo.transform.SetParent(evolveGo.transform, false);
+            RectTransform evolveTextRt = evolveTextGo.GetComponent<RectTransform>();
+            evolveTextRt.anchorMin = Vector2.zero;
+            evolveTextRt.anchorMax = Vector2.one;
+            evolveTextRt.offsetMin = Vector2.zero;
+            evolveTextRt.offsetMax = Vector2.zero;
+            TMPro.TextMeshProUGUI evolveTxt = evolveTextGo.GetComponent<TMPro.TextMeshProUGUI>();
+            evolveTxt.text = "Evolve";
+            evolveTxt.fontSize = 16f;
+            evolveTxt.fontStyle = TMPro.FontStyles.Bold;
+            evolveTxt.alignment = TMPro.TextAlignmentOptions.Center;
+            evolveTxt.color = new Color(0.05f, 0.05f, 0.08f, 1f);
+            if (messageText != null) evolveTxt.font = messageText.font;
+
+            UnityEngine.UI.Button evolveBtn = evolveGo.GetComponent<UnityEngine.UI.Button>();
+            evolveBtn.onClick.AddListener(() =>
+            {
+                Destroy(_manualEvoPopupInstance);
+                BoardManager.GetInstance().TryManualEvolve(playerIdx, poke);
+            });
+
+            // Cancel Button
+            GameObject cancelGo = new GameObject("CancelButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+            cancelGo.transform.SetParent(borderGo.transform, false);
+            RectTransform cancelRt = cancelGo.GetComponent<RectTransform>();
+            cancelRt.anchorMin = new Vector2(0.5f, 0f);
+            cancelRt.anchorMax = new Vector2(0.5f, 0f);
+            cancelRt.pivot = new Vector2(0.5f, 0f);
+            cancelRt.sizeDelta = new Vector2(130f, 40f);
+            cancelRt.anchoredPosition = new Vector2(75f, 20f);
+
+            Image cancelImg = cancelGo.GetComponent<Image>();
+            cancelImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Grey
+
+            GameObject cancelTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+            cancelTextGo.transform.SetParent(cancelGo.transform, false);
+            RectTransform cancelTextRt = cancelTextGo.GetComponent<RectTransform>();
+            cancelTextRt.anchorMin = Vector2.zero;
+            cancelTextRt.anchorMax = Vector2.one;
+            cancelTextRt.offsetMin = Vector2.zero;
+            cancelTextRt.offsetMax = Vector2.zero;
+            TMPro.TextMeshProUGUI cancelTxt = cancelTextGo.GetComponent<TMPro.TextMeshProUGUI>();
+            cancelTxt.text = "Cancel";
+            cancelTxt.fontSize = 16f;
+            cancelTxt.fontStyle = TMPro.FontStyles.Bold;
+            cancelTxt.alignment = TMPro.TextAlignmentOptions.Center;
+            cancelTxt.color = Color.white;
+            if (messageText != null) cancelTxt.font = messageText.font;
+
+            UnityEngine.UI.Button cancelBtn = cancelGo.GetComponent<UnityEngine.UI.Button>();
+            cancelBtn.onClick.AddListener(() =>
+            {
+                Destroy(_manualEvoPopupInstance);
+            });
+        }
+        else
+        {
+            // Close Button
+            GameObject closeGo = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+            closeGo.transform.SetParent(borderGo.transform, false);
+            RectTransform closeRt = closeGo.GetComponent<RectTransform>();
+            closeRt.anchorMin = new Vector2(0.5f, 0f);
+            closeRt.anchorMax = new Vector2(0.5f, 0f);
+            closeRt.pivot = new Vector2(0.5f, 0f);
+            closeRt.sizeDelta = new Vector2(150f, 40f);
+            closeRt.anchoredPosition = new Vector2(0f, 20f);
+
+            Image closeImg = closeGo.GetComponent<Image>();
+            closeImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Grey
+
+            GameObject closeTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+            closeTextGo.transform.SetParent(closeGo.transform, false);
+            RectTransform closeTextRt = closeTextGo.GetComponent<RectTransform>();
+            closeTextRt.anchorMin = Vector2.zero;
+            closeTextRt.anchorMax = Vector2.one;
+            closeTextRt.offsetMin = Vector2.zero;
+            closeTextRt.offsetMax = Vector2.zero;
+            TMPro.TextMeshProUGUI closeTxt = closeTextGo.GetComponent<TMPro.TextMeshProUGUI>();
+            closeTxt.text = "Close";
+            closeTxt.fontSize = 16f;
+            closeTxt.fontStyle = TMPro.FontStyles.Bold;
+            closeTxt.alignment = TMPro.TextAlignmentOptions.Center;
+            closeTxt.color = Color.white;
+            if (messageText != null) closeTxt.font = messageText.font;
+
+            UnityEngine.UI.Button closeBtn = closeGo.GetComponent<UnityEngine.UI.Button>();
+            closeBtn.onClick.AddListener(() =>
+            {
+                Destroy(_manualEvoPopupInstance);
+            });
+        }
+
+        modalWindow.transform.localScale = Vector3.zero;
+        modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
     }
 
     private IEnumerator AutoCloseSuccessPopup(float delay, Action onClose)

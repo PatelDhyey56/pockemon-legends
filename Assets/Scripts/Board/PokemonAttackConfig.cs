@@ -59,10 +59,10 @@ public class PokemonAttackConfig : ScriptableObject
         {
             GemType.Fire     => new AttackRule { Type = type, StonesRequired = 6, Damage = 15, AttackName = "Ember",       EffectDescription = "Deals 15 damage" },
             GemType.Water    => new AttackRule { Type = type, StonesRequired = 4, Damage = 10, AttackName = "Water Gun",   EffectDescription = "Deals 10 dmg & removes 3 random stones" },
-            GemType.Nature   => new AttackRule { Type = type, StonesRequired = 5, Damage = 0,  AttackName = "Mega Drain",  EffectDescription = "Heals 15 HP" },
+            GemType.Nature   => new AttackRule { Type = type, StonesRequired = 5, Damage = 15, AttackName = "Mega Drain",  EffectDescription = "Heals HP & deals equal damage to opponent" },
             GemType.Electric => new AttackRule { Type = type, StonesRequired = 5, Damage = 10, AttackName = "Spark",       EffectDescription = "Deals 10 dmg & clears a row" },
             GemType.Psychic  => new AttackRule { Type = type, StonesRequired = 5, Damage = 8,  AttackName = "Psybeam",     EffectDescription = "Deals 8 dmg & gains 8 shield" },
-            GemType.Healing  => new AttackRule { Type = type, StonesRequired = 4, Damage = 0,  AttackName = "Soft-Boiled", EffectDescription = "Heals 20 HP" },
+            GemType.Healing  => new AttackRule { Type = type, StonesRequired = 4, Damage = 20, AttackName = "Soft-Boiled", EffectDescription = "Heals HP & deals equal damage to opponent" },
             _                => new AttackRule { Type = type, StonesRequired = 5, Damage = 5,  AttackName = "Tackle",      EffectDescription = "Deals 5 damage" }
         };
     }

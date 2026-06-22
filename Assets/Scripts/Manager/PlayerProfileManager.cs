@@ -1,0 +1,373 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// All Pokémon available in the game with purchase prices.
+/// Starter Pokémon (Charmander, Bulbasaur) are always unlocked for free.
+/// </summary>
+[System.Serializable]
+public class PokemonShopEntry
+{
+    public string Name;
+    public GemType Type;
+    public int Price;        // coins required to purchase
+    public bool IsStarter;   // starters are free and unlocked by default
+}
+
+/// <summary>
+/// Persistent player profile: username, coins, level, XP, owned Pokémon,
+/// selected battle team, win/loss stats. Backed by PlayerPrefs.
+/// DontDestroyOnLoad singleton — one instance across all scenes.
+/// </summary>
+public class PlayerProfileManager : MonoBehaviour
+{
+    #region Singleton
+
+    private static PlayerProfileManager _instance;
+    public static PlayerProfileManager GetInstance()
+    {
+        if (_instance == null)
+        {
+            _instance = FindFirstObjectByType<PlayerProfileManager>();
+            if (_instance == null)
+            {
+                GameObject go = new GameObject("PlayerProfileManager");
+                _instance = go.AddComponent<PlayerProfileManager>();
+            }
+        }
+        return _instance;
+    }
+
+    #endregion
+
+    #region Constants — PlayerPrefs Keys
+
+    private const string KEY_PROFILE_CREATED  = "profile_created";
+    private const string KEY_USERNAME         = "username";
+    private const string KEY_COINS            = "coins";
+    private const string KEY_LEVEL            = "level";
+    private const string KEY_XP               = "xp";
+    private const string KEY_WINS             = "wins";
+    private const string KEY_LOSSES           = "losses";
+    private const string KEY_OWNED_POKEMONS   = "owned_pokemons";   // comma-separated names
+
+    // Game balance constants
+    public const int INITIAL_COINS    = 1000;
+    public const int MAX_LEVEL        = 100;
+    public const int XP_PER_WIN       = 100;
+    public const int XP_PER_LOSS      = 25;
+    public const int COINS_PER_WIN    = 200;  // reward for winning a battle
+    public const int BATTLE_COST      = 100;  // entry fee deducted before each battle
+
+    #endregion
+
+    #region Static Pokémon Catalogue
+
+    /// <summary>
+    /// Complete catalogue of all purchasable Pokémon.
+    /// </summary>
+    public static readonly List<PokemonShopEntry> AllPokemons = new List<PokemonShopEntry>
+    {
+        // Starters — free
+        new PokemonShopEntry { Name = "Charmander", Type = GemType.Fire,     Price = 0,    IsStarter = true },
+        new PokemonShopEntry { Name = "Bulbasaur",  Type = GemType.Nature,   Price = 0,    IsStarter = true },
+        
+        // Tier 1 — 2000 coins (10 Base Power / 15 Evolved Power)
+        new PokemonShopEntry { Name = "Squirtle",   Type = GemType.Water,    Price = 2000 },
+        new PokemonShopEntry { Name = "Magnemite",  Type = GemType.Electric, Price = 2000 },
+        new PokemonShopEntry { Name = "Abra",       Type = GemType.Psychic,  Price = 2000 },
+        new PokemonShopEntry { Name = "Ponyta",     Type = GemType.Fire,     Price = 2000 },
+        new PokemonShopEntry { Name = "Chikorita",  Type = GemType.Nature,   Price = 2000 },
+        new PokemonShopEntry { Name = "Clefairy",   Type = GemType.Healing,  Price = 2000 },
+        
+        // Tier 2 — 3000 coins (15 Base Power / 20 Evolved Power)
+        new PokemonShopEntry { Name = "Psyduck",    Type = GemType.Water,    Price = 3000 },
+        new PokemonShopEntry { Name = "Jigglypuff", Type = GemType.Healing,  Price = 3000 },
+        new PokemonShopEntry { Name = "Vulpix",     Type = GemType.Fire,     Price = 3000 },
+        new PokemonShopEntry { Name = "Tangela",    Type = GemType.Nature,   Price = 3000 },
+        new PokemonShopEntry { Name = "Voltorb",    Type = GemType.Electric, Price = 3000 },
+        new PokemonShopEntry { Name = "Ralts",      Type = GemType.Psychic,  Price = 3000 },
+        
+        // Tier 3 — 4000 coins (20 Base Power / 25 Evolved Power)
+        new PokemonShopEntry { Name = "Growlithe",  Type = GemType.Fire,     Price = 4000 },
+        new PokemonShopEntry { Name = "Oddish",     Type = GemType.Nature,   Price = 4000 },
+        new PokemonShopEntry { Name = "Staryu",     Type = GemType.Water,    Price = 4000 },
+        new PokemonShopEntry { Name = "Electrabuzz",Type = GemType.Electric, Price = 4000 },
+        new PokemonShopEntry { Name = "Togepi",     Type = GemType.Healing,  Price = 4000 },
+        
+        // Tier 4 — 5000 coins (25 Base Power / 30 Evolved Power)
+        new PokemonShopEntry { Name = "Pikachu",    Type = GemType.Electric, Price = 5000 },
+        new PokemonShopEntry { Name = "Gastly",     Type = GemType.Psychic,  Price = 5000 },
+        new PokemonShopEntry { Name = "Chansey",    Type = GemType.Healing,  Price = 5000 },
+        new PokemonShopEntry { Name = "Gyarados",   Type = GemType.Water,    Price = 5000 },
+        new PokemonShopEntry { Name = "Mewtwo",     Type = GemType.Psychic,  Price = 5000 },
+    };
+
+    #endregion
+
+    #region Runtime Profile Data
+
+    public string  Username      { get; private set; }
+    public int     Coins         { get; private set; }
+    public int     Level         { get; private set; }
+    public int     XP            { get; private set; }
+    public int     Wins          { get; private set; }
+    public int     Losses        { get; private set; }
+    public bool    IsProfileCreated { get; private set; }
+
+    /// <summary>Names of all owned Pokémon.</summary>
+    public List<string> OwnedPokemons { get; private set; } = new List<string>();
+
+    #endregion
+
+    #region Events
+
+    public static Action OnProfileChanged;
+    public static Action OnCoinsChanged;
+    public static Action OnLevelChanged;
+
+    #endregion
+
+    #region XP Table
+
+    /// <summary>XP needed to reach a given level (level 1 = 0).</summary>
+    private static int XpRequiredForLevel(int level)
+    {
+        if (level <= 1) return 0;
+        // Each level costs 150 + 50*(level-2) XP from the previous level
+        return 150 + 50 * (level - 2);
+    }
+
+    #endregion
+
+    private void Awake()
+    {
+        if (_instance == null)
+        {
+            _instance = this;
+            DontDestroyOnLoad(gameObject);
+            LoadProfile();
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Profile Creation
+    // ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called once on first launch to set up the player's profile.
+    /// Grants starter Pokémon and initial coins.
+    /// </summary>
+    public void CreateProfile(string username)
+    {
+        if (string.IsNullOrWhiteSpace(username)) username = "Trainer";
+
+        Username         = username.Trim();
+        Coins            = INITIAL_COINS;
+        Level            = 1;
+        XP               = 0;
+        Wins             = 0;
+        Losses           = 0;
+        IsProfileCreated = true;
+
+        OwnedPokemons.Clear();
+        // Grant starter Pokémon
+        foreach (var entry in AllPokemons)
+        {
+            if (entry.IsStarter)
+                OwnedPokemons.Add(entry.Name);
+        }
+
+        SaveProfile();
+        OnProfileChanged?.Invoke();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Store Operations
+    // ──────────────────────────────────────────────────────────────
+
+    public bool OwnsPokemons(string name) => OwnedPokemons.Contains(name);
+
+    /// <summary>Purchase a Pokémon from the store. Returns true on success.</summary>
+    public bool PurchasePokemon(string name)
+    {
+        var entry = AllPokemons.Find(p => p.Name == name);
+        if (entry == null) return false;
+        if (OwnedPokemons.Contains(name)) return false;
+        if (Coins < entry.Price) return false;
+
+        Coins -= entry.Price;
+        OwnedPokemons.Add(name);
+
+        SaveProfile();
+        OnCoinsChanged?.Invoke();
+        OnProfileChanged?.Invoke();
+        return true;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Battle Results
+    // ──────────────────────────────────────────────────────────────
+
+    /// <summary>Call after a battle ends. isWin = whether the player won.</summary>
+    public void RecordBattleResult(bool isWin)
+    {
+        if (isWin)
+        {
+            Wins++;
+            Coins += COINS_PER_WIN;
+            AddXP(XP_PER_WIN);
+            OnCoinsChanged?.Invoke();
+        }
+        else
+        {
+            Losses++;
+            AddXP(XP_PER_LOSS);
+        }
+
+        SaveProfile();
+        OnProfileChanged?.Invoke();
+    }
+
+    private void AddXP(int amount)
+    {
+        if (Level >= MAX_LEVEL) return;
+
+        XP += amount;
+        // Level up loop
+        while (Level < MAX_LEVEL)
+        {
+            int needed = XpRequiredForLevel(Level + 1);
+            if (XP >= needed)
+            {
+                XP -= needed;
+                Level++;
+                OnLevelChanged?.Invoke();
+            }
+            else break;
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Coin management (for future use)
+    // ──────────────────────────────────────────────────────────────
+
+    /// <summary>True when the player has enough coins to enter a battle.</summary>
+    public bool CanAffordBattle => Coins >= BATTLE_COST;
+
+    public void AddCoins(int amount)
+    {
+        if (amount <= 0) return;
+        Coins += amount;
+        SaveProfile();
+        OnCoinsChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Deducts the battle entry fee (100 coins).
+    /// Returns false if the player cannot afford it — caller should block battle entry.
+    /// </summary>
+    public bool SpendCoinsForBattle()
+    {
+        if (Coins < BATTLE_COST) return false;
+        Coins -= BATTLE_COST;
+        SaveProfile();
+        OnCoinsChanged?.Invoke();
+        return true;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Logout
+    // ──────────────────────────────────────────────────────────────
+
+    /// <summary>Clears all saved profile data and resets the runtime state.</summary>
+    public void Logout()
+    {
+        PlayerPrefs.DeleteAll();
+        PlayerPrefs.Save();
+
+        Username         = "";
+        Coins            = 0;
+        Level            = 1;
+        XP               = 0;
+        Wins             = 0;
+        Losses           = 0;
+        IsProfileCreated = false;
+        OwnedPokemons.Clear();
+
+        OnProfileChanged?.Invoke();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // XP progress helper
+    // ──────────────────────────────────────────────────────────────
+
+    /// <summary>Returns 0..1 representing XP progress toward next level.</summary>
+    public float GetLevelProgress()
+    {
+        if (Level >= MAX_LEVEL) return 1f;
+        int needed = XpRequiredForLevel(Level + 1);
+        if (needed <= 0) return 1f;
+        return Mathf.Clamp01((float)XP / needed);
+    }
+
+    public int GetXPToNextLevel()
+    {
+        if (Level >= MAX_LEVEL) return 0;
+        return XpRequiredForLevel(Level + 1) - XP;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Serialization — PlayerPrefs
+    // ──────────────────────────────────────────────────────────────
+
+    private void SaveProfile()
+    {
+        GamePlayerPrefs.SetBool(KEY_PROFILE_CREATED, IsProfileCreated);
+        GamePlayerPrefs.SetString(KEY_USERNAME, Username ?? "");
+        GamePlayerPrefs.SetInt(KEY_COINS,  Coins);
+        GamePlayerPrefs.SetInt(KEY_LEVEL,  Level);
+        GamePlayerPrefs.SetInt(KEY_XP,     XP);
+        GamePlayerPrefs.SetInt(KEY_WINS,   Wins);
+        GamePlayerPrefs.SetInt(KEY_LOSSES, Losses);
+        GamePlayerPrefs.SetString(KEY_OWNED_POKEMONS, string.Join(",", OwnedPokemons));
+        GamePlayerPrefs.Save();
+    }
+
+    private void LoadProfile()
+    {
+        IsProfileCreated = GamePlayerPrefs.GetBool(KEY_PROFILE_CREATED, false);
+        Username         = GamePlayerPrefs.GetString(KEY_USERNAME, "Trainer");
+        Coins            = GamePlayerPrefs.GetInt(KEY_COINS,  INITIAL_COINS);
+        Level            = GamePlayerPrefs.GetInt(KEY_LEVEL,  1);
+        XP               = GamePlayerPrefs.GetInt(KEY_XP,     0);
+        Wins             = GamePlayerPrefs.GetInt(KEY_WINS,   0);
+        Losses           = GamePlayerPrefs.GetInt(KEY_LOSSES, 0);
+
+        string ownedRaw  = GamePlayerPrefs.GetString(KEY_OWNED_POKEMONS, "");
+        OwnedPokemons.Clear();
+        if (!string.IsNullOrEmpty(ownedRaw))
+        {
+            foreach (var name in ownedRaw.Split(','))
+            {
+                if (!string.IsNullOrWhiteSpace(name))
+                    OwnedPokemons.Add(name.Trim());
+            }
+        }
+
+        // Ensure starters are always owned
+        if (IsProfileCreated)
+        {
+            foreach (var entry in AllPokemons)
+            {
+                if (entry.IsStarter && !OwnedPokemons.Contains(entry.Name))
+                    OwnedPokemons.Add(entry.Name);
+            }
+        }
+    }
+}

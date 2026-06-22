@@ -17,4 +17,14 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/battleScene.unity
     guid: 637f3f8e31d87e7da8cd95d2402fc9ab
+  - enabled: 1
+    path: Assets/Scenes/ProfileSetupScene.unity
+    guid: 8cc20b73ee46be1a78ae8455216841ee
+  - enabled: 1
+    path: Assets/Scenes/StoreScene.unity
+    guid: 3601aa034d7cdbf6cae604280a399f97
+  - enabled: 1
+    path: Assets/Scenes/PlayerProfileScene.unity
+    guid: b3bdd4a7b254bcecb9ba1315628f4523
   m_configObjects: {}
+  m_UseUCBPForAssetBundles: 0

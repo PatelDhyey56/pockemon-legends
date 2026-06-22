@@ -7,11 +7,15 @@ public static class Constants
     //add alll scenes here
     #region SCENES
 
-    public const string SCENE_MENU = "MenuScene";
-    public const string SCENE_WEB = "webscene";
-    public const string SCENE_POKEMON = "battleScene";
+    public const string SCENE_MENU           = "MenuScene";
+    public const string SCENE_WEB            = "webscene";
+    public const string SCENE_POKEMON        = "battleScene";
+    public const string SCENE_PROFILE_SETUP  = "ProfileSetupScene";
+    public const string SCENE_STORE          = "StoreScene";
+    public const string SCENE_PROFILE        = "PlayerProfileScene";
 
     #endregion
+
 
     //add string values here
     #region STRINGS
