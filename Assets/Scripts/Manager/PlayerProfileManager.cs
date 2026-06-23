@@ -51,6 +51,9 @@ public class PlayerProfileManager : MonoBehaviour
     private const string KEY_WINS             = "wins";
     private const string KEY_LOSSES           = "losses";
     private const string KEY_OWNED_POKEMONS   = "owned_pokemons";   // comma-separated names
+    private const string KEY_BATTLE_TEAM      = "battle_team";      // comma-separated names
+    private const string KEY_SELECTED_BET     = "selected_bet";
+    private const string KEY_ACTIVE_BET       = "active_bet";
 
     // Game balance constants
     public const int INITIAL_COINS    = 1000;
@@ -119,6 +122,12 @@ public class PlayerProfileManager : MonoBehaviour
     /// <summary>Names of all owned Pokémon.</summary>
     public List<string> OwnedPokemons { get; private set; } = new List<string>();
 
+    /// <summary>Names of selected battle Pokémon (exactly 2).</summary>
+    public List<string> BattleTeam { get; private set; } = new List<string>();
+
+    public int SelectedBet { get; private set; } = 250;
+    public int ActiveBet { get; private set; } = 250;
+
     #endregion
 
     #region Events
@@ -174,13 +183,19 @@ public class PlayerProfileManager : MonoBehaviour
         Wins             = 0;
         Losses           = 0;
         IsProfileCreated = true;
+        SelectedBet      = 250;
+        ActiveBet        = 250;
 
         OwnedPokemons.Clear();
+        BattleTeam.Clear();
         // Grant starter Pokémon
         foreach (var entry in AllPokemons)
         {
             if (entry.IsStarter)
+            {
                 OwnedPokemons.Add(entry.Name);
+                BattleTeam.Add(entry.Name);
+            }
         }
 
         SaveProfile();
@@ -192,6 +207,54 @@ public class PlayerProfileManager : MonoBehaviour
     // ──────────────────────────────────────────────────────────────
 
     public bool OwnsPokemons(string name) => OwnedPokemons.Contains(name);
+
+    /// <summary>Toggles a Pokémon in the battle team. Returns false if the team is full (cannot exceed 2).</summary>
+    public bool ToggleBattleTeam(string name)
+    {
+        if (!OwnedPokemons.Contains(name)) return false;
+
+        if (BattleTeam.Contains(name))
+        {
+            BattleTeam.Remove(name);
+            SaveProfile();
+            OnProfileChanged?.Invoke();
+            return true;
+        }
+        else
+        {
+            if (BattleTeam.Count >= 2)
+            {
+                return false; // team is full
+            }
+            BattleTeam.Add(name);
+            SaveProfile();
+            OnProfileChanged?.Invoke();
+            return true;
+        }
+    }
+
+    public void SetSelectedBet(int amount)
+    {
+        SelectedBet = amount;
+        SaveProfile();
+    }
+
+    public void SetActiveBet(int amount)
+    {
+        ActiveBet = amount;
+        SaveProfile();
+    }
+
+    public void VerifySelectedBetAffordability()
+    {
+        if (Coins < SelectedBet)
+        {
+            if (Coins >= 1000) SelectedBet = 1000;
+            else if (Coins >= 500) SelectedBet = 500;
+            else SelectedBet = 250;
+            SaveProfile();
+        }
+    }
 
     /// <summary>Purchase a Pokémon from the store. Returns true on success.</summary>
     public bool PurchasePokemon(string name)
@@ -220,7 +283,7 @@ public class PlayerProfileManager : MonoBehaviour
         if (isWin)
         {
             Wins++;
-            Coins += COINS_PER_WIN;
+            Coins += ActiveBet * 2;
             AddXP(XP_PER_WIN);
             OnCoinsChanged?.Invoke();
         }
@@ -258,7 +321,7 @@ public class PlayerProfileManager : MonoBehaviour
     // ──────────────────────────────────────────────────────────────
 
     /// <summary>True when the player has enough coins to enter a battle.</summary>
-    public bool CanAffordBattle => Coins >= BATTLE_COST;
+    public bool CanAffordBattle => Coins >= SelectedBet;
 
     public void AddCoins(int amount)
     {
@@ -269,13 +332,13 @@ public class PlayerProfileManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Deducts the battle entry fee (100 coins).
+    /// Deducts the battle entry fee (bet amount).
     /// Returns false if the player cannot afford it — caller should block battle entry.
     /// </summary>
-    public bool SpendCoinsForBattle()
+    public bool SpendCoinsForBattle(int amount)
     {
-        if (Coins < BATTLE_COST) return false;
-        Coins -= BATTLE_COST;
+        if (Coins < amount) return false;
+        Coins -= amount;
         SaveProfile();
         OnCoinsChanged?.Invoke();
         return true;
@@ -299,6 +362,9 @@ public class PlayerProfileManager : MonoBehaviour
         Losses           = 0;
         IsProfileCreated = false;
         OwnedPokemons.Clear();
+        BattleTeam.Clear();
+        SelectedBet      = 250;
+        ActiveBet        = 250;
 
         OnProfileChanged?.Invoke();
     }
@@ -336,6 +402,9 @@ public class PlayerProfileManager : MonoBehaviour
         GamePlayerPrefs.SetInt(KEY_WINS,   Wins);
         GamePlayerPrefs.SetInt(KEY_LOSSES, Losses);
         GamePlayerPrefs.SetString(KEY_OWNED_POKEMONS, string.Join(",", OwnedPokemons));
+        GamePlayerPrefs.SetString(KEY_BATTLE_TEAM, string.Join(",", BattleTeam));
+        GamePlayerPrefs.SetInt(KEY_SELECTED_BET, SelectedBet);
+        GamePlayerPrefs.SetInt(KEY_ACTIVE_BET,   ActiveBet);
         GamePlayerPrefs.Save();
     }
 
@@ -369,5 +438,31 @@ public class PlayerProfileManager : MonoBehaviour
                     OwnedPokemons.Add(entry.Name);
             }
         }
+
+        // Load Battle Team
+        string teamRaw = GamePlayerPrefs.GetString(KEY_BATTLE_TEAM, "");
+        BattleTeam.Clear();
+        if (!string.IsNullOrEmpty(teamRaw))
+        {
+            foreach (var name in teamRaw.Split(','))
+            {
+                if (!string.IsNullOrWhiteSpace(name) && OwnedPokemons.Contains(name.Trim()))
+                    BattleTeam.Add(name.Trim());
+            }
+        }
+
+        // Fallback: if loaded battle team is not exactly 2, auto-populate with the first 2 owned Pokémon
+        if (BattleTeam.Count != 2)
+        {
+            BattleTeam.Clear();
+            for (int i = 0; i < OwnedPokemons.Count && BattleTeam.Count < 2; i++)
+            {
+                if (!BattleTeam.Contains(OwnedPokemons[i]))
+                    BattleTeam.Add(OwnedPokemons[i]);
+            }
+        }
+
+        SelectedBet = GamePlayerPrefs.GetInt(KEY_SELECTED_BET, 250);
+        ActiveBet   = GamePlayerPrefs.GetInt(KEY_ACTIVE_BET,   250);
     }
 }

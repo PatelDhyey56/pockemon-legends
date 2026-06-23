@@ -235,16 +235,16 @@ public class BoardManager : MonoBehaviour
         };
 
         var profile = PlayerProfileManager.GetInstance();
-        bool profileTeamReady = profile != null && profile.OwnedPokemons != null && profile.OwnedPokemons.Count >= 2;
+        bool profileTeamReady = profile != null && profile.BattleTeam != null && profile.BattleTeam.Count == 2;
 
         if (profileTeamReady)
         {
-            // Use the player's first two owned Pokémon
+            // Use the player's selected battle team
             Players[0].Name = profile.Username;
             Players[0].Pokemons.Clear();
             for (int i = 0; i < 2; i++)
             {
-                string pokeName = profile.OwnedPokemons[i];
+                string pokeName = profile.BattleTeam[i];
                 GemType type = GetTypeForPokemon(pokeName);
                 Players[0].Pokemons.Add(new PokemonState
                 {

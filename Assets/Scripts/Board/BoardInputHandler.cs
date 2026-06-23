@@ -1234,7 +1234,7 @@ public class BoardInputHandler : MonoBehaviour
         cg.interactable = !isBotTurn;
         cg.blocksRaycasts = !isBotTurn;
 
-        // Overlay with a "Opponent's Turn" label
+        // Overlay to block interactions during bot turn
         if (isBotTurn)
         {
             if (_boardBlurOverlay == null)
@@ -1249,23 +1249,6 @@ public class BoardInputHandler : MonoBehaviour
                 
                 var img = _boardBlurOverlay.GetComponent<Image>();
                 img.color = new Color(0.05f, 0.05f, 0.1f, 0.6f); // dark blue-tinted overlay
-                
-                // Add a text saying "OPPONENT'S TURN"
-                GameObject txtGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-                txtGo.transform.SetParent(_boardBlurOverlay.transform, false);
-                var txtRt = txtGo.GetComponent<RectTransform>();
-                txtRt.anchorMin = Vector2.zero;
-                txtRt.anchorMax = Vector2.one;
-                txtRt.offsetMin = Vector2.zero;
-                txtRt.offsetMax = Vector2.zero;
-                
-                var txt = txtGo.GetComponent<TMPro.TextMeshProUGUI>();
-                txt.text = "OPPONENT'S TURN";
-                txt.fontSize = 28f;
-                txt.fontStyle = TMPro.FontStyles.Bold;
-                txt.alignment = TMPro.TextAlignmentOptions.Center;
-                txt.color = new Color(1f, 0.3f, 0.3f, 1f); // Reddish/Coral text
-                if (messageText != null) txt.font = messageText.font;
             }
             _boardBlurOverlay.SetActive(true);
             _boardBlurOverlay.transform.SetAsLastSibling(); // ensure it is on top of gems

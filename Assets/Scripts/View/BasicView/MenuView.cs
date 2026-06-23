@@ -103,7 +103,7 @@ public class MenuView : View
         {
             AdMobManager.GetInstance().HideBanner();
         }
-        UnityEngine.SceneManagement.SceneManager.LoadScene("battleScene");
+        UnityEngine.SceneManagement.SceneManager.LoadScene(Constants.SCENE_BATTLE_PREP);
     }
 
     public void OnSettingButtonClick()

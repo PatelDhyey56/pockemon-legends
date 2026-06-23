@@ -52,6 +52,10 @@ public class HomeMenuController : MonoBehaviour
     [SerializeField] private GameObject      noAdsButton;
     private bool _isIAPOpen = false;
 
+    private Button[]          _betButtons;
+    private Image[]           _betImages;
+    private TextMeshProUGUI[] _betTexts;
+
     private void Awake()
     {
         // If no profile exists, redirect to profile creation
@@ -87,9 +91,13 @@ public class HomeMenuController : MonoBehaviour
         if (logoutNoBtn   != null) logoutNoBtn.onClick.AddListener(OnLogoutCancel);
         if (noCoinsOkBtn  != null) noCoinsOkBtn.onClick.AddListener(() => { if (noCoinsPopup != null) noCoinsPopup.SetActive(false); });
 
-        // Static battle info labels
-        if (battleCostText   != null) battleCostText.text   = $"Entry Fee: 🪙 {PlayerProfileManager.BATTLE_COST}";
-        if (battleRewardText != null) battleRewardText.text = $"Win Reward: +🪙 {PlayerProfileManager.COINS_PER_WIN}";
+        // Verify and build Bet Selector UI
+        var profile = PlayerProfileManager.GetInstance();
+        if (profile != null)
+        {
+            profile.VerifySelectedBetAffordability();
+        }
+        CreateBetSelectorUI();
 
         // Subscribe to profile events
         PlayerProfileManager.OnProfileChanged += RefreshAllUI;
@@ -137,8 +145,8 @@ public class HomeMenuController : MonoBehaviour
         if (p == null) return;
 
         if (usernameText != null) usernameText.text = $"👤  {p.Username}";
-        if (winsText     != null) winsText.text  = $"✅ {p.Wins} Wins";
-        if (lossesText   != null) lossesText.text = $"❌ {p.Losses} Losses";
+        if (winsText     != null) winsText.gameObject.SetActive(false);
+        if (lossesText   != null) lossesText.gameObject.SetActive(false);
     }
 
     private void RefreshCoinsAndPlayButton()
@@ -157,7 +165,7 @@ public class HomeMenuController : MonoBehaviour
         if (insufficientFundsText != null)
         {
             insufficientFundsText.gameObject.SetActive(!canAfford);
-            insufficientFundsText.text = $"Need 🪙 {PlayerProfileManager.BATTLE_COST} to play!";
+            insufficientFundsText.text = $"Need 🪙 {p.SelectedBet} to play!";
         }
 
         // Grey out play button if can't afford
@@ -169,6 +177,8 @@ public class HomeMenuController : MonoBehaviour
                 : new Color(0.5f, 0.5f, 0.5f);      // grey — insufficient funds
             playButton.colors = colors;
         }
+
+        RefreshBetSelectionUI();
     }
 
     private void RefreshLevelUI()
@@ -195,26 +205,13 @@ public class HomeMenuController : MonoBehaviour
 
     // ─── Navigation ──────────────────────────────────────────────
 
-    /// <summary>Play — deducts 100 coins entry fee then goes to Battle Scene directly.</summary>
+    /// <summary>Play — transitions to Battle Prep Scene.</summary>
     public void OnPlayButtonClick()
     {
-        var profile = PlayerProfileManager.GetInstance();
-        if (profile == null) return;
-
-        // Check coin balance first
-        if (!profile.CanAffordBattle)
-        {
-            ShowNoCoinsPopup();
-            return;
-        }
-
-        // Deduct entry fee
-        profile.SpendCoinsForBattle();
-
         if (AdMobManager.GetInstance() != null)
             AdMobManager.GetInstance().HideBanner();
 
-        SceneManager.LoadScene(Constants.SCENE_POKEMON);
+        SceneManager.LoadScene(Constants.SCENE_BATTLE_PREP);
     }
 
     public void OnProfileButtonClick()
@@ -250,8 +247,9 @@ public class HomeMenuController : MonoBehaviour
         var p = PlayerProfileManager.GetInstance();
         if (noCoinsPopup == null) return;
 
+        int needed = p != null ? p.SelectedBet : 250;
         if (noCoinsText != null)
-            noCoinsText.text = $"You need 🪙 {PlayerProfileManager.BATTLE_COST} coins to enter battle!\n\nYou have: 🪙 {p?.Coins ?? 0}\n\nVisit the Store or win battles to earn more coins.";
+            noCoinsText.text = $"You need 🪙 {needed} coins to enter battle!\n\nYou have: 🪙 {p?.Coins ?? 0}\n\nVisit the Store or win battles to earn more coins.";
 
         noCoinsPopup.SetActive(true);
         noCoinsPopup.transform.localScale = Vector3.zero;
@@ -286,5 +284,159 @@ public class HomeMenuController : MonoBehaviour
     {
         LoadingView.GetInstance()?.Hide();
         if (noAdsButton != null) noAdsButton.SetActive(false);
+    }
+
+    // ─── Bet Selector UI ──────────────────────────────────────────
+
+    private void CreateBetSelectorUI()
+    {
+        Transform parentPanel = null;
+        if (battleCostText != null)
+        {
+            parentPanel = battleCostText.transform.parent;
+            battleCostText.gameObject.SetActive(false);
+        }
+        if (battleRewardText != null)
+        {
+            battleRewardText.gameObject.SetActive(false);
+        }
+
+        if (parentPanel == null) return;
+
+        var containerGo = new GameObject("BetSelectorContainer", typeof(RectTransform));
+        containerGo.transform.SetParent(parentPanel, false);
+        var containerRect = containerGo.GetComponent<RectTransform>();
+        containerRect.anchorMin = new Vector2(0.5f, 0.5f);
+        containerRect.anchorMax = new Vector2(0.5f, 0.5f);
+        containerRect.pivot = new Vector2(0.5f, 0.5f);
+        containerRect.anchoredPosition = new Vector2(0f, 0f);
+        containerRect.sizeDelta = new Vector2(900f, 160f);
+
+        int[] betAmounts = { 250, 500, 1000 };
+        float buttonWidth = 260f;
+        float spacing = 40f;
+        float startX = -((buttonWidth * 3f) + (spacing * 2f)) / 2f + (buttonWidth / 2f);
+
+        _betButtons = new Button[3];
+        _betImages = new Image[3];
+        _betTexts = new TextMeshProUGUI[3];
+
+        for (int i = 0; i < 3; i++)
+        {
+            int index = i;
+            int bet = betAmounts[i];
+            int reward = bet * 2;
+
+            var btnGo = new GameObject($"BetBtn_{bet}", typeof(RectTransform), typeof(Image), typeof(Button));
+            btnGo.transform.SetParent(containerGo.transform, false);
+            var btnRect = btnGo.GetComponent<RectTransform>();
+            btnRect.anchorMin = new Vector2(0.5f, 0.5f);
+            btnRect.anchorMax = new Vector2(0.5f, 0.5f);
+            btnRect.pivot = new Vector2(0.5f, 0.5f);
+            btnRect.anchoredPosition = new Vector2(startX + (i * (buttonWidth + spacing)), 0f);
+            btnRect.sizeDelta = new Vector2(buttonWidth, 140f);
+
+            var img = btnGo.GetComponent<Image>();
+            img.type = Image.Type.Sliced;
+            _betImages[i] = img;
+
+            var btn = btnGo.GetComponent<Button>();
+            _betButtons[i] = btn;
+            btn.onClick.AddListener(() => SelectBet(bet));
+
+            var betTxtGo = new GameObject("BetText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            betTxtGo.transform.SetParent(btnGo.transform, false);
+            var betTxtRect = betTxtGo.GetComponent<RectTransform>();
+            betTxtRect.anchorMin = new Vector2(0.5f, 0.5f);
+            betTxtRect.anchorMax = new Vector2(0.5f, 0.5f);
+            betTxtRect.pivot = new Vector2(0.5f, 0.5f);
+            betTxtRect.anchoredPosition = new Vector2(0f, 25f);
+            betTxtRect.sizeDelta = new Vector2(buttonWidth, 40f);
+
+            var betTmp = betTxtGo.GetComponent<TextMeshProUGUI>();
+            betTmp.fontSize = 20f;
+            betTmp.fontStyle = FontStyles.Bold;
+            betTmp.alignment = TextAlignmentOptions.Center;
+            betTmp.text = $"BET 🪙{bet}";
+
+            var rewTxtGo = new GameObject("RewardText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            rewTxtGo.transform.SetParent(btnGo.transform, false);
+            var rewTxtRect = rewTxtGo.GetComponent<RectTransform>();
+            rewTxtRect.anchorMin = new Vector2(0.5f, 0.5f);
+            rewTxtRect.anchorMax = new Vector2(0.5f, 0.5f);
+            rewTxtRect.pivot = new Vector2(0.5f, 0.5f);
+            rewTxtRect.anchoredPosition = new Vector2(0f, -25f);
+            rewTxtRect.sizeDelta = new Vector2(buttonWidth, 40f);
+
+            var rewTmp = rewTxtGo.GetComponent<TextMeshProUGUI>();
+            rewTmp.fontSize = 17f;
+            rewTmp.fontStyle = FontStyles.Normal;
+            rewTmp.alignment = TextAlignmentOptions.Center;
+            rewTmp.text = $"WIN 🪙{reward}";
+            _betTexts[i] = rewTmp;
+        }
+
+        RefreshBetSelectionUI();
+    }
+
+    private void RefreshBetSelectionUI()
+    {
+        var profile = PlayerProfileManager.GetInstance();
+        if (profile == null || _betButtons == null) return;
+
+        int selectedBet = profile.SelectedBet;
+        int[] betAmounts = { 250, 500, 1000 };
+
+        for (int i = 0; i < 3; i++)
+        {
+            int bet = betAmounts[i];
+            bool canAfford = profile.Coins >= bet;
+            bool isSelected = selectedBet == bet;
+
+            var img = _betImages[i];
+            var btn = _betButtons[i];
+            var rewardTmp = _betTexts[i];
+            var betTmp = btn.transform.Find("BetText")?.GetComponent<TextMeshProUGUI>();
+
+            if (!canAfford)
+            {
+                img.color = new Color(0.08f, 0.08f, 0.1f, 0.5f);
+                if (betTmp != null) betTmp.color = new Color(0.4f, 0.4f, 0.4f, 0.5f);
+                if (rewardTmp != null) rewardTmp.color = new Color(0.4f, 0.4f, 0.4f, 0.5f);
+            }
+            else if (isSelected)
+            {
+                img.color = i switch
+                {
+                    0 => new Color(0.15f, 0.5f, 0.85f, 1f),
+                    1 => new Color(0.9f, 0.7f, 0.1f, 1f),
+                    _ => new Color(0.85f, 0.25f, 0.15f, 1f)
+                };
+                if (betTmp != null) betTmp.color = Color.white;
+                if (rewardTmp != null) rewardTmp.color = Color.white;
+            }
+            else
+            {
+                img.color = new Color(0.12f, 0.12f, 0.16f, 0.95f);
+                if (betTmp != null) betTmp.color = new Color(0.7f, 0.7f, 0.8f, 0.8f);
+                if (rewardTmp != null) rewardTmp.color = new Color(0.6f, 0.6f, 0.7f, 0.7f);
+            }
+        }
+    }
+
+    private void SelectBet(int amount)
+    {
+        var profile = PlayerProfileManager.GetInstance();
+        if (profile == null) return;
+
+        if (profile.Coins < amount)
+        {
+            ShowNoCoinsPopup();
+            return;
+        }
+
+        profile.SetSelectedBet(amount);
+        RefreshBetSelectionUI();
+        RefreshCoinsAndPlayButton();
     }
 }

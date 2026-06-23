@@ -73,11 +73,11 @@ public class PokemonStoreController : MonoBehaviour
             var scrollRect = cardContainer.GetComponentInParent<UnityEngine.UI.ScrollRect>();
             if (scrollRect != null)
             {
-                scrollRect.scrollSensitivity      = 30f;
+                scrollRect.scrollSensitivity      = 45f;
                 scrollRect.movementType           = UnityEngine.UI.ScrollRect.MovementType.Elastic;
                 scrollRect.elasticity             = 0.15f;
                 scrollRect.inertia                = true;
-                scrollRect.decelerationRate       = 0.135f;
+                scrollRect.decelerationRate       = 0.99f;
                 scrollRect.vertical               = true;
                 scrollRect.horizontal             = false;
             }
