@@ -16,7 +16,7 @@ The core objective is to defeat the opponent's Pokemon by solving puzzle boards,
 
 * player have initial 2 pokemon for play game
 * player have initial coin for play game
-* use 8x8 puzzle for every game play
+* use 7x8 puzzle for every game play
 
 ---
 

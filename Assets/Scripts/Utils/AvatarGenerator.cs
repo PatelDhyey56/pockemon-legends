@@ -1,7 +1,23 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public static class AvatarGenerator
 {
+    private static readonly Dictionary<string, string> CreatureImageMap = new Dictionary<string, string>
+    {
+        { "Ember Dragon", "pyro-draco" },
+        { "Lava Hound", "canis-molten" },
+        { "Tide Serpent", "serpens-aquatica" },
+        { "Thorn Wolf", "lupus-spinosus" },
+        { "Thunder Roc", "aquila-fulgur" },
+        { "Astral Fox", "vulpes-astris" },
+        { "Void Raven", "corvus-voidus" },
+        { "Light Phoenix", "phonex" },
+        { "Ancient Treant", "treabtius" },
+        { "Coral Guardian", "coral-guardian" },
+        { "Celestial Unicorn", "celestial-unicorn" },
+        { "Storm Drake", "storm-drake" }
+    };
     public static Sprite CreateAvatar(Color baseColor, Color eyeColor)
     {
         int size = 128;
@@ -66,6 +82,15 @@ public static class AvatarGenerator
 
     public static Sprite CreateCreatureSprite(string name)
     {
+        if (name != null && CreatureImageMap.TryGetValue(name, out string fileName))
+        {
+            Sprite customSprite = Resources.Load<Sprite>("Creatures/" + fileName);
+            if (customSprite != null)
+            {
+                return customSprite;
+            }
+        }
+
         int size = 128;
         Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
         tex.filterMode = FilterMode.Bilinear;

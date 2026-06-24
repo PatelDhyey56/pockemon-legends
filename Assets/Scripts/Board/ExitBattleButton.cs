@@ -124,6 +124,14 @@ public class ExitBattleButton : MonoBehaviour
         yesBtn.onClick.AddListener(() =>
         {
             Destroy(_confirmPopupInstance);
+
+            // Record this as a defeat (loss) before returning to the main menu
+            var profile = PlayerProfileManager.GetInstance();
+            if (profile != null)
+            {
+                profile.RecordBattleResult(false);
+            }
+
             SceneManager.LoadScene(Constants.SCENE_MENU);
         });
 

@@ -55,7 +55,7 @@ public class SplashManager : MonoBehaviour
     public IEnumerator LoadScene()
     {
         GameLaunchFirebaseEvent();
-        yield return new WaitForSeconds(delay);
+        yield return new WaitForSecondsRealtime(delay);
 
         // Route based on whether a profile has been created
         var profile = PlayerProfileManager.GetInstance();
@@ -65,6 +65,7 @@ public class SplashManager : MonoBehaviour
         }
         else
         {
+            Time.timeScale = 1f;
             SceneManager.LoadScene(Constants.SCENE_MENU);
         }
     }

@@ -395,6 +395,24 @@ public class BoardInputHandler : MonoBehaviour
         boardRect = boardParent.GetComponent<RectTransform>();
         boardRect.sizeDelta = new Vector2(totalW, totalH);
 
+        if (boardParent.parent != null)
+        {
+            Transform bgTransform = boardParent.parent.Find("BoardBackground");
+            if (bgTransform != null)
+            {
+                RectTransform bgRt = bgTransform.GetComponent<RectTransform>();
+                if (bgRt != null)
+                {
+                    // Position and scale BoardBackground exactly as requested
+                    bgRt.sizeDelta = new Vector2(1000f, 1465f);
+                    bgRt.anchoredPosition = new Vector2(-40f, -235f);
+
+                    // Position boardParent at exactly (16, -200)
+                    boardRect.anchoredPosition = new Vector2(16f, -200f);
+                }
+            }
+        }
+
         for (int r = 0; r < GridModel.ROWS; r++)
         {
             for (int c = 0; c < GridModel.COLS; c++)
@@ -1045,6 +1063,7 @@ public class BoardInputHandler : MonoBehaviour
         // P1 Creature 1
         var p1Poke1 = board.Players[0].Creatures[0];
         p1Poke1Avatar.sprite = p1Poke1.Avatar;
+        if (p1Poke1Avatar != null) p1Poke1Avatar.preserveAspect = true;
         p1Poke1Name.text = (p1Poke1.IsEvolved ? "★ Ascended " : "") + p1Poke1.Name + " (" + GetCategoryName(p1Poke1.Type) + ")";
         p1Poke1EnergyText.text = "Gems: " + p1Poke1.CurrentEnergy + "/" + p1Poke1.MaxEnergy;
         if (p1Poke1EnergyBar != null && p1Poke1EnergyBar) p1Poke1EnergyBar.fillAmount = (float)p1Poke1.CurrentEnergy / p1Poke1.MaxEnergy;
@@ -1059,6 +1078,7 @@ public class BoardInputHandler : MonoBehaviour
         // P1 Creature 2
         var p1Poke2 = board.Players[0].Creatures[1];
         p1Poke2Avatar.sprite = p1Poke2.Avatar;
+        if (p1Poke2Avatar != null) p1Poke2Avatar.preserveAspect = true;
         p1Poke2Name.text = (p1Poke2.IsEvolved ? "★ Ascended " : "") + p1Poke2.Name + " (" + GetCategoryName(p1Poke2.Type) + ")";
         p1Poke2EnergyText.text = "Gems: " + p1Poke2.CurrentEnergy + "/" + p1Poke2.MaxEnergy;
         if (p1Poke2EnergyBar != null && p1Poke2EnergyBar) p1Poke2EnergyBar.fillAmount = (float)p1Poke2.CurrentEnergy / p1Poke2.MaxEnergy;
@@ -1127,6 +1147,7 @@ public class BoardInputHandler : MonoBehaviour
         // P2 Creature 1
         var p2Poke1 = board.Players[1].Creatures[0];
         p2Poke1Avatar.sprite = p2Poke1.Avatar;
+        if (p2Poke1Avatar != null) p2Poke1Avatar.preserveAspect = true;
         p2Poke1Name.text = (p2Poke1.IsEvolved ? "★ Ascended " : "") + p2Poke1.Name + " (" + GetCategoryName(p2Poke1.Type) + ")";
         p2Poke1EnergyText.text = "Gems: " + p2Poke1.CurrentEnergy + "/" + p2Poke1.MaxEnergy;
         if (p2Poke1EnergyBar != null && p2Poke1EnergyBar) p2Poke1EnergyBar.fillAmount = (float)p2Poke1.CurrentEnergy / p2Poke1.MaxEnergy;
@@ -1141,6 +1162,7 @@ public class BoardInputHandler : MonoBehaviour
         // P2 Creature 2
         var p2Poke2 = board.Players[1].Creatures[1];
         p2Poke2Avatar.sprite = p2Poke2.Avatar;
+        if (p2Poke2Avatar != null) p2Poke2Avatar.preserveAspect = true;
         p2Poke2Name.text = (p2Poke2.IsEvolved ? "★ Ascended " : "") + p2Poke2.Name + " (" + GetCategoryName(p2Poke2.Type) + ")";
         p2Poke2EnergyText.text = "Gems: " + p2Poke2.CurrentEnergy + "/" + p2Poke2.MaxEnergy;
         if (p2Poke2EnergyBar != null && p2Poke2EnergyBar) p2Poke2EnergyBar.fillAmount = (float)p2Poke2.CurrentEnergy / p2Poke2.MaxEnergy;
@@ -1625,51 +1647,121 @@ public class BoardInputHandler : MonoBehaviour
         string winnerName = BoardManager.GetInstance().Players[winningPlayerIdx].Name;
         string loserName = BoardManager.GetInstance().Players[losingPlayerIdx].Name;
 
+        var profile = PlayerProfileManager.GetInstance();
+        int earnedXp = profile != null ? profile.LastEarnedXP : 0;
+        int earnedCoins = profile != null ? profile.LastEarnedCoins : 0;
+
         TMPro.TextMeshProUGUI msgTxt = msgGo.GetComponent<TMPro.TextMeshProUGUI>();
-        msgTxt.text = $"<color=#00FF88>{winnerName} Wins!</color>\n<color=#FF4444>{loserName} Lost the Game!</color>";
-        msgTxt.fontSize = 22f;
-        msgTxt.lineSpacing = 1.2f;
+        if (losingPlayerIdx == 1) // Player won
+        {
+            msgTxt.text = $"<color=#00FF88>Victory!</color>\n\n<color=#FFE600>🪙 +{earnedCoins} Coins</color>\n<color=#00EAFF>✨ +{earnedXp} XP</color>";
+        }
+        else if (losingPlayerIdx == 0) // Player lost
+        {
+            msgTxt.text = $"<color=#FF4444>Defeat!</color>\n\n<color=#FFE600>🪙 +0 Coins</color>\n<color=#00EAFF>✨ +{earnedXp} XP</color>";
+        }
+        else
+        {
+            msgTxt.text = $"<color=#FFCC00>Draw!</color>\n\n<color=#FFE600>🪙 +{earnedCoins} Coins</color>\n<color=#00EAFF>✨ +{earnedXp} XP</color>";
+        }
+
+        msgTxt.fontSize = 20f;
+        msgTxt.lineSpacing = 1.1f;
         msgTxt.alignment = TMPro.TextAlignmentOptions.Center;
         msgTxt.color = Color.white;
         if (messageText != null) msgTxt.font = messageText.font;
 
-        // 5. Create Button ("Play Again")
-        GameObject btnGo = new GameObject("PlayAgainButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        btnGo.transform.SetParent(borderGo.transform, false);
-        RectTransform btnRt = btnGo.GetComponent<RectTransform>();
-        btnRt.anchorMin = new Vector2(0.5f, 0f);
-        btnRt.anchorMax = new Vector2(0.5f, 0f);
-        btnRt.pivot = new Vector2(0.5f, 0f);
-        btnRt.sizeDelta = new Vector2(180f, 45f);
-        btnRt.anchoredPosition = new Vector2(0f, 25f);
+        // 5. Create Button ("Main Menu")
+        GameObject menuBtnGo = new GameObject("MainMenuButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+        menuBtnGo.transform.SetParent(borderGo.transform, false);
+        RectTransform menuBtnRt = menuBtnGo.GetComponent<RectTransform>();
+        menuBtnRt.anchorMin = new Vector2(0.5f, 0f);
+        menuBtnRt.anchorMax = new Vector2(0.5f, 0f);
+        menuBtnRt.pivot = new Vector2(0.5f, 0f);
+        menuBtnRt.sizeDelta = new Vector2(150f, 45f);
+        menuBtnRt.anchoredPosition = new Vector2(-85f, 25f);
 
-        Image btnImg = btnGo.GetComponent<Image>();
-        btnImg.color = new Color(0.2f, 0.6f, 1f, 1f); // Bright blue button
+        Image menuBtnImg = menuBtnGo.GetComponent<Image>();
+        menuBtnImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Slate Grey
 
-        // Button text
-        GameObject btnTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        btnTextGo.transform.SetParent(btnGo.transform, false);
-        RectTransform btnTextRt = btnTextGo.GetComponent<RectTransform>();
-        btnTextRt.anchorMin = Vector2.zero;
-        btnTextRt.anchorMax = Vector2.one;
-        btnTextRt.offsetMin = Vector2.zero;
-        btnTextRt.offsetMax = Vector2.zero;
+        GameObject menuBtnTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        menuBtnTextGo.transform.SetParent(menuBtnGo.transform, false);
+        RectTransform menuBtnTextRt = menuBtnTextGo.GetComponent<RectTransform>();
+        menuBtnTextRt.anchorMin = Vector2.zero;
+        menuBtnTextRt.anchorMax = Vector2.one;
+        menuBtnTextRt.offsetMin = Vector2.zero;
+        menuBtnTextRt.offsetMax = Vector2.zero;
 
-        TMPro.TextMeshProUGUI btnTxt = btnTextGo.GetComponent<TMPro.TextMeshProUGUI>();
-        btnTxt.text = "Play Again";
-        btnTxt.fontSize = 18f;
-        btnTxt.fontStyle = TMPro.FontStyles.Bold;
-        btnTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        btnTxt.color = Color.white;
-        btnTxt.raycastTarget = false;
-        if (messageText != null) btnTxt.font = messageText.font;
+        TMPro.TextMeshProUGUI menuBtnTxt = menuBtnTextGo.GetComponent<TMPro.TextMeshProUGUI>();
+        menuBtnTxt.text = "Main Menu";
+        menuBtnTxt.fontSize = 16f;
+        menuBtnTxt.fontStyle = TMPro.FontStyles.Bold;
+        menuBtnTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        menuBtnTxt.color = Color.white;
+        menuBtnTxt.raycastTarget = false;
+        if (messageText != null) menuBtnTxt.font = messageText.font;
 
-        // Set up click action
-        UnityEngine.UI.Button button = btnGo.GetComponent<UnityEngine.UI.Button>();
-        button.onClick.AddListener(() =>
+        UnityEngine.UI.Button menuButton = menuBtnGo.GetComponent<UnityEngine.UI.Button>();
+        menuButton.onClick.AddListener(() =>
         {
             Destroy(_gameOverPopupInstance);
-            BoardManager.GetInstance().InitBoard();
+            UnityEngine.SceneManagement.SceneManager.LoadScene(Constants.SCENE_MENU);
+        });
+
+        // 6. Create Button ("Play Again")
+        GameObject playBtnGo = new GameObject("PlayAgainButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+        playBtnGo.transform.SetParent(borderGo.transform, false);
+        RectTransform playBtnRt = playBtnGo.GetComponent<RectTransform>();
+        playBtnRt.anchorMin = new Vector2(0.5f, 0f);
+        playBtnRt.anchorMax = new Vector2(0.5f, 0f);
+        playBtnRt.pivot = new Vector2(0.5f, 0f);
+        playBtnRt.sizeDelta = new Vector2(150f, 45f);
+        playBtnRt.anchoredPosition = new Vector2(85f, 25f);
+
+        Image playBtnImg = playBtnGo.GetComponent<Image>();
+        playBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Nice Green
+
+        GameObject playBtnTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        playBtnTextGo.transform.SetParent(playBtnGo.transform, false);
+        RectTransform playBtnTextRt = playBtnTextGo.GetComponent<RectTransform>();
+        playBtnTextRt.anchorMin = Vector2.zero;
+        playBtnTextRt.anchorMax = Vector2.one;
+        playBtnTextRt.offsetMin = Vector2.zero;
+        playBtnTextRt.offsetMax = Vector2.zero;
+
+        TMPro.TextMeshProUGUI playBtnTxt = playBtnTextGo.GetComponent<TMPro.TextMeshProUGUI>();
+        playBtnTxt.text = "Play Again";
+        playBtnTxt.fontSize = 16f;
+        playBtnTxt.fontStyle = TMPro.FontStyles.Bold;
+        playBtnTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        playBtnTxt.color = Color.white;
+        playBtnTxt.raycastTarget = false;
+        if (messageText != null) playBtnTxt.font = messageText.font;
+
+        UnityEngine.UI.Button playButton = playBtnGo.GetComponent<UnityEngine.UI.Button>();
+        playButton.onClick.AddListener(() =>
+        {
+            var p = PlayerProfileManager.GetInstance();
+            if (p != null)
+            {
+                if (p.CanAffordBattle)
+                {
+                    p.SpendCoinsForBattle(p.SelectedBet);
+                    p.SetActiveBet(p.SelectedBet);
+                    Destroy(_gameOverPopupInstance);
+                    BoardManager.GetInstance().InitBoard();
+                }
+                else
+                {
+                    Destroy(_gameOverPopupInstance);
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(Constants.SCENE_MENU);
+                }
+            }
+            else
+            {
+                Destroy(_gameOverPopupInstance);
+                BoardManager.GetInstance().InitBoard();
+            }
         });
 
         // Small bounce animation to the popup card

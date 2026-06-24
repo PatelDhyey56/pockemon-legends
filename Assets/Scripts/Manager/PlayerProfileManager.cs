@@ -116,6 +116,9 @@ public class PlayerProfileManager : MonoBehaviour
     public int SelectedBet { get; private set; } = 250;
     public int ActiveBet { get; private set; } = 250;
 
+    public int LastEarnedXP { get; private set; } = 0;
+    public int LastEarnedCoins { get; private set; } = 0;
+
     #endregion
 
     #region Events
@@ -131,16 +134,47 @@ public class PlayerProfileManager : MonoBehaviour
     /// <summary>XP needed to reach a given level (level 1 = 0).</summary>
     private static int XpRequiredForLevel(int level)
     {
-        if (level <= 1) return 0;
-        // Each level costs 150 + 50*(level-2) XP from the previous level
-        return 150 + 50 * (level - 2);
+        if (level <= 1) return 0; // Level 1 is starting, no XP needed to stay at level 1
+        
+        switch (level)
+        {
+            case 2: return 1000;
+            case 3: return 1200;
+            case 4: return 1500;
+            case 5: return 1800;
+            case 6: return 2000;
+            case 7: return 2300;
+            case 8: return 2500;
+            case 9: return 2800;
+            case 10: return 3000;
+            case 11: return 3300;
+        }
+
+        // Exponential growth after level 11
+        // Base of 3300 and a growth factor of 1.05 per level.
+        double baseVal = 3300.0;
+        double growthFactor = 1.05;
+        double exponent = level - 11;
+        int rawXp = (int)(baseVal * System.Math.Pow(growthFactor, exponent));
+
+        // Rounding rules based on level to keep numbers clean
+        if (level <= 50)
+        {
+            // Round to the nearest 100 XP
+            return (int)(System.Math.Round(rawXp / 100.0) * 100.0);
+        }
+        else
+        {
+            // Round to the nearest 1000 XP
+            return (int)(System.Math.Round(rawXp / 1000.0) * 1000.0);
+        }
     }
 
     #endregion
 
     private void Awake()
     {
-        if (_instance == null)
+        if (_instance == null || _instance == this)
         {
             _instance = this;
             DontDestroyOnLoad(gameObject);
@@ -185,6 +219,9 @@ public class PlayerProfileManager : MonoBehaviour
                 BattleTeam.Add(entry.Name);
             }
         }
+
+        // Grant 200 XP for the two free starter creatures (100 XP each)
+        AddXP(200);
 
         SaveProfile();
         OnProfileChanged?.Invoke();
@@ -255,6 +292,9 @@ public class PlayerProfileManager : MonoBehaviour
         Coins -= entry.Price;
         OwnedCreatures.Add(name);
 
+        // Grant XP based on the creature's purchase cost
+        AddXP(entry.Price);
+
         SaveProfile();
         OnCoinsChanged?.Invoke();
         OnProfileChanged?.Invoke();
@@ -268,18 +308,63 @@ public class PlayerProfileManager : MonoBehaviour
     /// <summary>Call after a battle ends. isWin = whether the player won.</summary>
     public void RecordBattleResult(bool isWin)
     {
-        if (isWin)
+        string outcome = isWin ? "win" : "lose";
+        // Default to "Casual" mode and use the currently active bet
+        RecordBattleResult(outcome, "Casual", ActiveBet);
+    }
+
+    /// <summary>
+    /// Records the battle result and calculates XP based on outcome, game mode, and bet coins.
+    /// </summary>
+    public void RecordBattleResult(string outcome, string gameMode, int betCoin)
+    {
+        outcome = outcome.ToLower().Trim();
+        
+        // 1. Base XP depending on outcome
+        int baseXP = 50; // Draw / default
+        if (outcome == "win")
         {
             Wins++;
-            Coins += ActiveBet * 2;
-            AddXP(XP_PER_WIN);
+            Coins += betCoin * 2;
+            baseXP = 100;
+            LastEarnedCoins = betCoin * 2;
             OnCoinsChanged?.Invoke();
         }
-        else
+        else if (outcome == "lose")
         {
             Losses++;
-            AddXP(XP_PER_LOSS);
+            baseXP = 25;
+            LastEarnedCoins = 0;
         }
+        else // Draw
+        {
+            Coins += betCoin; // Refund bet
+            baseXP = 50;
+            LastEarnedCoins = betCoin;
+            OnCoinsChanged?.Invoke();
+        }
+
+        // 2. Level multiplier: "if user level is high user get more xp"
+        // Add 10% more XP per level
+        float levelMultiplier = 1.0f + (Level - 1) * 0.1f;
+
+        // 3. Bet multiplier: depend on bet coin
+        float betMultiplier = 1.0f + (betCoin / 500.0f);
+
+        // 4. Game mode multiplier: depend on game mode
+        float modeMultiplier = gameMode.ToLower().Trim() switch
+        {
+            "ranked"    => 1.5f,
+            "casual"    => 1.0f,
+            "practice"  => 0.5f,
+            _           => 1.0f
+        };
+
+        // Calculate final XP
+        int finalXP = Mathf.RoundToInt(baseXP * levelMultiplier * betMultiplier * modeMultiplier);
+        
+        LastEarnedXP = finalXP;
+        AddXP(finalXP);
 
         SaveProfile();
         OnProfileChanged?.Invoke();
@@ -287,7 +372,7 @@ public class PlayerProfileManager : MonoBehaviour
 
     private void AddXP(int amount)
     {
-        if (Level >= MAX_LEVEL) return;
+        if (Level > MAX_LEVEL) return;
 
         XP += amount;
         // Level up loop
@@ -301,6 +386,13 @@ public class PlayerProfileManager : MonoBehaviour
                 OnLevelChanged?.Invoke();
             }
             else break;
+        }
+
+        // If exactly at MAX_LEVEL, cap the XP at the final requirements to complete the game
+        if (Level == MAX_LEVEL)
+        {
+            int needed = XpRequiredForLevel(MAX_LEVEL + 1);
+            if (XP > needed) XP = needed;
         }
     }
 
@@ -353,6 +445,9 @@ public class PlayerProfileManager : MonoBehaviour
         BattleTeam.Clear();
         SelectedBet      = 250;
         ActiveBet        = 250;
+        
+        LastEarnedXP     = 0;
+        LastEarnedCoins  = 0;
 
         OnProfileChanged?.Invoke();
     }
@@ -364,16 +459,24 @@ public class PlayerProfileManager : MonoBehaviour
     /// <summary>Returns 0..1 representing XP progress toward next level.</summary>
     public float GetLevelProgress()
     {
-        if (Level >= MAX_LEVEL) return 1f;
+        if (Level > MAX_LEVEL) return 1f;
         int needed = XpRequiredForLevel(Level + 1);
         if (needed <= 0) return 1f;
+        
+        // If at max level, check if we completed the final XP goal
+        if (Level == MAX_LEVEL && XP >= needed) return 1f;
+
         return Mathf.Clamp01((float)XP / needed);
     }
 
     public int GetXPToNextLevel()
     {
-        if (Level >= MAX_LEVEL) return 0;
-        return XpRequiredForLevel(Level + 1) - XP;
+        if (Level > MAX_LEVEL) return 0;
+        int needed = XpRequiredForLevel(Level + 1);
+
+        if (Level == MAX_LEVEL && XP >= needed) return 0;
+
+        return Mathf.Max(0, needed - XP);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -428,7 +531,7 @@ public class PlayerProfileManager : MonoBehaviour
         }
     }
 
-    private void LoadProfile()
+    public void LoadProfile()
     {
         IsProfileCreated = GamePlayerPrefs.GetBool(KEY_PROFILE_CREATED, false);
         Username         = GamePlayerPrefs.GetString(KEY_USERNAME, "Trainer");

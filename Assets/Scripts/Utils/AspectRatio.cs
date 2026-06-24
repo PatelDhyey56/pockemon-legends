@@ -52,7 +52,7 @@ public class AspectRatio : MonoBehaviour
         }
     }
 
-    private const int GRID_COLS = 8;
+    private const int GRID_COLS = 7;
     private const int GRID_ROWS = 8;
     private const float CELL_SPACING = 6f;
 

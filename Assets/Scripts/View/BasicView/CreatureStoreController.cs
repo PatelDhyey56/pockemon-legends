@@ -63,6 +63,14 @@ public class CreatureStoreController : MonoBehaviour
 
     private void Start()
     {
+        Time.timeScale = 1f; // Ensure timeScale is active on entering store scene
+        var profile = PlayerProfileManager.GetInstance();
+        if (profile == null || !profile.IsProfileCreated)
+        {
+            SceneManager.LoadScene(Constants.SCENE_PROFILE_SETUP);
+            return;
+        }
+
         try
         {
             // Hide legacy scene popup if wired up
@@ -155,7 +163,10 @@ public class CreatureStoreController : MonoBehaviour
             // Avatar
             Image avatarImg = card.transform.Find("Avatar")?.GetComponent<Image>();
             if (avatarImg != null)
+            {
                 avatarImg.sprite = AvatarGenerator.CreateCreatureSprite(entry.Name);
+                avatarImg.preserveAspect = true;
+            }
 
             // Name
             TextMeshProUGUI nameText = card.transform.Find("NameText")?.GetComponent<TextMeshProUGUI>();
@@ -212,7 +223,7 @@ public class CreatureStoreController : MonoBehaviour
 
             // Stagger scale-in animation
             card.transform.localScale = Vector3.zero;
-            card.transform.DOScale(1f, 0.3f).SetDelay(index * 0.06f).SetEase(Ease.OutBack);
+            card.transform.DOScale(1f, 0.3f).SetDelay(index * 0.06f).SetEase(Ease.OutBack).SetUpdate(true);
             index++;
         }
 
@@ -321,22 +332,11 @@ public class CreatureStoreController : MonoBehaviour
         avatarRect.anchorMax        = new Vector2(0.5f, 0.5f);
         avatarRect.pivot            = new Vector2(0.5f, 0.5f);
         avatarRect.anchoredPosition = new Vector2(0f, 255f); // Shifted up
-        avatarRect.sizeDelta        = new Vector2(110f, 110f);
+        avatarRect.sizeDelta        = new Vector2(200f, 200f);
         _popupAvatar = avatarGo.AddComponent<Image>();
+        if (_popupAvatar != null) _popupAvatar.preserveAspect = true;
 
-        // Glow ring behind avatar
-        var glowGo = new GameObject("AvatarGlow", typeof(RectTransform), typeof(Image));
-        glowGo.transform.SetParent(box.transform, false);
-        glowGo.transform.SetSiblingIndex(avatarGo.transform.GetSiblingIndex()); // behind avatar
-        var glowRect = glowGo.GetComponent<RectTransform>();
-        glowRect.anchorMin        = new Vector2(0.5f, 0.5f);
-        glowRect.anchorMax        = new Vector2(0.5f, 0.5f);
-        glowRect.pivot            = new Vector2(0.5f, 0.5f);
-        glowRect.anchoredPosition = new Vector2(0f, 255f); // Shifted up
-        glowRect.sizeDelta        = new Vector2(126f, 126f);
-        var glowImg = glowGo.GetComponent<Image>();
-        glowImg.color = new Color(1f, 1f, 1f, 0.12f);
-        avatarGo.transform.SetAsLastSibling();
+
 
         // ── Creature Name ─────────────────────────────────────────────
         var nameGo = MakeChild(box.transform, "CreatureName");

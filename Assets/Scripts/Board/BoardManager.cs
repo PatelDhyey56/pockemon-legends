@@ -705,9 +705,8 @@ public class BoardManager : MonoBehaviour
         {
             PlayerState winner = Players[targetIdx == 0 ? 1 : 0];
             OnShowMessage?.Invoke(winner.Name + " Wins!");
-            OnGameOver?.Invoke(targetIdx);
 
-            // Record battle result in the persistent profile.
+            // Record battle result in the persistent profile first.
             // Player 1 (index 0) wins → isWin = true for the profile player.
             var profile = PlayerProfileManager.GetInstance();
             if (profile != null)
@@ -715,6 +714,8 @@ public class BoardManager : MonoBehaviour
                 bool playerWon = (targetIdx != 0); // targetIdx is the LOSER
                 profile.RecordBattleResult(playerWon);
             }
+
+            OnGameOver?.Invoke(targetIdx);
         }
     }
 

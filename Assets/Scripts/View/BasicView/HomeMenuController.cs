@@ -58,6 +58,7 @@ public class HomeMenuController : MonoBehaviour
 
     private void Awake()
     {
+        Time.timeScale = 1f; // Ensure timeScale is active on menu load
         // If no profile exists, redirect to profile creation
         if (PlayerProfileManager.GetInstance() != null &&
             !PlayerProfileManager.GetInstance().IsProfileCreated)
@@ -88,11 +89,14 @@ public class HomeMenuController : MonoBehaviour
         if (logoutNoBtn   != null) logoutNoBtn.onClick.AddListener(OnLogoutCancel);
         if (noCoinsOkBtn  != null) noCoinsOkBtn.onClick.AddListener(() => { if (noCoinsPopup != null) noCoinsPopup.SetActive(false); });
 
-        if (PlayerProfileManager.GetInstance() == null)
+        var profileInstance = PlayerProfileManager.GetInstance();
+        if (profileInstance == null)
         {
             SceneManager.LoadScene(Constants.SCENE_PROFILE_SETUP);
             yield break;
         }
+
+        profileInstance.LoadProfile(); // Force reload latest saved data to avoid caching/stale XP issues
 
         try
         {
@@ -214,8 +218,8 @@ public class HomeMenuController : MonoBehaviour
 
         if (xpText != null)
         {
-            if (p.Level >= PlayerProfileManager.MAX_LEVEL)
-                xpText.text = "MAX LEVEL 🏆";
+            if (p.Level >= PlayerProfileManager.MAX_LEVEL && p.GetXPToNextLevel() <= 0)
+                xpText.text = "GAME COMPLETED 🏆";
             else
                 xpText.text = $"{p.XP} / {p.XP + p.GetXPToNextLevel()} XP";
         }

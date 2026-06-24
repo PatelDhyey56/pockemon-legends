@@ -79,8 +79,9 @@ public class BattlePrepController : MonoBehaviour
 
     private void Start()
     {
+        Time.timeScale = 1f; // Ensure timeScale is active on entering battle prep scene
         var profile = PlayerProfileManager.GetInstance();
-        if (profile == null)
+        if (profile == null || !profile.IsProfileCreated)
         {
             SceneManager.LoadScene(Constants.SCENE_PROFILE_SETUP);
             return;
@@ -239,7 +240,7 @@ public class BattlePrepController : MonoBehaviour
                      : p.Level < 50  ? new Color(0.65f, 0.65f, 0.70f)  // silver
                      : p.Level < 80  ? new Color(0.85f, 0.72f, 0.10f)  // gold
                                      : new Color(0.40f, 0.85f, 0.95f); // platinum
-            avatarBg.DOColor(bg, 0.4f);
+            avatarBg.DOColor(bg, 0.4f).SetUpdate(true);
         }
 
         // Hide XP bar & details as they aren't relevant for battle prep
@@ -306,6 +307,7 @@ public class BattlePrepController : MonoBehaviour
             if (avatarImg != null)
             {
                 avatarImg.sprite = AvatarGenerator.CreateCreatureSprite(entry.Name);
+                avatarImg.preserveAspect = true;
                 avatarImg.color  = isOwned ? Color.white : new Color(0.25f, 0.25f, 0.25f, 0.6f);
             }
 
@@ -389,7 +391,8 @@ public class BattlePrepController : MonoBehaviour
             card.transform.localScale = Vector3.zero;
             card.transform.DOScale(1f, 0.25f)
                 .SetDelay(index * 0.04f)
-                .SetEase(Ease.OutBack);
+                .SetEase(Ease.OutBack)
+                .SetUpdate(true);
             
             index++;
         }
@@ -491,21 +494,11 @@ public class BattlePrepController : MonoBehaviour
         avatarRect.anchorMax        = new Vector2(0.5f, 0.5f);
         avatarRect.pivot            = new Vector2(0.5f, 0.5f);
         avatarRect.anchoredPosition = new Vector2(0f, 255f);
-        avatarRect.sizeDelta        = new Vector2(110f, 110f);
+        avatarRect.sizeDelta        = new Vector2(200f, 200f);
         _popupAvatar = avatarGo.GetComponent<Image>();
+        if (_popupAvatar != null) _popupAvatar.preserveAspect = true;
 
-        // Glow ring behind avatar
-        var glowGo = new GameObject("AvatarGlow", typeof(RectTransform), typeof(Image));
-        glowGo.transform.SetParent(box.transform, false);
-        glowGo.transform.SetSiblingIndex(avatarGo.transform.GetSiblingIndex());
-        var glowRect = glowGo.GetComponent<RectTransform>();
-        glowRect.anchorMin        = new Vector2(0.5f, 0.5f);
-        glowRect.anchorMax        = new Vector2(0.5f, 0.5f);
-        glowRect.pivot            = new Vector2(0.5f, 0.5f);
-        glowRect.anchoredPosition = new Vector2(0f, 255f);
-        glowRect.sizeDelta        = new Vector2(126f, 126f);
-        glowGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.10f);
-        avatarGo.transform.SetAsLastSibling();
+
 
         // ── Creature Name ──
         var nameGo = new GameObject("PokeName", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));

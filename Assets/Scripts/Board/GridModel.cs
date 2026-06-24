@@ -12,7 +12,7 @@ public class CascadeMove
 public class GridModel
 {
     public const int ROWS = 8;
-    public const int COLS = 8;
+    public const int COLS = 7;
 
     public GemType[,] Grid { get; private set; }
 

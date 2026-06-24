@@ -73,14 +73,22 @@ public class PlayerProfileController : MonoBehaviour
 
     private void Start()
     {
+        Time.timeScale = 1f; // Ensure timeScale is active on entering profile scene
         var profile = PlayerProfileManager.GetInstance();
-        if (profile == null)
+        if (profile == null || !profile.IsProfileCreated)
         {
             SceneManager.LoadScene(Constants.SCENE_PROFILE_SETUP);
             return;
         }
 
-        if (backButton != null) backButton.onClick.AddListener(OnBackButtonClick);
+        profile.LoadProfile(); // Force reload latest saved data to avoid caching/stale XP issues
+
+        if (backButton != null)
+        {
+            backButton.onClick.AddListener(OnBackButtonClick);
+            var backText = backButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (backText != null) backText.text = "RETURN // DEPLOY_SQUAD";
+        }
 
         // Subscribe to live updates (e.g. if profile changes mid-scene)
         PlayerProfileManager.OnProfileChanged += RefreshAll;
@@ -138,29 +146,31 @@ public class PlayerProfileController : MonoBehaviour
                      : p.Level < 50  ? new Color(0.65f, 0.65f, 0.70f)  // silver
                      : p.Level < 80  ? new Color(0.85f, 0.72f, 0.10f)  // gold
                                      : new Color(0.40f, 0.85f, 0.95f); // platinum
-            avatarBg.DOColor(bg, 0.4f);
+            avatarBg.DOColor(bg, 0.4f).SetUpdate(true);
         }
 
-        if (usernameText != null) usernameText.text = p.Username;
-        if (levelText    != null) levelText.text    = $"Level {p.Level}";
+        if (usernameText != null) usernameText.text = $"TRAINER_{p.Username.ToUpper()} // CORE_INTERFACE";
+        if (levelText    != null) levelText.text    = $"LEVEL // SYSTEM_POWER: Lvl {p.Level}";
 
         // XP bar
         float progress = p.GetLevelProgress();
         if (xpBar != null)
-            xpBar.DOFillAmount(progress, 0.6f).SetEase(Ease.OutCubic);
+            xpBar.DOFillAmount(progress, 0.6f).SetEase(Ease.OutCubic).SetUpdate(true);
 
         if (xpProgressText != null)
         {
-            if (p.Level >= PlayerProfileManager.MAX_LEVEL)
-                xpProgressText.text = "MAX LEVEL 🏆";
+            if (p.Level >= PlayerProfileManager.MAX_LEVEL && p.GetXPToNextLevel() <= 0)
+                xpProgressText.text = "GAME COMPLETED 🏆";
             else
                 xpProgressText.text = $"{p.XP} / {p.XP + p.GetXPToNextLevel()} XP";
         }
 
         if (xpToNextText != null)
         {
-            if (p.Level >= PlayerProfileManager.MAX_LEVEL)
-                xpToNextText.text = "";
+            if (p.Level >= PlayerProfileManager.MAX_LEVEL && p.GetXPToNextLevel() <= 0)
+                xpToNextText.text = "Congratulations!";
+            else if (p.Level >= PlayerProfileManager.MAX_LEVEL)
+                xpToNextText.text = $"{p.GetXPToNextLevel()} XP to complete the game!";
             else
                 xpToNextText.text = $"{p.GetXPToNextLevel()} XP to Level {p.Level + 1}";
         }
@@ -171,15 +181,35 @@ public class PlayerProfileController : MonoBehaviour
         var p = PlayerProfileManager.GetInstance();
         if (p == null) return;
 
-        if (coinsValueText != null) coinsValueText.text = $"🪙  {p.Coins}";
+        if (coinsValueText != null)
+        {
+            coinsValueText.gameObject.SetActive(true);
+            coinsValueText.text = $"🪙  {p.Coins}";
+        }
 
         int totalBattles = p.Wins + p.Losses;
         float winRate    = totalBattles > 0 ? (float)p.Wins / totalBattles * 100f : 0f;
 
-        if (winsValueText    != null) winsValueText.gameObject.SetActive(false);
-        if (lossesValueText  != null) lossesValueText.gameObject.SetActive(false);
-        if (winRateText      != null) winRateText.gameObject.SetActive(false);
-        if (battlesPlayedText!= null) battlesPlayedText.gameObject.SetActive(false);
+        if (winsValueText != null)
+        {
+            winsValueText.gameObject.SetActive(true);
+            winsValueText.text = $"🟢 {p.Wins} W";
+        }
+        if (lossesValueText != null)
+        {
+            lossesValueText.gameObject.SetActive(true);
+            lossesValueText.text = $"🔴 {p.Losses} L";
+        }
+        if (winRateText != null)
+        {
+            winRateText.gameObject.SetActive(true);
+            winRateText.text = $"📈 {winRate:F0}% Win";
+        }
+        if (battlesPlayedText != null)
+        {
+            battlesPlayedText.gameObject.SetActive(true);
+            battlesPlayedText.text = $"⚔️ {totalBattles} Match";
+        }
     }
 
 
@@ -214,7 +244,7 @@ public class PlayerProfileController : MonoBehaviour
         int owned  = profile.OwnedCreatures.Count;
 
         if (collectionCountText != null)
-            collectionCountText.text = $"Collection: {owned} / {total} Creatures";
+            collectionCountText.text = $"VAULT_ACCESS_GRANTED // SQUAD_v2.0  ||  SLOTS_OCCUPIED: [{owned:D2}/{total:D2}]";
 
         int index = 0;
         foreach (var entry in PlayerProfileManager.AllCreatures)
@@ -237,6 +267,7 @@ public class PlayerProfileController : MonoBehaviour
             if (avatarImg != null)
             {
                 avatarImg.sprite = AvatarGenerator.CreateCreatureSprite(entry.Name);
+                avatarImg.preserveAspect = true;
                 avatarImg.color  = isOwned ? Color.white : new Color(0.25f, 0.25f, 0.25f, 0.6f);
             }
 
@@ -244,7 +275,9 @@ public class PlayerProfileController : MonoBehaviour
             TextMeshProUGUI nameText = card.transform.Find("NameText")?.GetComponent<TextMeshProUGUI>();
             if (nameText != null)
             {
-                nameText.text  = entry.Name;
+                nameText.text  = entry.Name.ToUpper();
+                nameText.fontSize = 15f;
+                nameText.enableWordWrapping = false;
                 nameText.color = isOwned ? Color.white : new Color(0.7f, 0.7f, 0.7f, 0.7f);
             }
 
@@ -252,7 +285,19 @@ public class PlayerProfileController : MonoBehaviour
             TextMeshProUGUI typeText = card.transform.Find("TypeText")?.GetComponent<TextMeshProUGUI>();
             if (typeText != null)
             {
-                typeText.text = GetCategoryName(entry.Type);
+                string classType = entry.Type switch
+                {
+                    GemType.Fire     => "THERMAL_STRIKER // GEN_IX",
+                    GemType.Water    => "HYDRO_INTELLIGENCE // VECT_X",
+                    GemType.Nature   => "BIO_TACTICAL // REV_IV",
+                    GemType.Electric => "VOLT_AMPLIFIER // AMP_VI",
+                    GemType.Psychic  => "ASTRAL_PROJECTION // DIM_XI",
+                    GemType.Healing  => "NANO_REPAIR // RECA_II",
+                    _                => "STANDARD_UNIT // STD_I"
+                };
+                typeText.text = $"CLASS: {classType}";
+                typeText.fontSize = 9f;
+                typeText.enableWordWrapping = false;
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
                 {
                     typeText.color = isOwned ? tc : new Color(tc.r * 0.6f, tc.g * 0.6f, tc.b * 0.6f, 0.6f);
@@ -265,8 +310,18 @@ public class PlayerProfileController : MonoBehaviour
             {
                 int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
                 int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
-                statsText.text  = $"ATK {dmg}  ⚡{energy}";
-                statsText.color = isOwned ? new Color(0.8f, 0.8f, 0.8f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
+                
+                int atkBlocks = Mathf.Clamp(dmg / 3, 1, 8);
+                int energyBlocks = Mathf.Clamp(energy, 1, 8);
+                
+                string atkBar = new string('■', atkBlocks).PadRight(8, '□');
+                string energyBar = new string('■', energyBlocks).PadRight(8, '□');
+                
+                statsText.text = $"ATK: {dmg * 49} MHz [{atkBar}]\nENG: {energy * 148} kJ  [{energyBar}]";
+                statsText.fontSize = 9.5f;
+                statsText.lineSpacing = -8f;
+                statsText.enableWordWrapping = false;
+                statsText.color = isOwned ? new Color(0f, 0.9f, 0.9f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
             }
 
             // — Price (not shown on owned cards, show "Owned")
@@ -275,14 +330,43 @@ public class PlayerProfileController : MonoBehaviour
             {
                 if (isOwned)
                 {
-                    priceText.text = entry.IsStarter ? "Starter" : "Owned";
-                    priceText.color = new Color(0.3f, 0.9f, 0.4f); // green
+                    priceText.text = $"CORE_STABILITY: {(entry.IsStarter ? "98%" : "100%")}";
+                    priceText.fontSize = 9.5f;
+                    priceText.enableWordWrapping = false;
+                    priceText.color = new Color(0f, 0.9f, 0.9f, 0.8f); // cyan
                 }
                 else
                 {
                     priceText.text = entry.Price > 0 ? $"Locked (🪙 {entry.Price})" : "Locked";
                     priceText.color = new Color(0.85f, 0.35f, 0.35f); // reddish
                 }
+            }
+
+            // — SlotLabel / Specimen ID
+            TextMeshProUGUI slotLabel = card.transform.Find("SlotLabel")?.GetComponent<TextMeshProUGUI>();
+            if (slotLabel != null)
+            {
+                slotLabel.gameObject.SetActive(true);
+                string specimenPrefix = entry.Name switch
+                {
+                    "Ember Dragon"      => "DRG",
+                    "Thorn Wolf"        => "WLF",
+                    "Tide Serpent"      => "SRT",
+                    "Lava Hound"        => "HND",
+                    "Thunder Roc"       => "ROC",
+                    "Astral Fox"        => "FOX",
+                    "Coral Guardian"    => "GRD",
+                    "Ancient Treant"    => "TRT",
+                    "Storm Drake"       => "DRK",
+                    "Void Raven"        => "RVN",
+                    "Celestial Unicorn" => "UNC",
+                    "Light Phoenix"     => "PHX",
+                    _                   => "SPC"
+                };
+                slotLabel.text = $"SPECIMEN_ID: {specimenPrefix}_{index+1:D2}";
+                slotLabel.fontSize = 9.5f;
+                slotLabel.enableWordWrapping = false;
+                slotLabel.color = new Color(0f, 0.9f, 0.9f, 0.7f); // semi-transparent cyan
             }
 
             // — Type background tint
@@ -328,7 +412,8 @@ public class PlayerProfileController : MonoBehaviour
             card.transform.localScale = Vector3.zero;
             card.transform.DOScale(1f, 0.28f)
                 .SetDelay(index * 0.045f)
-                .SetEase(Ease.OutBack);
+                .SetEase(Ease.OutBack)
+                .SetUpdate(true);
             index++;
         }
 
@@ -406,21 +491,11 @@ public class PlayerProfileController : MonoBehaviour
         avatarRect.anchorMax        = new Vector2(0.5f, 0.5f);
         avatarRect.pivot            = new Vector2(0.5f, 0.5f);
         avatarRect.anchoredPosition = new Vector2(0f, 200f);
-        avatarRect.sizeDelta        = new Vector2(110f, 110f);
+        avatarRect.sizeDelta        = new Vector2(200f, 200f);
         _popupAvatar = avatarGo.GetComponent<Image>();
+        if (_popupAvatar != null) _popupAvatar.preserveAspect = true;
 
-        // Glow ring behind avatar
-        var glowGo = new GameObject("AvatarGlow", typeof(RectTransform), typeof(Image));
-        glowGo.transform.SetParent(box.transform, false);
-        glowGo.transform.SetSiblingIndex(avatarGo.transform.GetSiblingIndex());
-        var glowRect = glowGo.GetComponent<RectTransform>();
-        glowRect.anchorMin        = new Vector2(0.5f, 0.5f);
-        glowRect.anchorMax        = new Vector2(0.5f, 0.5f);
-        glowRect.pivot            = new Vector2(0.5f, 0.5f);
-        glowRect.anchoredPosition = new Vector2(0f, 200f);
-        glowRect.sizeDelta        = new Vector2(126f, 126f);
-        glowGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.10f);
-        avatarGo.transform.SetAsLastSibling();
+
 
         // ── Creature Name ────────────────────────────────────────────
         var nameGo = new GameObject("PokeName", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -502,7 +577,7 @@ public class PlayerProfileController : MonoBehaviour
     private void CloseDetailsPopup()
     {
         if (_detailsPopup != null)
-            _detailsPopup.transform.DOScale(0f, 0.18f).SetEase(Ease.InBack)
+            _detailsPopup.transform.DOScale(0f, 0.18f).SetEase(Ease.InBack).SetUpdate(true)
                 .OnComplete(() => { if (_detailsPopup != null) _detailsPopup.SetActive(false); });
     }
 
@@ -587,19 +662,19 @@ public class PlayerProfileController : MonoBehaviour
 
         if (_popupStoneTypeText != null)
             _popupStoneTypeText.text =
-                $"{typeIcon}  <color=#AAAACC>Gem Type:</color>     <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
+                $"{typeIcon}  <color=#AAAACC>ELEMENTAL_CLASS:</color>   <b><color={typeColor}>{GetCategoryName(entry.Type).ToUpper()}</color></b>";
 
         if (_popupStoneCapText != null)
             _popupStoneCapText.text =
-                $"💎  <color=#AAAACC>Gem Capacity:</color>  <b><color=#FFE066>{stoneLimit} Gems</color></b>";
+                $"💎  <color=#AAAACC>CORE_ENERGY_LIMIT:</color> <b><color=#FFE066>{stoneLimit} ENERGY_UNITS</color></b>";
 
         if (_popupBasePowerText != null)
             _popupBasePowerText.text =
-                $"{powerIcon}  <color=#AAAACC>Base {powerLabel}:</color>   <b><color=#66EEFF>{basePower}</color></b>";
+                $"{powerIcon}  <color=#AAAACC>ATK_PWR_LOAD:</color>      <b><color=#66EEFF>{basePower * 49} MHz</color></b>";
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"✨  <color=#AAAACC>Evolved {powerLabel}:</color> <b><color=#AAFFAA>{evolvedPower}</color></b>";
+                $"✨  <color=#AAAACC>ASCENDED_PWR_LOAD:</color> <b><color=#AAFFAA>{evolvedPower * 49} MHz</color></b>";
 
         // ── Battle Button Config ────────────────────────────────────
         if (_popupBattleBtn != null && _popupBattleBtnText != null && _popupBattleBtnImg != null)
@@ -611,12 +686,12 @@ public class PlayerProfileController : MonoBehaviour
                 // Update text and color
                 if (inTeam)
                 {
-                    _popupBattleBtnText.text = "✓ REMOVE TEAM";
+                    _popupBattleBtnText.text = "✓ DECOMMISSION_UNIT";
                     _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Green
                 }
                 else
                 {
-                    _popupBattleBtnText.text = "USE FOR BATTLE";
+                    _popupBattleBtnText.text = "DEPLOY_UNIT_TO_SQUAD";
                     _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f); // Orange/Gold
                 }
 
@@ -629,12 +704,12 @@ public class PlayerProfileController : MonoBehaviour
                         bool nowInTeam = profile.BattleTeam.Contains(name);
                         if (nowInTeam)
                         {
-                            _popupBattleBtnText.text = "✓ REMOVE TEAM";
+                            _popupBattleBtnText.text = "✓ DECOMMISSION_UNIT";
                             _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f);
                         }
                         else
                         {
-                            _popupBattleBtnText.text = "USE FOR BATTLE";
+                            _popupBattleBtnText.text = "DEPLOY_UNIT_TO_SQUAD";
                             _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f);
                         }
                         BuildCreatureGrid();
@@ -664,7 +739,7 @@ public class PlayerProfileController : MonoBehaviour
         _detailsPopup.SetActive(true);
         _detailsPopup.transform.SetAsLastSibling();
         _detailsPopup.transform.localScale = Vector3.zero;
-        _detailsPopup.transform.DOScale(1f, 0.28f).SetEase(Ease.OutBack);
+        _detailsPopup.transform.DOScale(1f, 0.28f).SetEase(Ease.OutBack).SetUpdate(true);
     }
 
     // ─── Navigation ──────────────────────────────────────────────────
