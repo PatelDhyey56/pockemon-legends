@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PokemonState
+public class CreatureState
 {
     public string Name;
     public GemType Type;
@@ -11,7 +11,7 @@ public class PokemonState
     public int CurrentEnergy;
     public int MaxEnergy;
 
-    // The individual base damage or healing value for this specific Pokemon
+    // The individual base damage or healing value for this specific Creature
     public int BaseValue;
 
     // Evolution state — set to true when the owning player collects 4 evolution stones
@@ -27,7 +27,7 @@ public class PlayerState
     public int HP;
     public int MaxHP = 80;
     public int Shield;
-    public List<PokemonState> Pokemons = new List<PokemonState>();
+    public List<CreatureState> Creatures = new List<CreatureState>();
 
     // Evolution stone tracking: needs 4 to trigger evolution
     public int EvolutionStones;
@@ -63,29 +63,29 @@ public class BoardManager : MonoBehaviour
     public static Action OnMovesChanged;
     public static Action OnHPChanged;
     public static Action<string> OnShowMessage;
-    // Fired whenever any Pokémon's collected-stone count changes
+    // Fired whenever any Creature's collected-stone count changes
     public static Action OnEnergyChanged;
     // Fired when a player picks up an evolution stone (carries playerIndex)
     public static Action<int> OnEvolutionStonesChanged;
-    // Fired when a Pokémon evolves (carries playerIndex)
+    // Fired when a Creature evolves (carries playerIndex)
     public static Action<int> OnEvolved;
     // Fired when a player's HP drops to 0 or below (carries index of losing player)
     public static Action<int> OnGameOver;
     // Fired when a player reaches 4 or more evolution stones (carries playerIndex and the selection callback)
-    public static Action<int, Action<PokemonState>> OnRequestEvolutionSelection;
-    // Fired when a Pokémon successfully evolves (carries evolved PokemonState, old value, new value, and complete callback)
-    public static Action<PokemonState, int, int, Action> OnShowEvolutionSuccessPopup;
+    public static Action<int, Action<CreatureState>> OnRequestEvolutionSelection;
+    // Fired when a Creature successfully evolves (carries evolved CreatureState, old value, new value, and complete callback)
+    public static Action<CreatureState, int, int, Action> OnShowEvolutionSuccessPopup;
 
     #endregion
 
-    private static readonly Dictionary<GemType, string[]> PokemonDatabase = new Dictionary<GemType, string[]>
+    private static readonly Dictionary<GemType, string[]> CreatureDatabase = new Dictionary<GemType, string[]>
     {
-        { GemType.Fire, new string[] { "Charmander", "Growlithe", "Ponyta", "Vulpix" } },
-        { GemType.Water, new string[] { "Squirtle", "Psyduck", "Staryu", "Gyarados" } },
-        { GemType.Nature, new string[] { "Bulbasaur", "Oddish", "Chikorita", "Tangela" } },
-        { GemType.Electric, new string[] { "Pikachu", "Magnemite", "Voltorb", "Electrabuzz" } },
-        { GemType.Psychic, new string[] { "Abra", "Gastly", "Ralts", "Mewtwo" } },
-        { GemType.Healing, new string[] { "Chansey", "Jigglypuff", "Clefairy", "Togepi" } }
+        { GemType.Fire, new string[] { "Ember Dragon", "Lava Hound" } },
+        { GemType.Water, new string[] { "Tide Serpent", "Coral Guardian" } },
+        { GemType.Nature, new string[] { "Thorn Wolf", "Ancient Treant" } },
+        { GemType.Electric, new string[] { "Thunder Roc", "Storm Drake" } },
+        { GemType.Psychic, new string[] { "Astral Fox", "Void Raven" } },
+        { GemType.Healing, new string[] { "Celestial Unicorn", "Light Phoenix" } }
     };
 
     public GridModel Grid { get; private set; }
@@ -103,53 +103,41 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    public static int GetMaxEnergyForPokemon(string name)
+    public static int GetMaxEnergyForCreature(string name)
     {
         switch (name)
         {
             // Fire
-            case "Charmander": return 6;
-            case "Ponyta":     return 5;
-            case "Vulpix":     return 6;
-            case "Growlithe":  return 8;
+            case "Ember Dragon":      return 6;
+            case "Lava Hound":        return 8;
             
             // Water
-            case "Squirtle":   return 4;
-            case "Psyduck":    return 6;
-            case "Staryu":     return 7;
-            case "Gyarados":   return 8;
+            case "Tide Serpent":      return 8;
+            case "Coral Guardian":    return 6;
             
             // Nature
-            case "Bulbasaur":  return 5;
-            case "Chikorita":  return 4;
-            case "Tangela":    return 6;
-            case "Oddish":     return 7;
+            case "Thorn Wolf":        return 5;
+            case "Ancient Treant":    return 7;
             
             // Electric
-            case "Magnemite":  return 4;
-            case "Voltorb":    return 5;
-            case "Electrabuzz":return 7;
-            case "Pikachu":    return 6;
+            case "Thunder Roc":       return 6;
+            case "Storm Drake":       return 7;
             
             // Psychic
-            case "Abra":       return 4;
-            case "Ralts":      return 5;
-            case "Gastly":     return 6;
-            case "Mewtwo":     return 8;
+            case "Astral Fox":        return 8;
+            case "Void Raven":        return 6;
             
-            // Healing
-            case "Clefairy":   return 4;
-            case "Jigglypuff": return 5;
-            case "Togepi":     return 6;
-            case "Chansey":    return 8;
+            // Healing / Light
+            case "Celestial Unicorn": return 4;
+            case "Light Phoenix":     return 8;
             
-            default:           return 5;
+            default:                  return 5;
         }
     }
 
-    private void AssignRandomPokemons(PlayerState player)
+    private void AssignRandomCreatures(PlayerState player)
     {
-        player.Pokemons.Clear();
+        player.Creatures.Clear();
         List<GemType> availableTypes = new List<GemType>
         {
             GemType.Fire, GemType.Water, GemType.Nature, GemType.Electric, GemType.Psychic, GemType.Healing
@@ -161,62 +149,50 @@ public class BoardManager : MonoBehaviour
             GemType type = availableTypes[randIdx];
             availableTypes.RemoveAt(randIdx);
 
-            string[] names = PokemonDatabase[type];
-            string pokemonName = names[UnityEngine.Random.Range(0, names.Length)];
+            string[] names = CreatureDatabase[type];
+            string creatureName = names[UnityEngine.Random.Range(0, names.Length)];
 
-            player.Pokemons.Add(new PokemonState
+            player.Creatures.Add(new CreatureState
             {
-                Name = pokemonName,
+                Name = creatureName,
                 Type = type,
-                Avatar = AvatarGenerator.CreatePokemonSprite(pokemonName),
+                Avatar = AvatarGenerator.CreateCreatureSprite(creatureName),
                 CurrentEnergy = 0,
-                MaxEnergy = GetMaxEnergyForPokemon(pokemonName),
-                BaseValue = GetBaseValueForPokemon(pokemonName)
+                MaxEnergy = GetMaxEnergyForCreature(creatureName),
+                BaseValue = GetBaseValueForCreature(creatureName)
             });
         }
     }
 
-    public static int GetBaseValueForPokemon(string name)
+    public static int GetBaseValueForCreature(string name)
     {
         switch (name)
         {
             // Fire
-            case "Charmander": return 10;
-            case "Ponyta":     return 10;
-            case "Vulpix":     return 15;
-            case "Growlithe":  return 20;
+            case "Ember Dragon":      return 10;
+            case "Lava Hound":        return 20;
             
             // Water
-            case "Squirtle":   return 10;
-            case "Psyduck":    return 15;
-            case "Staryu":     return 20;
-            case "Gyarados":   return 25;
+            case "Tide Serpent":      return 25;
+            case "Coral Guardian":    return 15;
             
             // Nature
-            case "Bulbasaur":  return 15;
-            case "Chikorita":  return 10;
-            case "Tangela":    return 15;
-            case "Oddish":     return 20;
+            case "Thorn Wolf":        return 15;
+            case "Ancient Treant":    return 20;
             
             // Electric
-            case "Magnemite":  return 10;
-            case "Voltorb":    return 15;
-            case "Electrabuzz":return 20;
-            case "Pikachu":    return 25;
+            case "Thunder Roc":       return 25;
+            case "Storm Drake":       return 20;
             
             // Psychic
-            case "Abra":       return 10;
-            case "Ralts":      return 15;
-            case "Gastly":     return 25;
-            case "Mewtwo":     return 25;
+            case "Astral Fox":        return 25;
+            case "Void Raven":        return 25;
             
-            // Healing
-            case "Clefairy":   return 10;
-            case "Jigglypuff": return 15;
-            case "Togepi":     return 20;
-            case "Chansey":    return 25;
+            // Healing / Light
+            case "Celestial Unicorn": return 10;
+            case "Light Phoenix":     return 25;
             
-            default:           return 10;
+            default:                  return 10;
         }
     }
 
@@ -241,26 +217,26 @@ public class BoardManager : MonoBehaviour
         {
             // Use the player's selected battle team
             Players[0].Name = profile.Username;
-            Players[0].Pokemons.Clear();
+            Players[0].Creatures.Clear();
             for (int i = 0; i < 2; i++)
             {
                 string pokeName = profile.BattleTeam[i];
-                GemType type = GetTypeForPokemon(pokeName);
-                Players[0].Pokemons.Add(new PokemonState
+                GemType type = GetTypeForCreature(pokeName);
+                Players[0].Creatures.Add(new CreatureState
                 {
                     Name        = pokeName,
                     Type        = type,
-                    Avatar      = AvatarGenerator.CreatePokemonSprite(pokeName),
+                    Avatar      = AvatarGenerator.CreateCreatureSprite(pokeName),
                     CurrentEnergy = 0,
-                    MaxEnergy   = GetMaxEnergyForPokemon(pokeName),
-                    BaseValue   = GetBaseValueForPokemon(pokeName)
+                    MaxEnergy   = GetMaxEnergyForCreature(pokeName),
+                    BaseValue   = GetBaseValueForCreature(pokeName)
                 });
             }
         }
         else
         {
-            // Fallback: assign random Pokémon (editor / testing)
-            AssignRandomPokemons(Players[0]);
+            // Fallback: assign random Creature (editor / testing)
+            AssignRandomCreatures(Players[0]);
         }
 
         // ── Player 2: Bot — always random ────────────────────────────────────────
@@ -272,7 +248,7 @@ public class BoardManager : MonoBehaviour
             MaxHP         = 80,
             Shield        = 0
         };
-        AssignRandomPokemons(Players[1]);
+        AssignRandomCreatures(Players[1]);
 
         ActivePlayerIndex = UnityEngine.Random.Range(0, 2);
         IsProcessing = false;
@@ -321,7 +297,7 @@ public class BoardManager : MonoBehaviour
     }
 
     // Cached attack config — loaded once, not every GetAttackRule() call
-    private PokemonAttackConfig _cachedAttackConfig;
+    private CreatureAttackConfig _cachedAttackConfig;
     private bool _attackConfigLoaded;
 
     // Pre-allocated reusable objects to avoid GC pressure in the hot coroutine path
@@ -381,33 +357,33 @@ public class BoardManager : MonoBehaviour
                     OnEvolutionStonesChanged?.Invoke(ActivePlayerIndex);
                 }
 
-                // Charge matching Pokémon energy; queue any ability that fires
+                // Charge matching Creature energy; queue any ability that fires
                 // (abilities that mutate the grid are deferred until after cascade)
                 _pendingAbilities.Clear();
                 foreach (var kvp in _typeCounts)  // reuse cached dict
                 {
                     GemType matchType = kvp.Key;
                     int count = kvp.Value;
-                    foreach (var pokemon in active.Pokemons)
+                    foreach (var creature in active.Creatures)
                     {
-                        if (pokemon.Type == matchType)
+                        if (creature.Type == matchType)
                         {
                             // Accumulate stones collected — do NOT clamp here.
                             // The while loop below drains energy in stonesRequired chunks,
                             // which naturally keeps CurrentEnergy in [0, stonesRequired-1].
                             // Clamping to MaxEnergy would silently block the attack from firing
                             // if stonesRequired != MaxEnergy (e.g. when using a custom config asset).
-                            pokemon.CurrentEnergy += count;
+                            creature.CurrentEnergy += count;
                             OnEnergyChanged?.Invoke();
 
-                            int stonesRequired = pokemon.MaxEnergy;
+                            int stonesRequired = creature.MaxEnergy;
 
                             // Fire the attack (and deal damage) once per full bar filled.
                             // Multiple fires in one turn are possible for very large matches.
-                            while (pokemon.CurrentEnergy >= stonesRequired)
+                            while (creature.CurrentEnergy >= stonesRequired)
                             {
-                                pokemon.CurrentEnergy -= stonesRequired;
-                                _pendingAbilities.Enqueue(pokemon.Type);
+                                creature.CurrentEnergy -= stonesRequired;
+                                _pendingAbilities.Enqueue(creature.Type);
                                 OnEnergyChanged?.Invoke();
                             }
                         }
@@ -483,16 +459,16 @@ public class BoardManager : MonoBehaviour
                 if (OnRequestEvolutionSelection != null)
                 {
                     IsWaitingForEvolutionSelection = true;
-                    OnRequestEvolutionSelection.Invoke(ActivePlayerIndex, (selectedPokemon) =>
+                    OnRequestEvolutionSelection.Invoke(ActivePlayerIndex, (selectedCreature) =>
                     {
-                        if (selectedPokemon != null)
+                        if (selectedCreature != null)
                         {
-                            int oldVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
+                            int oldVal = selectedCreature.BaseValue + selectedCreature.EvolutionDamageBonus;
                             
-                            selectedPokemon.IsEvolved = true;
-                            selectedPokemon.EvolutionDamageBonus += 5; // +5 damage bonus
+                            selectedCreature.IsEvolved = true;
+                            selectedCreature.EvolutionDamageBonus += 5; // +5 damage bonus
 
-                            int newVal = selectedPokemon.BaseValue + selectedPokemon.EvolutionDamageBonus;
+                            int newVal = selectedCreature.BaseValue + selectedCreature.EvolutionDamageBonus;
 
                             activePlayer.EvolutionStones = 0; // Set to 0 after evolution completes
                             activePlayer.HasPromptedEvolution = false; // Reset prompted flag
@@ -504,7 +480,7 @@ public class BoardManager : MonoBehaviour
 
                             if (OnShowEvolutionSuccessPopup != null)
                             {
-                                OnShowEvolutionSuccessPopup.Invoke(selectedPokemon, oldVal, newVal, () =>
+                                OnShowEvolutionSuccessPopup.Invoke(selectedCreature, oldVal, newVal, () =>
                                 {
                                     IsWaitingForEvolutionSelection = false;
                                 });
@@ -525,8 +501,8 @@ public class BoardManager : MonoBehaviour
                 }
                 else
                 {
-                    // Fallback: auto-evolve first unevolved Pokemon
-                    foreach (var poke in activePlayer.Pokemons)
+                    // Fallback: auto-evolve first unevolved Creature
+                    foreach (var poke in activePlayer.Creatures)
                     {
                         if (!poke.IsEvolved)
                         {
@@ -571,20 +547,20 @@ public class BoardManager : MonoBehaviour
         PlayerState active   = Players[activeIdx];
         PlayerState opponent  = Players[opponentIdx];
 
-        // Find the Pokémon that owns this gem type so we can read its evolution bonus and individual base value
-        string pokemonName = "";
+        // Find the Creature that owns this gem type so we can read its evolution bonus and individual base value
+        string creatureName = "";
         int evolutionBonus = 0;
         bool evolvedLabel  = false;
-        int pokemonBaseValue = 10;
+        int creatureBaseValue = 10;
         int collectLimit = 5;
-        foreach (var p in active.Pokemons)
+        foreach (var p in active.Creatures)
         {
             if (p.Type == type)
             {
-                pokemonName    = p.Name;
+                creatureName    = p.Name;
                 evolutionBonus = p.EvolutionDamageBonus;
                 evolvedLabel   = p.IsEvolved;
-                pokemonBaseValue = p.BaseValue;
+                creatureBaseValue = p.BaseValue;
                 collectLimit   = p.MaxEnergy;
                 break;
             }
@@ -599,9 +575,9 @@ public class BoardManager : MonoBehaviour
 
         if (type == GemType.Fire)
         {
-            int damage = pokemonBaseValue + evolutionBonus;
+            int damage = creatureBaseValue + evolutionBonus;
             ApplyDamage(opponentIdx, damage);
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+            OnShowMessage?.Invoke(active.Name + "'s " + creatureName + " used " + attackName +
                 "! Dealt " + damage + " damage!" + EvolvedTag(evolutionBonus));
             return false;
         }
@@ -614,9 +590,8 @@ public class BoardManager : MonoBehaviour
                         allTiles.Add(new Vector2Int(c, r));
 
             int removeLimit = 1;
-            if (pokemonName == "Squirtle") removeLimit = 2;
-            else if (pokemonName == "Psyduck" || pokemonName == "Staryu") removeLimit = 3;
-            else if (pokemonName == "Gyarados") removeLimit = 4;
+            if (creatureName == "Tide Serpent") removeLimit = 4;
+            else if (creatureName == "Coral Guardian") removeLimit = 3;
 
             int actualRemove = Mathf.Min(removeLimit, allTiles.Count);
             for (int i = 0; i < actualRemove; i++)
@@ -626,25 +601,25 @@ public class BoardManager : MonoBehaviour
             }
             if (actualRemove > 0) Grid.RemoveGems(allTiles.GetRange(0, actualRemove));
 
-            int waterDamage = pokemonBaseValue + evolutionBonus;
+            int waterDamage = creatureBaseValue + evolutionBonus;
             ApplyDamage(opponentIdx, waterDamage);
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+            OnShowMessage?.Invoke(active.Name + "'s " + creatureName + " used " + attackName +
                 "! Dealt " + waterDamage + " dmg & removed " + actualRemove + " opponent stones!" + EvolvedTag(evolutionBonus));
             return actualRemove > 0;
         }
         else if (type == GemType.Nature)
         {
-            int heal = pokemonBaseValue + evolutionBonus;
+            int heal = creatureBaseValue + evolutionBonus;
             ApplyHeal(activeIdx, heal);
             ApplyDamage(opponentIdx, heal);
 
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + 
+            OnShowMessage?.Invoke(active.Name + "'s " + creatureName + " used " + attackName + 
                 "! Healed " + heal + " HP & dealt " + heal + " damage!" + EvolvedTag(evolutionBonus));
             return false;
         }
         else if (type == GemType.Electric)
         {
-            int damage = pokemonBaseValue + evolutionBonus;
+            int damage = creatureBaseValue + evolutionBonus;
             ApplyDamage(opponentIdx, damage);
 
             if (collectLimit >= 6)
@@ -658,7 +633,7 @@ public class BoardManager : MonoBehaviour
                         rowTiles.Add(new Vector2Int(c, randRow));
                     Grid.RemoveGems(rowTiles);
 
-                    OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                    OnShowMessage?.Invoke(active.Name + "'s " + creatureName + " used " + attackName +
                         "! Dealt " + damage + " dmg & cleared Row " + (randRow + 1) + "!" + EvolvedTag(evolutionBonus));
                 }
                 else
@@ -669,36 +644,36 @@ public class BoardManager : MonoBehaviour
                         colTiles.Add(new Vector2Int(randCol, r));
                     Grid.RemoveGems(colTiles);
 
-                    OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                    OnShowMessage?.Invoke(active.Name + "'s " + creatureName + " used " + attackName +
                         "! Dealt " + damage + " dmg & cleared Column " + (randCol + 1) + "!" + EvolvedTag(evolutionBonus));
                 }
                 return true;
             }
             else
             {
-                OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+                OnShowMessage?.Invoke(active.Name + "'s " + creatureName + " used " + attackName +
                     "! Dealt " + damage + " dmg!" + EvolvedTag(evolutionBonus));
                 return false;
             }
         }
         else if (type == GemType.Psychic)
         {
-            int damage = pokemonBaseValue + evolutionBonus;
+            int damage = creatureBaseValue + evolutionBonus;
             int shield = 8;
             ApplyDamage(opponentIdx, damage);
             active.Shield += shield;
             OnHPChanged?.Invoke();
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName +
+            OnShowMessage?.Invoke(active.Name + "'s " + creatureName + " used " + attackName +
                 "! Dealt " + damage + " dmg & got " + shield + " Shield!" + EvolvedTag(evolutionBonus));
             return false;
         }
         else if (type == GemType.Healing)
         {
-            int heal = pokemonBaseValue + evolutionBonus;
+            int heal = creatureBaseValue + evolutionBonus;
             ApplyHeal(activeIdx, heal);
             ApplyDamage(opponentIdx, heal);
 
-            OnShowMessage?.Invoke(active.Name + "'s " + pokemonName + " used " + attackName + 
+            OnShowMessage?.Invoke(active.Name + "'s " + creatureName + " used " + attackName + 
                 "! Healed " + heal + " HP & dealt " + heal + " damage!" + EvolvedTag(evolutionBonus));
             return false;
         }
@@ -837,7 +812,7 @@ public class BoardManager : MonoBehaviour
         // Load config once and cache it — prevents Resources.Load on every call
         if (!_attackConfigLoaded)
         {
-            _cachedAttackConfig = PokemonAttackConfig.Load();
+            _cachedAttackConfig = CreatureAttackConfig.Load();
             _attackConfigLoaded = true;
         }
         if (_cachedAttackConfig != null) return _cachedAttackConfig.GetRule(type);
@@ -854,7 +829,7 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    public bool TryManualEvolve(int playerIdx, PokemonState poke)
+    public bool TryManualEvolve(int playerIdx, CreatureState poke)
     {
         if (IsProcessing || IsWaitingForEvolutionSelection) return false;
         PlayerState player = Players[playerIdx];
@@ -894,50 +869,38 @@ public class BoardManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Returns the GemType associated with a Pokémon by name.
-    /// Used when constructing PokemonState from a saved team.
+    /// Returns the GemType associated with a Creature by name.
+    /// Used when constructing CreatureState from a saved team.
     /// </summary>
-    public static GemType GetTypeForPokemon(string name)
+    public static GemType GetTypeForCreature(string name)
     {
         switch (name)
         {
             // Fire
-            case "Charmander":
-            case "Ponyta":
-            case "Vulpix":
-            case "Growlithe":  return GemType.Fire;
+            case "Ember Dragon":
+            case "Lava Hound":        return GemType.Fire;
             
             // Water
-            case "Squirtle":
-            case "Psyduck":
-            case "Staryu":
-            case "Gyarados":   return GemType.Water;
+            case "Tide Serpent":
+            case "Coral Guardian":    return GemType.Water;
             
             // Nature
-            case "Bulbasaur":
-            case "Chikorita":
-            case "Tangela":
-            case "Oddish":     return GemType.Nature;
+            case "Thorn Wolf":
+            case "Ancient Treant":    return GemType.Nature;
             
             // Electric
-            case "Pikachu":
-            case "Magnemite":
-            case "Voltorb":
-            case "Electrabuzz":return GemType.Electric;
+            case "Thunder Roc":
+            case "Storm Drake":       return GemType.Electric;
             
             // Psychic
-            case "Abra":
-            case "Ralts":
-            case "Gastly":
-            case "Mewtwo":     return GemType.Psychic;
+            case "Astral Fox":
+            case "Void Raven":        return GemType.Psychic;
             
             // Healing
-            case "Clefairy":
-            case "Jigglypuff":
-            case "Togepi":
-            case "Chansey":    return GemType.Healing;
+            case "Celestial Unicorn":
+            case "Light Phoenix":     return GemType.Healing;
             
-            default:           return GemType.Fire;
+            default:                  return GemType.Fire;
         }
     }
 }

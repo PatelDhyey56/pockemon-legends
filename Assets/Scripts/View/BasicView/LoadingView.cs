@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
 using TMPro;
@@ -17,6 +17,10 @@ public class LoadingView : View
 
     public static LoadingView GetInstance()
     {
+        if (_instance == null)
+        {
+            _instance = FindFirstObjectByType<LoadingView>(FindObjectsInactive.Include);
+        }
         return _instance;
     }
 

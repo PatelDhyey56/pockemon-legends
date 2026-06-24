@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// All Pokémon available in the game with purchase prices.
-/// Starter Pokémon (Charmander, Bulbasaur) are always unlocked for free.
+/// All Creature available in the game with purchase prices.
+/// Starter Creature (Charmander, Bulbasaur) are always unlocked for free.
 /// </summary>
 [System.Serializable]
-public class PokemonShopEntry
+public class CreatureShopEntry
 {
     public string Name;
     public GemType Type;
@@ -16,7 +16,7 @@ public class PokemonShopEntry
 }
 
 /// <summary>
-/// Persistent player profile: username, coins, level, XP, owned Pokémon,
+/// Persistent player profile: username, coins, level, XP, owned Creature,
 /// selected battle team, win/loss stats. Backed by PlayerPrefs.
 /// DontDestroyOnLoad singleton — one instance across all scenes.
 /// </summary>
@@ -50,7 +50,7 @@ public class PlayerProfileManager : MonoBehaviour
     private const string KEY_XP               = "xp";
     private const string KEY_WINS             = "wins";
     private const string KEY_LOSSES           = "losses";
-    private const string KEY_OWNED_POKEMONS   = "owned_pokemons";   // comma-separated names
+    private const string KEY_OWNED_CREATURES   = "owned_creatures";   // comma-separated names
     private const string KEY_BATTLE_TEAM      = "battle_team";      // comma-separated names
     private const string KEY_SELECTED_BET     = "selected_bet";
     private const string KEY_ACTIVE_BET       = "active_bet";
@@ -65,46 +65,34 @@ public class PlayerProfileManager : MonoBehaviour
 
     #endregion
 
-    #region Static Pokémon Catalogue
+    #region Static Creature Catalogue
 
     /// <summary>
-    /// Complete catalogue of all purchasable Pokémon.
+    /// Complete catalogue of all purchasable Creatures.
     /// </summary>
-    public static readonly List<PokemonShopEntry> AllPokemons = new List<PokemonShopEntry>
+    public static readonly List<CreatureShopEntry> AllCreatures = new List<CreatureShopEntry>
     {
         // Starters — free
-        new PokemonShopEntry { Name = "Charmander", Type = GemType.Fire,     Price = 0,    IsStarter = true },
-        new PokemonShopEntry { Name = "Bulbasaur",  Type = GemType.Nature,   Price = 0,    IsStarter = true },
+        new CreatureShopEntry { Name = "Ember Dragon",      Type = GemType.Fire,     Price = 0,    IsStarter = true },
+        new CreatureShopEntry { Name = "Thorn Wolf",        Type = GemType.Nature,   Price = 0,    IsStarter = true },
         
-        // Tier 1 — 2000 coins (10 Base Power / 15 Evolved Power)
-        new PokemonShopEntry { Name = "Squirtle",   Type = GemType.Water,    Price = 2000 },
-        new PokemonShopEntry { Name = "Magnemite",  Type = GemType.Electric, Price = 2000 },
-        new PokemonShopEntry { Name = "Abra",       Type = GemType.Psychic,  Price = 2000 },
-        new PokemonShopEntry { Name = "Ponyta",     Type = GemType.Fire,     Price = 2000 },
-        new PokemonShopEntry { Name = "Chikorita",  Type = GemType.Nature,   Price = 2000 },
-        new PokemonShopEntry { Name = "Clefairy",   Type = GemType.Healing,  Price = 2000 },
+        // Tier 1 — 2000 coins
+        new CreatureShopEntry { Name = "Tide Serpent",       Type = GemType.Water,    Price = 2000 },
+        new CreatureShopEntry { Name = "Lava Hound",         Type = GemType.Fire,     Price = 2000 },
+        new CreatureShopEntry { Name = "Thunder Roc",        Type = GemType.Electric, Price = 2000 },
+        new CreatureShopEntry { Name = "Astral Fox",         Type = GemType.Psychic,  Price = 2000 },
         
-        // Tier 2 — 3000 coins (15 Base Power / 20 Evolved Power)
-        new PokemonShopEntry { Name = "Psyduck",    Type = GemType.Water,    Price = 3000 },
-        new PokemonShopEntry { Name = "Jigglypuff", Type = GemType.Healing,  Price = 3000 },
-        new PokemonShopEntry { Name = "Vulpix",     Type = GemType.Fire,     Price = 3000 },
-        new PokemonShopEntry { Name = "Tangela",    Type = GemType.Nature,   Price = 3000 },
-        new PokemonShopEntry { Name = "Voltorb",    Type = GemType.Electric, Price = 3000 },
-        new PokemonShopEntry { Name = "Ralts",      Type = GemType.Psychic,  Price = 3000 },
+        // Tier 2 — 3000 coins
+        new CreatureShopEntry { Name = "Coral Guardian",     Type = GemType.Water,    Price = 3000 },
+        new CreatureShopEntry { Name = "Ancient Treant",     Type = GemType.Nature,   Price = 3000 },
+        new CreatureShopEntry { Name = "Storm Drake",        Type = GemType.Electric, Price = 3000 },
+        new CreatureShopEntry { Name = "Void Raven",         Type = GemType.Psychic,  Price = 3000 },
         
-        // Tier 3 — 4000 coins (20 Base Power / 25 Evolved Power)
-        new PokemonShopEntry { Name = "Growlithe",  Type = GemType.Fire,     Price = 4000 },
-        new PokemonShopEntry { Name = "Oddish",     Type = GemType.Nature,   Price = 4000 },
-        new PokemonShopEntry { Name = "Staryu",     Type = GemType.Water,    Price = 4000 },
-        new PokemonShopEntry { Name = "Electrabuzz",Type = GemType.Electric, Price = 4000 },
-        new PokemonShopEntry { Name = "Togepi",     Type = GemType.Healing,  Price = 4000 },
+        // Tier 3 — 4000 coins
+        new CreatureShopEntry { Name = "Celestial Unicorn",  Type = GemType.Healing,  Price = 4000 },
         
-        // Tier 4 — 5000 coins (25 Base Power / 30 Evolved Power)
-        new PokemonShopEntry { Name = "Pikachu",    Type = GemType.Electric, Price = 5000 },
-        new PokemonShopEntry { Name = "Gastly",     Type = GemType.Psychic,  Price = 5000 },
-        new PokemonShopEntry { Name = "Chansey",    Type = GemType.Healing,  Price = 5000 },
-        new PokemonShopEntry { Name = "Gyarados",   Type = GemType.Water,    Price = 5000 },
-        new PokemonShopEntry { Name = "Mewtwo",     Type = GemType.Psychic,  Price = 5000 },
+        // Tier 4 — 5000 coins
+        new CreatureShopEntry { Name = "Light Phoenix",      Type = GemType.Healing,  Price = 5000 },
     };
 
     #endregion
@@ -119,10 +107,10 @@ public class PlayerProfileManager : MonoBehaviour
     public int     Losses        { get; private set; }
     public bool    IsProfileCreated { get; private set; }
 
-    /// <summary>Names of all owned Pokémon.</summary>
-    public List<string> OwnedPokemons { get; private set; } = new List<string>();
+    /// <summary>Names of all owned Creature.</summary>
+    public List<string> OwnedCreatures { get; private set; } = new List<string>();
 
-    /// <summary>Names of selected battle Pokémon (exactly 2).</summary>
+    /// <summary>Names of selected battle Creature (exactly 2).</summary>
     public List<string> BattleTeam { get; private set; } = new List<string>();
 
     public int SelectedBet { get; private set; } = 250;
@@ -170,7 +158,7 @@ public class PlayerProfileManager : MonoBehaviour
 
     /// <summary>
     /// Called once on first launch to set up the player's profile.
-    /// Grants starter Pokémon and initial coins.
+    /// Grants starter Creature and initial coins.
     /// </summary>
     public void CreateProfile(string username)
     {
@@ -186,14 +174,14 @@ public class PlayerProfileManager : MonoBehaviour
         SelectedBet      = 250;
         ActiveBet        = 250;
 
-        OwnedPokemons.Clear();
+        OwnedCreatures.Clear();
         BattleTeam.Clear();
-        // Grant starter Pokémon
-        foreach (var entry in AllPokemons)
+        // Grant starter Creature
+        foreach (var entry in AllCreatures)
         {
             if (entry.IsStarter)
             {
-                OwnedPokemons.Add(entry.Name);
+                OwnedCreatures.Add(entry.Name);
                 BattleTeam.Add(entry.Name);
             }
         }
@@ -206,12 +194,12 @@ public class PlayerProfileManager : MonoBehaviour
     // Store Operations
     // ──────────────────────────────────────────────────────────────
 
-    public bool OwnsPokemons(string name) => OwnedPokemons.Contains(name);
+    public bool OwnsCreatures(string name) => OwnedCreatures.Contains(name);
 
-    /// <summary>Toggles a Pokémon in the battle team. Returns false if the team is full (cannot exceed 2).</summary>
+    /// <summary>Toggles a Creature in the battle team. Returns false if the team is full (cannot exceed 2).</summary>
     public bool ToggleBattleTeam(string name)
     {
-        if (!OwnedPokemons.Contains(name)) return false;
+        if (!OwnedCreatures.Contains(name)) return false;
 
         if (BattleTeam.Contains(name))
         {
@@ -256,16 +244,16 @@ public class PlayerProfileManager : MonoBehaviour
         }
     }
 
-    /// <summary>Purchase a Pokémon from the store. Returns true on success.</summary>
-    public bool PurchasePokemon(string name)
+    /// <summary>Purchase a Creature from the store. Returns true on success.</summary>
+    public bool PurchaseCreature(string name)
     {
-        var entry = AllPokemons.Find(p => p.Name == name);
+        var entry = AllCreatures.Find(p => p.Name == name);
         if (entry == null) return false;
-        if (OwnedPokemons.Contains(name)) return false;
+        if (OwnedCreatures.Contains(name)) return false;
         if (Coins < entry.Price) return false;
 
         Coins -= entry.Price;
-        OwnedPokemons.Add(name);
+        OwnedCreatures.Add(name);
 
         SaveProfile();
         OnCoinsChanged?.Invoke();
@@ -361,7 +349,7 @@ public class PlayerProfileManager : MonoBehaviour
         Wins             = 0;
         Losses           = 0;
         IsProfileCreated = false;
-        OwnedPokemons.Clear();
+        OwnedCreatures.Clear();
         BattleTeam.Clear();
         SelectedBet      = 250;
         ActiveBet        = 250;
@@ -401,11 +389,43 @@ public class PlayerProfileManager : MonoBehaviour
         GamePlayerPrefs.SetInt(KEY_XP,     XP);
         GamePlayerPrefs.SetInt(KEY_WINS,   Wins);
         GamePlayerPrefs.SetInt(KEY_LOSSES, Losses);
-        GamePlayerPrefs.SetString(KEY_OWNED_POKEMONS, string.Join(",", OwnedPokemons));
+        GamePlayerPrefs.SetString(KEY_OWNED_CREATURES, string.Join(",", OwnedCreatures));
         GamePlayerPrefs.SetString(KEY_BATTLE_TEAM, string.Join(",", BattleTeam));
         GamePlayerPrefs.SetInt(KEY_SELECTED_BET, SelectedBet);
         GamePlayerPrefs.SetInt(KEY_ACTIVE_BET,   ActiveBet);
         GamePlayerPrefs.Save();
+    }
+
+    private string MigrateCreatureNameToCreature(string name)
+    {
+        switch (name)
+        {
+            case "Charmander": return "Ember Dragon";
+            case "Bulbasaur": return "Thorn Wolf";
+            case "Squirtle":
+            case "Staryu":
+            case "Gyarados": return "Tide Serpent";
+            case "Magnemite":
+            case "Pikachu": return "Thunder Roc";
+            case "Abra":
+            case "Mewtwo": return "Astral Fox";
+            case "Ponyta":
+            case "Growlithe": return "Lava Hound";
+            case "Chikorita":
+            case "Oddish": return "Ancient Treant";
+            case "Clefairy":
+            case "Togepi": return "Celestial Unicorn";
+            case "Psyduck": return "Coral Guardian";
+            case "Jigglypuff":
+            case "Chansey": return "Light Phoenix";
+            case "Vulpix": return "Ember Dragon";
+            case "Tangela": return "Thorn Wolf";
+            case "Voltorb":
+            case "Electrabuzz": return "Storm Drake";
+            case "Ralts":
+            case "Gastly": return "Void Raven";
+            default: return name;
+        }
     }
 
     private void LoadProfile()
@@ -418,25 +438,31 @@ public class PlayerProfileManager : MonoBehaviour
         Wins             = GamePlayerPrefs.GetInt(KEY_WINS,   0);
         Losses           = GamePlayerPrefs.GetInt(KEY_LOSSES, 0);
 
-        string ownedRaw  = GamePlayerPrefs.GetString(KEY_OWNED_POKEMONS, "");
-        OwnedPokemons.Clear();
+        string ownedRaw  = GamePlayerPrefs.GetString(KEY_OWNED_CREATURES, "");
+        if (string.IsNullOrEmpty(ownedRaw))
+        {
+            // Migrate legacy saved profile creatures
+            ownedRaw = GamePlayerPrefs.GetString("owned_pokemons", "");
+        }
+        OwnedCreatures.Clear();
         if (!string.IsNullOrEmpty(ownedRaw))
         {
             foreach (var name in ownedRaw.Split(','))
             {
                 if (!string.IsNullOrWhiteSpace(name))
-                    OwnedPokemons.Add(name.Trim());
+                {
+                    string migrated = MigrateCreatureNameToCreature(name.Trim());
+                    if (!OwnedCreatures.Contains(migrated))
+                        OwnedCreatures.Add(migrated);
+                }
             }
         }
 
         // Ensure starters are always owned
-        if (IsProfileCreated)
+        foreach (var entry in AllCreatures)
         {
-            foreach (var entry in AllPokemons)
-            {
-                if (entry.IsStarter && !OwnedPokemons.Contains(entry.Name))
-                    OwnedPokemons.Add(entry.Name);
-            }
+            if (entry.IsStarter && !OwnedCreatures.Contains(entry.Name))
+                OwnedCreatures.Add(entry.Name);
         }
 
         // Load Battle Team
@@ -446,19 +472,23 @@ public class PlayerProfileManager : MonoBehaviour
         {
             foreach (var name in teamRaw.Split(','))
             {
-                if (!string.IsNullOrWhiteSpace(name) && OwnedPokemons.Contains(name.Trim()))
-                    BattleTeam.Add(name.Trim());
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    string migrated = MigrateCreatureNameToCreature(name.Trim());
+                    if (OwnedCreatures.Contains(migrated) && !BattleTeam.Contains(migrated))
+                        BattleTeam.Add(migrated);
+                }
             }
         }
 
-        // Fallback: if loaded battle team is not exactly 2, auto-populate with the first 2 owned Pokémon
+        // Fallback: if loaded battle team is not exactly 2, auto-populate with the first 2 owned Creature
         if (BattleTeam.Count != 2)
         {
             BattleTeam.Clear();
-            for (int i = 0; i < OwnedPokemons.Count && BattleTeam.Count < 2; i++)
+            for (int i = 0; i < OwnedCreatures.Count && BattleTeam.Count < 2; i++)
             {
-                if (!BattleTeam.Contains(OwnedPokemons[i]))
-                    BattleTeam.Add(OwnedPokemons[i]);
+                if (!BattleTeam.Contains(OwnedCreatures[i]))
+                    BattleTeam.Add(OwnedCreatures[i]);
             }
         }
 

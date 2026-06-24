@@ -118,6 +118,7 @@ public class ExitBattleButton : MonoBehaviour
         yesTxt.fontStyle = TMPro.FontStyles.Bold;
         yesTxt.alignment = TMPro.TextAlignmentOptions.Center;
         yesTxt.color = Color.white;
+        yesTxt.raycastTarget = false;
 
         UnityEngine.UI.Button yesBtn = yesGo.GetComponent<UnityEngine.UI.Button>();
         yesBtn.onClick.AddListener(() =>
@@ -152,6 +153,7 @@ public class ExitBattleButton : MonoBehaviour
         noTxt.fontStyle = TMPro.FontStyles.Bold;
         noTxt.alignment = TMPro.TextAlignmentOptions.Center;
         noTxt.color = Color.white;
+        noTxt.raycastTarget = false;
 
         UnityEngine.UI.Button noBtn = noGo.GetComponent<UnityEngine.UI.Button>();
         noBtn.onClick.AddListener(() =>

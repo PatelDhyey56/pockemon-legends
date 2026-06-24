@@ -27,6 +27,10 @@ public class SettingView : View
 
     public static SettingView GetInstance()
     {
+        if (_instance == null)
+        {
+            _instance = FindFirstObjectByType<SettingView>(FindObjectsInactive.Include);
+        }
         return _instance;
     }
 

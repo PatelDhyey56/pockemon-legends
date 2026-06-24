@@ -64,7 +64,7 @@ public static class AvatarGenerator
         return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
     }
 
-    public static Sprite CreatePokemonSprite(string name)
+    public static Sprite CreateCreatureSprite(string name)
     {
         int size = 128;
         Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
@@ -78,18 +78,18 @@ public static class AvatarGenerator
         Color detailColor = Color.white;
         Color eyeColor = Color.black;
 
-        if (name == "Charmander") { bodyColor = new Color(1f, 0.5f, 0.1f); detailColor = new Color(1f, 0.8f, 0.2f); eyeColor = Color.cyan; }
-        else if (name == "Growlithe") { bodyColor = new Color(0.9f, 0.4f, 0f); detailColor = new Color(0.1f, 0.1f, 0.1f); eyeColor = Color.black; }
-        else if (name == "Squirtle") { bodyColor = new Color(0.4f, 0.7f, 0.9f); detailColor = new Color(0.7f, 0.4f, 0.2f); eyeColor = Color.red; }
-        else if (name == "Psyduck") { bodyColor = new Color(0.95f, 0.85f, 0.2f); detailColor = new Color(0.85f, 0.75f, 0.4f); eyeColor = Color.white; }
-        else if (name == "Bulbasaur") { bodyColor = new Color(0.3f, 0.75f, 0.7f); detailColor = new Color(0.1f, 0.6f, 0.2f); eyeColor = Color.red; }
-        else if (name == "Oddish") { bodyColor = new Color(0.2f, 0.3f, 0.6f); detailColor = new Color(0.2f, 0.7f, 0.3f); eyeColor = Color.red; }
-        else if (name == "Pikachu") { bodyColor = new Color(1f, 0.85f, 0.1f); detailColor = new Color(0.9f, 0.1f, 0.1f); eyeColor = Color.black; }
-        else if (name == "Magnemite") { bodyColor = new Color(0.7f, 0.7f, 0.75f); detailColor = new Color(0.2f, 0.4f, 0.8f); eyeColor = Color.red; }
-        else if (name == "Abra") { bodyColor = new Color(0.9f, 0.8f, 0.3f); detailColor = new Color(0.6f, 0.4f, 0.2f); eyeColor = Color.black; }
-        else if (name == "Gastly") { bodyColor = new Color(0.15f, 0.1f, 0.2f); detailColor = new Color(0.5f, 0.1f, 0.6f); eyeColor = Color.white; }
-        else if (name == "Chansey") { bodyColor = new Color(1f, 0.65f, 0.75f); detailColor = new Color(1f, 0.95f, 0.95f); eyeColor = Color.black; }
-        else if (name == "Jigglypuff") { bodyColor = new Color(1f, 0.7f, 0.8f); detailColor = new Color(0.2f, 0.7f, 0.9f); eyeColor = Color.cyan; }
+        if (name == "Ember Dragon") { bodyColor = new Color(1f, 0.5f, 0.1f); detailColor = new Color(1f, 0.8f, 0.2f); eyeColor = Color.cyan; }
+        else if (name == "Lava Hound") { bodyColor = new Color(0.9f, 0.25f, 0.05f); detailColor = new Color(0.15f, 0.15f, 0.15f); eyeColor = Color.yellow; }
+        else if (name == "Tide Serpent") { bodyColor = new Color(0.1f, 0.55f, 0.85f); detailColor = new Color(0.05f, 0.3f, 0.6f); eyeColor = Color.red; }
+        else if (name == "Coral Guardian") { bodyColor = new Color(0.1f, 0.75f, 0.7f); detailColor = new Color(1f, 0.5f, 0.5f); eyeColor = Color.white; }
+        else if (name == "Thorn Wolf") { bodyColor = new Color(0.1f, 0.5f, 0.2f); detailColor = new Color(0.4f, 0.8f, 0.3f); eyeColor = Color.red; }
+        else if (name == "Ancient Treant") { bodyColor = new Color(0.45f, 0.28f, 0.1f); detailColor = new Color(0.2f, 0.7f, 0.3f); eyeColor = Color.yellow; }
+        else if (name == "Thunder Roc") { bodyColor = new Color(1f, 0.85f, 0.1f); detailColor = new Color(0.2f, 0.2f, 0.2f); eyeColor = Color.black; }
+        else if (name == "Storm Drake") { bodyColor = new Color(0.1f, 0.2f, 0.5f); detailColor = new Color(1f, 0.8f, 0.1f); eyeColor = Color.cyan; }
+        else if (name == "Astral Fox") { bodyColor = new Color(0.6f, 0.2f, 0.85f); detailColor = new Color(0.8f, 0.4f, 0.95f); eyeColor = Color.white; }
+        else if (name == "Void Raven") { bodyColor = new Color(0.1f, 0.05f, 0.2f); detailColor = new Color(0.7f, 0.15f, 0.85f); eyeColor = new Color(0.8f, 0.3f, 1f); }
+        else if (name == "Celestial Unicorn") { bodyColor = new Color(0.95f, 0.95f, 1f); detailColor = new Color(0.9f, 0.75f, 0.2f); eyeColor = new Color(0.9f, 0.75f, 0.2f); }
+        else if (name == "Light Phoenix") { bodyColor = new Color(1f, 0.7f, 0.1f); detailColor = new Color(0.9f, 0.15f, 0.1f); eyeColor = new Color(1f, 0.5f, 0f); }
 
         float centerX = size / 2f;
         float centerY = size / 2f;
@@ -109,17 +109,17 @@ public static class AvatarGenerator
                     float t = (dy + bodyRadius) / (bodyRadius * 2f);
                     c = Color.Lerp(bodyColor * 0.75f, bodyColor, t);
 
-                    if (name == "Bulbasaur")
+                    if (name == "Thorn Wolf")
                     {
                         float bulbDist = Mathf.Sqrt(dx * dx + (dy - 20f) * (dy - 20f));
                         if (bulbDist < bodyRadius * 0.6f) c = detailColor;
                     }
-                    else if (name == "Charmander" || name == "Squirtle")
+                    else if (name == "Ember Dragon" || name == "Tide Serpent")
                     {
                         float bellyDist = Mathf.Sqrt(dx * dx + (dy + 10f) * (dy + 10f));
                         if (bellyDist < bodyRadius * 0.6f) c = detailColor;
                     }
-                    else if (name == "Pikachu")
+                    else if (name == "Thunder Roc")
                     {
                         float cheekL = Mathf.Sqrt((dx + 18f) * (dx + 18f) + (dy + 8f) * (dy + 8f));
                         float cheekR = Mathf.Sqrt((dx - 18f) * (dx - 18f) + (dy + 8f) * (dy + 8f));
@@ -142,7 +142,7 @@ public static class AvatarGenerator
                     tex.SetPixel(x, y, c);
                 }
 
-                if (name == "Gastly")
+                if (name == "Void Raven")
                 {
                     if (dist >= bodyRadius && dist < bodyRadius * 1.5f)
                     {
@@ -154,7 +154,7 @@ public static class AvatarGenerator
                     }
                 }
 
-                if (name == "Oddish" && dy > 18f && Mathf.Abs(dx) < 30f)
+                if (name == "Ancient Treant" && dy > 18f && Mathf.Abs(dx) < 30f)
                 {
                     float leafDist = Mathf.Sqrt(dx * dx + (dy - 35f) * (dy - 35f));
                     if (leafDist < 20f)
@@ -162,7 +162,7 @@ public static class AvatarGenerator
                         tex.SetPixel(x, y, detailColor);
                     }
                 }
-                else if (name == "Pikachu" && dy > 15f && Mathf.Abs(dx) > 15f && Mathf.Abs(dx) < 32f)
+                else if (name == "Thunder Roc" && dy > 15f && Mathf.Abs(dx) > 15f && Mathf.Abs(dx) < 32f)
                 {
                     float earL = Mathf.Sqrt((dx + 25f) * (dx + 25f) + (dy - 35f) * (dy - 35f));
                     float earR = Mathf.Sqrt((dx - 25f) * (dx - 25f) + (dy - 35f) * (dy - 35f));

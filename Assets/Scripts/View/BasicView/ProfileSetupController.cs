@@ -22,6 +22,9 @@ public class ProfileSetupController : MonoBehaviour
 
     private void Start()
     {
+        // Ensure timeScale is active on entering profile setup
+        Time.timeScale = 1f;
+
         // This scene should only be entered if no profile exists.
         // If a profile is somehow present, skip straight to menu.
         if (PlayerProfileManager.GetInstance() != null &&
@@ -33,19 +36,20 @@ public class ProfileSetupController : MonoBehaviour
 
         if (errorText != null) errorText.text = "";
 
-        // Bounce-in animation
+        // Bounce-in animation using unscaled update to prevent freeze
         if (cardRect != null)
         {
             cardRect.localScale = Vector3.zero;
             DG.Tweening.DOTween.Sequence()
                 .Append(cardRect.DOScale(1.05f, 0.35f).SetEase(DG.Tweening.Ease.OutBack))
-                .Append(cardRect.DOScale(1f,    0.1f));
+                .Append(cardRect.DOScale(1f,    0.1f))
+                .SetUpdate(true);
         }
 
         if (panelGroup != null)
         {
             panelGroup.alpha = 0f;
-            panelGroup.DOFade(1f, 0.4f);
+            panelGroup.DOFade(1f, 0.4f).SetUpdate(true);
         }
 
         // Limit username to 16 chars

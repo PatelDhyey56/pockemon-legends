@@ -68,19 +68,16 @@ public class HomeMenuController : MonoBehaviour
 
     private IEnumerator Start()
     {
+        // Immediately disable raycast target on button text components to avoid blocking click events
+        DisableButtonTextRaycasts(gameObject);
+        if (logoutPopup != null) DisableButtonTextRaycasts(logoutPopup);
+        if (noCoinsPopup != null) DisableButtonTextRaycasts(noCoinsPopup);
+
         if (logoutPopup  != null) logoutPopup.SetActive(false);
         if (noCoinsPopup != null) noCoinsPopup.SetActive(false);
         if (insufficientFundsText != null) insufficientFundsText.gameObject.SetActive(false);
 
-        if (PlayerProfileManager.GetInstance() == null)
-        {
-            SceneManager.LoadScene(Constants.SCENE_PROFILE_SETUP);
-            yield break;
-        }
-
-        RefreshAllUI();
-
-        // Wire up buttons
+        // Wire up buttons first so they are guaranteed to work even if UI refresh throws
         if (playButton    != null) playButton.onClick.AddListener(OnPlayButtonClick);
         if (profileButton != null) profileButton.onClick.AddListener(OnProfileButtonClick);
         if (storeButton   != null) storeButton.onClick.AddListener(OnStoreButtonClick);
@@ -91,13 +88,36 @@ public class HomeMenuController : MonoBehaviour
         if (logoutNoBtn   != null) logoutNoBtn.onClick.AddListener(OnLogoutCancel);
         if (noCoinsOkBtn  != null) noCoinsOkBtn.onClick.AddListener(() => { if (noCoinsPopup != null) noCoinsPopup.SetActive(false); });
 
+        if (PlayerProfileManager.GetInstance() == null)
+        {
+            SceneManager.LoadScene(Constants.SCENE_PROFILE_SETUP);
+            yield break;
+        }
+
+        try
+        {
+            RefreshAllUI();
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[HomeMenuController] Exception in RefreshAllUI: {ex}");
+        }
+
         // Verify and build Bet Selector UI
         var profile = PlayerProfileManager.GetInstance();
         if (profile != null)
         {
             profile.VerifySelectedBetAffordability();
         }
-        CreateBetSelectorUI();
+
+        try
+        {
+            CreateBetSelectorUI();
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[HomeMenuController] Exception in CreateBetSelectorUI: {ex}");
+        }
 
         // Subscribe to profile events
         PlayerProfileManager.OnProfileChanged += RefreshAllUI;
@@ -158,7 +178,7 @@ public class HomeMenuController : MonoBehaviour
 
         // Pulse coins text when updated
         if (coinsText != null)
-            coinsText.transform.DOPunchScale(Vector3.one * 0.15f, 0.3f, 5, 0.5f);
+            coinsText.transform.DOPunchScale(Vector3.one * 0.15f, 0.3f, 5, 0.5f).SetUpdate(true);
 
         // Show "not enough coins" warning under play button
         bool canAfford = p.CanAffordBattle;
@@ -190,7 +210,7 @@ public class HomeMenuController : MonoBehaviour
 
         float progress = p.GetLevelProgress();
         if (xpBar != null)
-            xpBar.DOFillAmount(progress, 0.5f).SetEase(Ease.OutCubic);
+            xpBar.DOFillAmount(progress, 0.5f).SetEase(Ease.OutCubic).SetUpdate(true);
 
         if (xpText != null)
         {
@@ -253,7 +273,7 @@ public class HomeMenuController : MonoBehaviour
 
         noCoinsPopup.SetActive(true);
         noCoinsPopup.transform.localScale = Vector3.zero;
-        noCoinsPopup.transform.DOScale(1f, 0.28f).SetEase(Ease.OutBack);
+        noCoinsPopup.transform.DOScale(1f, 0.28f).SetEase(Ease.OutBack).SetUpdate(true);
     }
 
     // ─── Logout Flow ─────────────────────────────────────────────
@@ -263,13 +283,30 @@ public class HomeMenuController : MonoBehaviour
         if (logoutPopup == null) return;
         logoutPopup.SetActive(true);
         logoutPopup.transform.localScale = Vector3.zero;
-        logoutPopup.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack);
+        logoutPopup.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack).SetUpdate(true);
     }
 
     public void OnLogoutConfirm()
     {
-        logoutPopup?.SetActive(false);
-        PlayerProfileManager.GetInstance()?.Logout();
+        if (logoutPopup != null)
+        {
+            logoutPopup.SetActive(false);
+        }
+
+        try
+        {
+            var profile = PlayerProfileManager.GetInstance();
+            if (profile != null)
+            {
+                profile.Logout();
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[HomeMenuController] Exception during profile logout: {ex}");
+        }
+
+        // Always redirect to Profile Setup Scene on logout
         SceneManager.LoadScene(Constants.SCENE_PROFILE_SETUP);
     }
 
@@ -376,27 +413,34 @@ public class HomeMenuController : MonoBehaviour
             _betTexts[i] = rewTmp;
         }
 
+        DisableButtonTextRaycasts(containerGo);
         RefreshBetSelectionUI();
     }
 
     private void RefreshBetSelectionUI()
     {
         var profile = PlayerProfileManager.GetInstance();
-        if (profile == null || _betButtons == null) return;
+        if (profile == null || _betButtons == null || _betImages == null || _betTexts == null) return;
 
         int selectedBet = profile.SelectedBet;
         int[] betAmounts = { 250, 500, 1000 };
 
         for (int i = 0; i < 3; i++)
         {
+            if (i >= _betButtons.Length || i >= _betImages.Length || i >= _betTexts.Length) break;
+
+            var btn = _betButtons[i];
+            var img = _betImages[i];
+            var rewardTmp = _betTexts[i];
+
+            if (btn == null || img == null) continue;
+
             int bet = betAmounts[i];
             bool canAfford = profile.Coins >= bet;
             bool isSelected = selectedBet == bet;
 
-            var img = _betImages[i];
-            var btn = _betButtons[i];
-            var rewardTmp = _betTexts[i];
-            var betTmp = btn.transform.Find("BetText")?.GetComponent<TextMeshProUGUI>();
+            var betTextTrans = btn.transform.Find("BetText");
+            var betTmp = betTextTrans != null ? betTextTrans.GetComponent<TextMeshProUGUI>() : null;
 
             if (!canAfford)
             {
@@ -438,5 +482,27 @@ public class HomeMenuController : MonoBehaviour
         profile.SetSelectedBet(amount);
         RefreshBetSelectionUI();
         RefreshCoinsAndPlayButton();
+    }
+
+    private void DisableButtonTextRaycasts(GameObject parent)
+    {
+        if (parent == null) return;
+        var buttons = parent.GetComponentsInChildren<Button>(true);
+        foreach (var btn in buttons)
+        {
+            var texts = btn.GetComponentsInChildren<TMPro.TMP_Text>(true);
+            foreach (var txt in texts)
+            {
+                txt.raycastTarget = false;
+            }
+            var images = btn.GetComponentsInChildren<Image>(true);
+            foreach (var img in images)
+            {
+                if (img.gameObject != btn.gameObject)
+                {
+                    img.raycastTarget = false;
+                }
+            }
+        }
     }
 }

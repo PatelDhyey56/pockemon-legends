@@ -85,7 +85,7 @@ public class P2Bot : MonoBehaviour
         public Vector2Int From;
         public Vector2Int To;
         public int Score;
-        public bool IsStrategic; // Matches bot's pokemon type or evolution
+        public bool IsStrategic; // Matches bot's creature type or evolution
     }
 
     private void MakeMove()
@@ -93,16 +93,16 @@ public class P2Bot : MonoBehaviour
         if (_board == null || _board.Grid == null) return;
         if (_board.IsProcessing) return;
 
-        List<GemType> botPokemonTypes = new List<GemType>();
-        if (_board.Players != null && _board.Players.Length > 1 && _board.Players[1].Pokemons != null)
+        List<GemType> botCreatureTypes = new List<GemType>();
+        if (_board.Players != null && _board.Players.Length > 1 && _board.Players[1].Creatures != null)
         {
-            foreach (var p in _board.Players[1].Pokemons)
+            foreach (var p in _board.Players[1].Creatures)
             {
-                botPokemonTypes.Add(p.Type);
+                botCreatureTypes.Add(p.Type);
             }
         }
 
-        List<BotMove> allMoves = EvaluateAllMoves(botPokemonTypes);
+        List<BotMove> allMoves = EvaluateAllMoves(botCreatureTypes);
 
         if (allMoves.Count > 0)
         {
@@ -168,7 +168,7 @@ public class P2Bot : MonoBehaviour
             _inputHandler.ExecuteBotSwap(from, to);
     }
 
-    private List<BotMove> EvaluateAllMoves(List<GemType> botPokemonTypes)
+    private List<BotMove> EvaluateAllMoves(List<GemType> botCreatureTypes)
     {
         List<BotMove> moves = new List<BotMove>();
         if (_board == null || _board.Grid == null) return moves;
@@ -185,14 +185,14 @@ public class P2Bot : MonoBehaviour
                 if (c < GridModel.COLS - 1)
                 {
                     Vector2Int right = new Vector2Int(c + 1, r);
-                    EvaluateSwap(grid, curr, right, botPokemonTypes, moves);
+                    EvaluateSwap(grid, curr, right, botCreatureTypes, moves);
                 }
 
                 // Try Down swap
                 if (r < GridModel.ROWS - 1)
                 {
                     Vector2Int down = new Vector2Int(c, r + 1);
-                    EvaluateSwap(grid, curr, down, botPokemonTypes, moves);
+                    EvaluateSwap(grid, curr, down, botCreatureTypes, moves);
                 }
             }
         }
@@ -200,14 +200,14 @@ public class P2Bot : MonoBehaviour
         return moves;
     }
 
-    private void EvaluateSwap(GridModel grid, Vector2Int a, Vector2Int b, List<GemType> botPokemonTypes, List<BotMove> moves)
+    private void EvaluateSwap(GridModel grid, Vector2Int a, Vector2Int b, List<GemType> botCreatureTypes, List<BotMove> moves)
     {
         grid.Swap(a, b);
         List<Vector2Int> matches = grid.FindMatches();
         
         if (matches.Count > 0)
         {
-            int score = CalculateMoveScore(grid, matches, botPokemonTypes, out bool isStrategic);
+            int score = CalculateMoveScore(grid, matches, botCreatureTypes, out bool isStrategic);
             moves.Add(new BotMove
             {
                 From = a,
@@ -219,7 +219,7 @@ public class P2Bot : MonoBehaviour
         grid.Swap(a, b); // Revert
     }
 
-    private int CalculateMoveScore(GridModel grid, List<Vector2Int> matches, List<GemType> botPokemonTypes, out bool isStrategic)
+    private int CalculateMoveScore(GridModel grid, List<Vector2Int> matches, List<GemType> botCreatureTypes, out bool isStrategic)
     {
         isStrategic = false;
         int score = 0;
@@ -247,7 +247,7 @@ public class P2Bot : MonoBehaviour
                 score += 20;
                 isStrategic = true;
             }
-            else if (botPokemonTypes.Contains(type))
+            else if (botCreatureTypes.Contains(type))
             {
                 score += 15;
                 isStrategic = true;

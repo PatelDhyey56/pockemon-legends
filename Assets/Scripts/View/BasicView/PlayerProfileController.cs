@@ -8,7 +8,7 @@ using DG.Tweening;
 /// <summary>
 /// Player Profile Scene — shows the trainer's full profile:
 ///   • Username, Level, XP bar, Wins, Losses, Coin balance
-///   • Full list of owned Pokémon with avatar, type, stats and "In Team" badge
+///   • Full list of owned Creature with avatar, type, stats and "In Team" badge
 ///   • Back button returns to MenuScene
 /// Scene name: "PlayerProfileScene"
 /// </summary>
@@ -32,10 +32,12 @@ public class PlayerProfileController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI winRateText;       // "70%"
     [SerializeField] private TextMeshProUGUI battlesPlayedText; // "60 battles"
 
-    // ─── Pokémon Collection ──────────────────────────────────────────
-    [Header("Pokémon Collection")]
-    [SerializeField] private Transform      pokemonGridParent;  // GridLayout parent
-    [SerializeField] private GameObject     pokemonCardPrefab;  // card prefab
+    // ─── Creature Collection ──────────────────────────────────────────
+    [Header("Creature Collection")]
+    [UnityEngine.Serialization.FormerlySerializedAs("creatureGridParent")]
+    [SerializeField] private Transform      creatureGridParent;  // GridLayout parent
+    [UnityEngine.Serialization.FormerlySerializedAs("creatureCardPrefab")]
+    [SerializeField] private GameObject     creatureCardPrefab;  // card prefab
     [SerializeField] private TextMeshProUGUI collectionCountText; // "8 / 12 collected"
 
 
@@ -87,10 +89,10 @@ public class PlayerProfileController : MonoBehaviour
 
         RefreshAll();
 
-        // Boost scroll sensitivity on the pokemon grid scroll view
-        if (pokemonGridParent != null)
+        // Boost scroll sensitivity on the creature grid scroll view
+        if (creatureGridParent != null)
         {
-            var scrollRect = pokemonGridParent.GetComponentInParent<UnityEngine.UI.ScrollRect>();
+            var scrollRect = creatureGridParent.GetComponentInParent<UnityEngine.UI.ScrollRect>();
             if (scrollRect != null)
             {
                 scrollRect.scrollSensitivity = 30f;
@@ -117,7 +119,7 @@ public class PlayerProfileController : MonoBehaviour
     {
         RefreshHeader();
         RefreshStats();
-        BuildPokemonGrid();
+        BuildCreatureGrid();
     }
 
     private void RefreshHeader()
@@ -182,33 +184,45 @@ public class PlayerProfileController : MonoBehaviour
 
 
 
-    // ─── Pokémon Grid ────────────────────────────────────────────────
+    // ─── Creature Grid ────────────────────────────────────────────────
 
-    private void BuildPokemonGrid()
+    private void BuildCreatureGrid()
     {
-        if (pokemonGridParent == null || pokemonCardPrefab == null) return;
+        if (creatureGridParent == null)
+        {
+            Debug.LogError("[PlayerProfileController] BuildCreatureGrid aborted: creatureGridParent is null!");
+            return;
+        }
+        if (creatureCardPrefab == null)
+        {
+            Debug.LogError("[PlayerProfileController] BuildCreatureGrid aborted: creatureCardPrefab is null!");
+            return;
+        }
 
         // Destroy old cards
         foreach (var c in _cards) Destroy(c);
         _cards.Clear();
 
         var profile = PlayerProfileManager.GetInstance();
-        if (profile == null) return;
+        if (profile == null)
+        {
+            Debug.LogError("[PlayerProfileController] BuildCreatureGrid aborted: PlayerProfileManager instance is null!");
+            return;
+        }
 
-        int total  = PlayerProfileManager.AllPokemons.Count;
-        int owned  = profile.OwnedPokemons.Count;
+        int total  = PlayerProfileManager.AllCreatures.Count;
+        int owned  = profile.OwnedCreatures.Count;
 
         if (collectionCountText != null)
-            collectionCountText.text = $"Collection: {owned} Pokémon";
+            collectionCountText.text = $"Collection: {owned} / {total} Creatures";
 
         int index = 0;
-        // Show only owned Pokémon — unowned ones are skipped
-        foreach (var entry in PlayerProfileManager.AllPokemons)
+        foreach (var entry in PlayerProfileManager.AllCreatures)
         {
-            bool isOwned = profile.OwnsPokemons(entry.Name);
+            bool isOwned = profile.OwnsCreatures(entry.Name);
             if (!isOwned) continue;
 
-            GameObject card = Instantiate(pokemonCardPrefab, pokemonGridParent);
+            GameObject card = Instantiate(creatureCardPrefab, creatureGridParent);
             _cards.Add(card);
 
             // — Card click details handler
@@ -216,14 +230,14 @@ public class PlayerProfileController : MonoBehaviour
             if (cardBtn == null) cardBtn = card.AddComponent<Button>();
             string captureName = entry.Name;
             cardBtn.onClick.RemoveAllListeners();
-            cardBtn.onClick.AddListener(() => ShowPokemonDetails(captureName));
+            cardBtn.onClick.AddListener(() => ShowCreatureDetails(captureName));
 
             // — Avatar
             Image avatarImg = card.transform.Find("Avatar")?.GetComponent<Image>();
             if (avatarImg != null)
             {
-                avatarImg.sprite = AvatarGenerator.CreatePokemonSprite(entry.Name);
-                avatarImg.color  = Color.white;
+                avatarImg.sprite = AvatarGenerator.CreateCreatureSprite(entry.Name);
+                avatarImg.color  = isOwned ? Color.white : new Color(0.25f, 0.25f, 0.25f, 0.6f);
             }
 
             // — Name
@@ -231,48 +245,58 @@ public class PlayerProfileController : MonoBehaviour
             if (nameText != null)
             {
                 nameText.text  = entry.Name;
-                nameText.color = Color.white;
+                nameText.color = isOwned ? Color.white : new Color(0.7f, 0.7f, 0.7f, 0.7f);
             }
 
             // — Type badge
             TextMeshProUGUI typeText = card.transform.Find("TypeText")?.GetComponent<TextMeshProUGUI>();
             if (typeText != null)
             {
-                typeText.text = entry.Type.ToString();
+                typeText.text = GetCategoryName(entry.Type);
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
-                    typeText.color = tc;
+                {
+                    typeText.color = isOwned ? tc : new Color(tc.r * 0.6f, tc.g * 0.6f, tc.b * 0.6f, 0.6f);
+                }
             }
 
             // — Stats (ATK / Energy stones)
             TextMeshProUGUI statsText = card.transform.Find("StatsText")?.GetComponent<TextMeshProUGUI>();
             if (statsText != null)
             {
-                int dmg    = BoardManager.GetBaseValueForPokemon(entry.Name);
-                int energy = BoardManager.GetMaxEnergyForPokemon(entry.Name);
+                int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
+                int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
                 statsText.text  = $"ATK {dmg}  ⚡{energy}";
-                statsText.color = new Color(0.8f, 0.8f, 0.8f);
+                statsText.color = isOwned ? new Color(0.8f, 0.8f, 0.8f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
             }
 
             // — Price (not shown on owned cards, show "Owned")
             TextMeshProUGUI priceText = card.transform.Find("PriceText")?.GetComponent<TextMeshProUGUI>();
             if (priceText != null)
             {
-                priceText.text = entry.IsStarter ? "Starter" : "Owned";
-                priceText.color = new Color(0.3f, 0.9f, 0.4f); // green
+                if (isOwned)
+                {
+                    priceText.text = entry.IsStarter ? "Starter" : "Owned";
+                    priceText.color = new Color(0.3f, 0.9f, 0.4f); // green
+                }
+                else
+                {
+                    priceText.text = entry.Price > 0 ? $"Locked (🪙 {entry.Price})" : "Locked";
+                    priceText.color = new Color(0.85f, 0.35f, 0.35f); // reddish
+                }
             }
 
             // — Type background tint
             Image cardBg = card.transform.Find("CardBg")?.GetComponent<Image>();
             if (cardBg != null && TypeColors.TryGetValue(entry.Type, out Color bg))
             {
-                cardBg.color = new Color(bg.r, bg.g, bg.b, 0.22f);
+                cardBg.color = isOwned ? new Color(bg.r, bg.g, bg.b, 0.22f) : new Color(bg.r * 0.4f, bg.g * 0.4f, bg.b * 0.4f, 0.12f);
             }
 
             // — "In Team" badge
             GameObject teamBadge = card.transform.Find("TeamBadge")?.gameObject;
             if (teamBadge != null)
             {
-                bool inTeam = profile.BattleTeam.Contains(entry.Name);
+                bool inTeam = isOwned && profile.BattleTeam.Contains(entry.Name);
                 teamBadge.SetActive(inTeam);
                 if (inTeam)
                 {
@@ -293,12 +317,12 @@ public class PlayerProfileController : MonoBehaviour
             // — Owned glow outline
             Image glowImage = card.transform.Find("OwnedGlow")?.GetComponent<Image>();
             if (glowImage != null)
-                glowImage.gameObject.SetActive(true);
+                glowImage.gameObject.SetActive(isOwned);
 
             // — Lock overlay
             GameObject lockOverlay = card.transform.Find("LockOverlay")?.gameObject;
             if (lockOverlay != null)
-                lockOverlay.SetActive(false);
+                lockOverlay.SetActive(!isOwned);
 
             // Stagger scale-in animation
             card.transform.localScale = Vector3.zero;
@@ -309,13 +333,13 @@ public class PlayerProfileController : MonoBehaviour
         }
 
         // Force ContentSizeFitter to recalculate immediately after all cards spawn
-        if (pokemonGridParent != null)
+        if (creatureGridParent != null)
         {
             Canvas.ForceUpdateCanvases();
-            var fitter = pokemonGridParent.GetComponent<UnityEngine.UI.ContentSizeFitter>();
+            var fitter = creatureGridParent.GetComponent<UnityEngine.UI.ContentSizeFitter>();
             if (fitter != null)
                 UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(
-                    pokemonGridParent.GetComponent<RectTransform>());
+                    creatureGridParent.GetComponent<RectTransform>());
         }
     }
 
@@ -372,6 +396,7 @@ public class PlayerProfileController : MonoBehaviour
         var xTMP = xLabel.GetComponent<TextMeshProUGUI>();
         xTMP.text = "✕"; xTMP.fontSize = 22f; xTMP.alignment = TextAlignmentOptions.Center;
         xTMP.fontStyle = FontStyles.Bold; xTMP.color = Color.white;
+        xTMP.raycastTarget = false;
 
         // ── Avatar (top center) ─────────────────────────────────────
         var avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -397,7 +422,7 @@ public class PlayerProfileController : MonoBehaviour
         glowGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.10f);
         avatarGo.transform.SetAsLastSibling();
 
-        // ── Pokémon Name ────────────────────────────────────────────
+        // ── Creature Name ────────────────────────────────────────────
         var nameGo = new GameObject("PokeName", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         nameGo.transform.SetParent(box.transform, false);
         var nameRect = nameGo.GetComponent<RectTransform>();
@@ -447,6 +472,7 @@ public class PlayerProfileController : MonoBehaviour
         closeTMP.text = "CLOSE"; closeTMP.fontSize = 18f;
         closeTMP.fontStyle = FontStyles.Bold;
         closeTMP.alignment = TextAlignmentOptions.Center; closeTMP.color = Color.white;
+        closeTMP.raycastTarget = false;
 
         // ── Battle Button (bottom right side) ──────────────────────────
         var battleGo = new GameObject("BattleBtn", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -468,6 +494,7 @@ public class PlayerProfileController : MonoBehaviour
         _popupBattleBtnText.fontSize = 18f;
         _popupBattleBtnText.fontStyle = FontStyles.Bold;
         _popupBattleBtnText.alignment = TextAlignmentOptions.Center; _popupBattleBtnText.color = Color.white;
+        _popupBattleBtnText.raycastTarget = false;
 
         _detailsPopup.SetActive(false);
     }
@@ -512,7 +539,7 @@ public class PlayerProfileController : MonoBehaviour
         return tmp;
     }
 
-    public void ShowPokemonDetails(string name)
+    public void ShowCreatureDetails(string name)
     {
         CreateDetailsPopup();
         if (_detailsPopup == null) return;
@@ -520,17 +547,19 @@ public class PlayerProfileController : MonoBehaviour
         var profile = PlayerProfileManager.GetInstance();
         if (profile == null) return;
 
-        var entry = PlayerProfileManager.AllPokemons.Find(p => p.Name == name);
+        var entry = PlayerProfileManager.AllCreatures.Find(p => p.Name == name);
         if (entry == null) return;
 
+        bool isOwned = profile.OwnsCreatures(name);
+
         // ── Avatar & name ───────────────────────────────────────────
-        if (_popupAvatar   != null) _popupAvatar.sprite   = AvatarGenerator.CreatePokemonSprite(name);
+        if (_popupAvatar   != null) _popupAvatar.sprite   = AvatarGenerator.CreateCreatureSprite(name);
         if (_popupNameText != null) _popupNameText.text   = name.ToUpper();
 
         // ── Stats ───────────────────────────────────────────────────
-        int basePower    = BoardManager.GetBaseValueForPokemon(name);
+        int basePower    = BoardManager.GetBaseValueForCreature(name);
         int evolvedPower = basePower + 5;
-        int stoneLimit   = BoardManager.GetMaxEnergyForPokemon(name);
+        int stoneLimit   = BoardManager.GetMaxEnergyForCreature(name);
         bool isHeal      = entry.Type == GemType.Nature || entry.Type == GemType.Healing;
         string powerLabel = isHeal ? "Heal & Dmg" : "Damage";
 
@@ -558,11 +587,11 @@ public class PlayerProfileController : MonoBehaviour
 
         if (_popupStoneTypeText != null)
             _popupStoneTypeText.text =
-                $"{typeIcon}  <color=#AAAACC>Stone Type:</color>     <b><color={typeColor}>{entry.Type}</color></b>";
+                $"{typeIcon}  <color=#AAAACC>Gem Type:</color>     <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
 
         if (_popupStoneCapText != null)
             _popupStoneCapText.text =
-                $"💎  <color=#AAAACC>Stone Capacity:</color>  <b><color=#FFE066>{stoneLimit} Stones</color></b>";
+                $"💎  <color=#AAAACC>Gem Capacity:</color>  <b><color=#FFE066>{stoneLimit} Gems</color></b>";
 
         if (_popupBasePowerText != null)
             _popupBasePowerText.text =
@@ -575,44 +604,60 @@ public class PlayerProfileController : MonoBehaviour
         // ── Battle Button Config ────────────────────────────────────
         if (_popupBattleBtn != null && _popupBattleBtnText != null && _popupBattleBtnImg != null)
         {
-            bool inTeam = profile.BattleTeam.Contains(name);
+            if (isOwned)
+            {
+                bool inTeam = profile.BattleTeam.Contains(name);
 
-            // Update text and color
-            if (inTeam)
-            {
-                _popupBattleBtnText.text = "✓ REMOVE TEAM";
-                _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Green
-            }
-            else
-            {
-                _popupBattleBtnText.text = "USE FOR BATTLE";
-                _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f); // Orange/Gold
-            }
-
-            _popupBattleBtn.onClick.RemoveAllListeners();
-            _popupBattleBtn.onClick.AddListener(() =>
-            {
-                bool success = profile.ToggleBattleTeam(name);
-                if (success)
+                // Update text and color
+                if (inTeam)
                 {
-                    bool nowInTeam = profile.BattleTeam.Contains(name);
-                    if (nowInTeam)
-                    {
-                        _popupBattleBtnText.text = "✓ REMOVE TEAM";
-                        _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f);
-                    }
-                    else
-                    {
-                        _popupBattleBtnText.text = "USE FOR BATTLE";
-                        _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f);
-                    }
-                    BuildPokemonGrid();
+                    _popupBattleBtnText.text = "✓ REMOVE TEAM";
+                    _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Green
                 }
                 else
                 {
-                    MessageView.GetInstance()?.ShowMessageView("Battle team is full! Deselect another Pokémon first.", "Ok");
+                    _popupBattleBtnText.text = "USE FOR BATTLE";
+                    _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f); // Orange/Gold
                 }
-            });
+
+                _popupBattleBtn.onClick.RemoveAllListeners();
+                _popupBattleBtn.onClick.AddListener(() =>
+                {
+                    bool success = profile.ToggleBattleTeam(name);
+                    if (success)
+                    {
+                        bool nowInTeam = profile.BattleTeam.Contains(name);
+                        if (nowInTeam)
+                        {
+                            _popupBattleBtnText.text = "✓ REMOVE TEAM";
+                            _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f);
+                        }
+                        else
+                        {
+                            _popupBattleBtnText.text = "USE FOR BATTLE";
+                            _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f);
+                        }
+                        BuildCreatureGrid();
+                    }
+                    else
+                    {
+                        MessageView.GetInstance()?.ShowMessageView("Battle team is full! Deselect another Creature first.", "Ok");
+                    }
+                });
+            }
+            else
+            {
+                // Unowned creature redirect to store scene
+                _popupBattleBtnText.text = $"🔒 BUY (🪙 {entry.Price})";
+                _popupBattleBtnImg.color = new Color(0.75f, 0.25f, 0.25f, 1f); // Reddish
+
+                _popupBattleBtn.onClick.RemoveAllListeners();
+                _popupBattleBtn.onClick.AddListener(() =>
+                {
+                    CloseDetailsPopup();
+                    SceneManager.LoadScene(Constants.SCENE_STORE);
+                });
+            }
         }
 
         // ── Show with animation ─────────────────────────────────────
@@ -629,9 +674,23 @@ public class PlayerProfileController : MonoBehaviour
         var profile = PlayerProfileManager.GetInstance();
         if (profile != null && profile.BattleTeam.Count != 2)
         {
-            MessageView.GetInstance()?.ShowMessageView("You must select exactly 2 Pokémon for battle!", "Ok");
+            MessageView.GetInstance()?.ShowMessageView("You must select exactly 2 Creatures for battle!", "Ok");
             return;
         }
         SceneManager.LoadScene(Constants.SCENE_MENU);
+    }
+
+    private string GetCategoryName(GemType type)
+    {
+        return type switch
+        {
+            GemType.Fire => "Fire Category",
+            GemType.Water => "Water Category",
+            GemType.Nature => "Nature Category",
+            GemType.Electric => "Storm Category",
+            GemType.Psychic => "Psychic Category",
+            GemType.Healing => "Light Category",
+            _ => type.ToString()
+        };
     }
 }

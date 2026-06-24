@@ -30,6 +30,10 @@ public class MenuView : View
 
     public static MenuView GetInstance()
     {
+        if (_instance == null)
+        {
+            _instance = FindFirstObjectByType<MenuView>(FindObjectsInactive.Include);
+        }
         return _instance;
     }
 

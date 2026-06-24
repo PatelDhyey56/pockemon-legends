@@ -20,6 +20,10 @@ public class AdFreeView : View, IPurchaseListeners
 
     public static AdFreeView GetInstance()
     {
+        if (_instance == null)
+        {
+            _instance = FindFirstObjectByType<AdFreeView>(FindObjectsInactive.Include);
+        }
         return _instance;
     }
     

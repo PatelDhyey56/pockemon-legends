@@ -1587,7 +1587,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: POKEMON STORE
+  m_text: CREATURE STORE
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1869,7 +1869,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Pokemon Name
+  m_text: Creature Name
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2544,11 +2544,11 @@ MonoBehaviour:
   coinsText: {fileID: 835963679}
   backButton: {fileID: 1567227325}
   confirmPopup: {fileID: 1733177733}
-  confirmPokemonName: {fileID: 858164404}
+  confirmCreatureName: {fileID: 858164404}
   confirmPriceText: {fileID: 574674303}
   confirmYesBtn: {fileID: 661049907}
   confirmNoBtn: {fileID: 889840173}
-  confirmPokemonAvatar: {fileID: 119839627}
+  confirmCreatureAvatar: {fileID: 119839627}
   resultPopup: {fileID: 929803193}
   resultText: {fileID: 90793191}
 --- !u!114 &1860586173

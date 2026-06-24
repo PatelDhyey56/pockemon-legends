@@ -9,7 +9,7 @@ public static class Constants
 
     public const string SCENE_MENU           = "MenuScene";
     public const string SCENE_WEB            = "webscene";
-    public const string SCENE_POKEMON        = "battleScene";
+    public const string SCENE_CREATURE        = "battleScene";
     public const string SCENE_BATTLE_PREP    = "BattlePrepScene";
     public const string SCENE_PROFILE_SETUP  = "ProfileSetupScene";
     public const string SCENE_STORE          = "StoreScene";

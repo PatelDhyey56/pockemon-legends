@@ -81,7 +81,7 @@ public class BoardInputHandler : MonoBehaviour
     [SerializeField] private Image p1HpBar;
     [SerializeField] private Image p1HpBarTrailing;
 
-    [Header("P1 Pokemon 1")]
+    [Header("P1 Creature 1")]
     [SerializeField] private Image p1Poke1Avatar;
     [SerializeField] private TMPro.TextMeshProUGUI p1Poke1Name;
     [SerializeField] private TMPro.TextMeshProUGUI p1Poke1EnergyText;
@@ -90,7 +90,7 @@ public class BoardInputHandler : MonoBehaviour
     [SerializeField] private Transform p1Poke1EnergyBgTransform;
     [SerializeField] private TMPro.TextMeshProUGUI p1Poke1AttackLabel;
 
-    [Header("P1 Pokemon 2")]
+    [Header("P1 Creature 2")]
     [SerializeField] private Image p1Poke2Avatar;
     [SerializeField] private TMPro.TextMeshProUGUI p1Poke2Name;
     [SerializeField] private TMPro.TextMeshProUGUI p1Poke2EnergyText;
@@ -111,7 +111,7 @@ public class BoardInputHandler : MonoBehaviour
     [SerializeField] private TMPro.TextMeshProUGUI p1EvoStoneText;
     [SerializeField] private Image p1EvoGlow;   // optional glow ring shown when evolved
 
-    [Header("P2 Pokemon 1")]
+    [Header("P2 Creature 1")]
     [SerializeField] private Image p2Poke1Avatar;
     [SerializeField] private TMPro.TextMeshProUGUI p2Poke1Name;
     [SerializeField] private TMPro.TextMeshProUGUI p2Poke1EnergyText;
@@ -120,7 +120,7 @@ public class BoardInputHandler : MonoBehaviour
     [SerializeField] private Transform p2Poke1EnergyBgTransform;
     [SerializeField] private TMPro.TextMeshProUGUI p2Poke1AttackLabel;
 
-    [Header("P2 Pokemon 2")]
+    [Header("P2 Creature 2")]
     [SerializeField] private Image p2Poke2Avatar;
     [SerializeField] private TMPro.TextMeshProUGUI p2Poke2Name;
     [SerializeField] private TMPro.TextMeshProUGUI p2Poke2EnergyText;
@@ -135,11 +135,11 @@ public class BoardInputHandler : MonoBehaviour
     [SerializeField] private Image p2EvoGlow;   // optional glow ring shown when evolved
 
     // --- Pip charge-bar system ---
-    // Layout: index = playerIdx * 2 + pokemonIdx  (0=P1/Poke1, 1=P1/Poke2, 2=P2/Poke1, 3=P2/Poke2)
-    private Image[][] pokemonPips          = new Image[4][];
-    private TMPro.TextMeshProUGUI[] pokemonAttackLabels = new TMPro.TextMeshProUGUI[4];
-    private Transform[] pokemonEnergyBgTransforms       = new Transform[4];
-    private int _pokemonRowIndex; // incremented inside CreatePokemonRow
+    // Layout: index = playerIdx * 2 + creatureIdx  (0=P1/Poke1, 1=P1/Poke2, 2=P2/Poke1, 3=P2/Poke2)
+    private Image[][] creaturePips          = new Image[4][];
+    private TMPro.TextMeshProUGUI[] creatureAttackLabels = new TMPro.TextMeshProUGUI[4];
+    private Transform[] creatureEnergyBgTransforms       = new Transform[4];
+    private int _creatureRowIndex; // incremented inside CreateCreatureRow
 
     private Vector3 _originalMessagePos;
     private float _displayedP1HP = -1f;
@@ -221,24 +221,7 @@ public class BoardInputHandler : MonoBehaviour
     /// </summary>
     private void ApplySafeArea()
     {
-        Canvas rootCanvas = GetComponentInParent<Canvas>();
-        if (rootCanvas == null)
-            rootCanvas = FindFirstObjectByType<Canvas>();
-        if (rootCanvas == null) return;
-
-        RectTransform canvasRt = rootCanvas.GetComponent<RectTransform>();
-        if (canvasRt == null) return;
-
-        Rect safe   = Screen.safeArea;
-        Vector2 screenSize = new Vector2(Screen.width, Screen.height);
-
-        Vector2 anchorMin = safe.position / screenSize;
-        Vector2 anchorMax = (safe.position + safe.size) / screenSize;
-
-        canvasRt.anchorMin = anchorMin;
-        canvasRt.anchorMax = anchorMax;
-        canvasRt.offsetMin = Vector2.zero;
-        canvasRt.offsetMax = Vector2.zero;
+        // Handled globally by UIAdapterManager to avoid canvas conflict and ensure perfect layouts.
     }
 
     /// <summary>Resolves the cell size to use for the current device screen.</summary>
@@ -381,15 +364,15 @@ public class BoardInputHandler : MonoBehaviour
         _resolvedCellSize = ResolveCellSize();
 
         // Reset pip tracking arrays so InitPips rebuilds them cleanly.
-        pokemonPips               = new Image[4][];
-        pokemonAttackLabels       = new TMPro.TextMeshProUGUI[4];
-        pokemonEnergyBgTransforms = new Transform[4];
+        creaturePips               = new Image[4][];
+        creatureAttackLabels       = new TMPro.TextMeshProUGUI[4];
+        creatureEnergyBgTransforms = new Transform[4];
         // ────────────────────────────────────────────────────────────────────────
 
         CreateGrid();
         CreatePlayerUI();
         RefreshBoard();
-        InitPips();   // build segmented pip bars now that Pokémon types are known
+        InitPips();   // build segmented pip bars now that Creature types are known
         isInitialized = true;
         UpdateBoardBlur();
     }
@@ -966,15 +949,15 @@ public class BoardInputHandler : MonoBehaviour
 
     private void CreatePlayerUI()
     {
-        pokemonAttackLabels[0] = p1Poke1AttackLabel;
-        pokemonAttackLabels[1] = p1Poke2AttackLabel;
-        pokemonAttackLabels[2] = p2Poke1AttackLabel;
-        pokemonAttackLabels[3] = p2Poke2AttackLabel;
+        creatureAttackLabels[0] = p1Poke1AttackLabel;
+        creatureAttackLabels[1] = p1Poke2AttackLabel;
+        creatureAttackLabels[2] = p2Poke1AttackLabel;
+        creatureAttackLabels[3] = p2Poke2AttackLabel;
 
-        pokemonEnergyBgTransforms[0] = p1Poke1EnergyBgTransform;
-        pokemonEnergyBgTransforms[1] = p1Poke2EnergyBgTransform;
-        pokemonEnergyBgTransforms[2] = p2Poke1EnergyBgTransform;
-        pokemonEnergyBgTransforms[3] = p2Poke2EnergyBgTransform;
+        creatureEnergyBgTransforms[0] = p1Poke1EnergyBgTransform;
+        creatureEnergyBgTransforms[1] = p1Poke2EnergyBgTransform;
+        creatureEnergyBgTransforms[2] = p2Poke1EnergyBgTransform;
+        creatureEnergyBgTransforms[3] = p2Poke2EnergyBgTransform;
 
         EnforceFilledImage(p1HpBar);
         EnforceFilledImage(p1HpBarTrailing);
@@ -985,7 +968,7 @@ public class BoardInputHandler : MonoBehaviour
         EnforceFilledImage(p2Poke1EnergyBar);
         EnforceFilledImage(p2Poke2EnergyBar);
 
-        SetupPokemonClickListeners();
+        SetupCreatureClickListeners();
 
         UpdatePlayerUI();
     }
@@ -1059,11 +1042,11 @@ public class BoardInputHandler : MonoBehaviour
             }
         }
 
-        // P1 Pokemon 1
-        var p1Poke1 = board.Players[0].Pokemons[0];
+        // P1 Creature 1
+        var p1Poke1 = board.Players[0].Creatures[0];
         p1Poke1Avatar.sprite = p1Poke1.Avatar;
-        p1Poke1Name.text = (p1Poke1.IsEvolved ? "★ Evolved " : "") + p1Poke1.Name + " (" + p1Poke1.Type + ")";
-        p1Poke1EnergyText.text = "Energy: " + p1Poke1.CurrentEnergy + "/" + p1Poke1.MaxEnergy;
+        p1Poke1Name.text = (p1Poke1.IsEvolved ? "★ Ascended " : "") + p1Poke1.Name + " (" + GetCategoryName(p1Poke1.Type) + ")";
+        p1Poke1EnergyText.text = "Gems: " + p1Poke1.CurrentEnergy + "/" + p1Poke1.MaxEnergy;
         if (p1Poke1EnergyBar != null && p1Poke1EnergyBar) p1Poke1EnergyBar.fillAmount = (float)p1Poke1.CurrentEnergy / p1Poke1.MaxEnergy;
         if (IsAlive(p1Poke1Stone))
         {
@@ -1073,11 +1056,11 @@ public class BoardInputHandler : MonoBehaviour
             p1Poke1Stone.color = hasSprite ? Color.white : GetGemColor(p1Poke1.Type);
         }
 
-        // P1 Pokemon 2
-        var p1Poke2 = board.Players[0].Pokemons[1];
+        // P1 Creature 2
+        var p1Poke2 = board.Players[0].Creatures[1];
         p1Poke2Avatar.sprite = p1Poke2.Avatar;
-        p1Poke2Name.text = (p1Poke2.IsEvolved ? "★ Evolved " : "") + p1Poke2.Name + " (" + p1Poke2.Type + ")";
-        p1Poke2EnergyText.text = "Energy: " + p1Poke2.CurrentEnergy + "/" + p1Poke2.MaxEnergy;
+        p1Poke2Name.text = (p1Poke2.IsEvolved ? "★ Ascended " : "") + p1Poke2.Name + " (" + GetCategoryName(p1Poke2.Type) + ")";
+        p1Poke2EnergyText.text = "Gems: " + p1Poke2.CurrentEnergy + "/" + p1Poke2.MaxEnergy;
         if (p1Poke2EnergyBar != null && p1Poke2EnergyBar) p1Poke2EnergyBar.fillAmount = (float)p1Poke2.CurrentEnergy / p1Poke2.MaxEnergy;
         if (IsAlive(p1Poke2Stone))
         {
@@ -1141,11 +1124,11 @@ public class BoardInputHandler : MonoBehaviour
             }
         }
 
-        // P2 Pokemon 1
-        var p2Poke1 = board.Players[1].Pokemons[0];
+        // P2 Creature 1
+        var p2Poke1 = board.Players[1].Creatures[0];
         p2Poke1Avatar.sprite = p2Poke1.Avatar;
-        p2Poke1Name.text = (p2Poke1.IsEvolved ? "★ Evolved " : "") + p2Poke1.Name + " (" + p2Poke1.Type + ")";
-        p2Poke1EnergyText.text = "Energy: " + p2Poke1.CurrentEnergy + "/" + p2Poke1.MaxEnergy;
+        p2Poke1Name.text = (p2Poke1.IsEvolved ? "★ Ascended " : "") + p2Poke1.Name + " (" + GetCategoryName(p2Poke1.Type) + ")";
+        p2Poke1EnergyText.text = "Gems: " + p2Poke1.CurrentEnergy + "/" + p2Poke1.MaxEnergy;
         if (p2Poke1EnergyBar != null && p2Poke1EnergyBar) p2Poke1EnergyBar.fillAmount = (float)p2Poke1.CurrentEnergy / p2Poke1.MaxEnergy;
         if (IsAlive(p2Poke1Stone))
         {
@@ -1155,11 +1138,11 @@ public class BoardInputHandler : MonoBehaviour
             p2Poke1Stone.color = hasSprite ? Color.white : GetGemColor(p2Poke1.Type);
         }
 
-        // P2 Pokemon 2
-        var p2Poke2 = board.Players[1].Pokemons[1];
+        // P2 Creature 2
+        var p2Poke2 = board.Players[1].Creatures[1];
         p2Poke2Avatar.sprite = p2Poke2.Avatar;
-        p2Poke2Name.text = (p2Poke2.IsEvolved ? "★ Evolved " : "") + p2Poke2.Name + " (" + p2Poke2.Type + ")";
-        p2Poke2EnergyText.text = "Energy: " + p2Poke2.CurrentEnergy + "/" + p2Poke2.MaxEnergy;
+        p2Poke2Name.text = (p2Poke2.IsEvolved ? "★ Ascended " : "") + p2Poke2.Name + " (" + GetCategoryName(p2Poke2.Type) + ")";
+        p2Poke2EnergyText.text = "Gems: " + p2Poke2.CurrentEnergy + "/" + p2Poke2.MaxEnergy;
         if (p2Poke2EnergyBar != null && p2Poke2EnergyBar) p2Poke2EnergyBar.fillAmount = (float)p2Poke2.CurrentEnergy / p2Poke2.MaxEnergy;
         if (IsAlive(p2Poke2Stone))
         {
@@ -1199,7 +1182,7 @@ public class BoardInputHandler : MonoBehaviour
         }
         if (IsAlive(p1EvoGlow))
         {
-            bool anyEvolved = board.Players[0].Pokemons.Exists(p => p.IsEvolved);
+            bool anyEvolved = board.Players[0].Creatures.Exists(p => p.IsEvolved);
             p1EvoGlow.gameObject.SetActive(anyEvolved);
         }
 
@@ -1213,7 +1196,7 @@ public class BoardInputHandler : MonoBehaviour
         }
         if (IsAlive(p2EvoGlow))
         {
-            bool anyEvolved = board.Players[1].Pokemons.Exists(p => p.IsEvolved);
+            bool anyEvolved = board.Players[1].Creatures.Exists(p => p.IsEvolved);
             p2EvoGlow.gameObject.SetActive(anyEvolved);
         }
 
@@ -1263,7 +1246,7 @@ public class BoardInputHandler : MonoBehaviour
     }
 
     // -------------------------------------------------------------------------
-    // Pip charge bar initialisation — called once after board + pokemon are set
+    // Pip charge bar initialisation — called once after board + creature are set
     // -------------------------------------------------------------------------
     private void InitPips()
     {
@@ -1272,10 +1255,10 @@ public class BoardInputHandler : MonoBehaviour
 
         for (int p = 0; p < 2; p++)
         {
-            for (int k = 0; k < board.Players[p].Pokemons.Count && k < 2; k++)
+            for (int k = 0; k < board.Players[p].Creatures.Count && k < 2; k++)
             {
                 int idx = p * 2 + k;
-                Transform bgTf = pokemonEnergyBgTransforms[idx];
+                Transform bgTf = creatureEnergyBgTransforms[idx];
                 if (bgTf == null) continue;
 
                 // Destroy only previously created pips (sparing the hidden EnergyFill)
@@ -1286,10 +1269,10 @@ public class BoardInputHandler : MonoBehaviour
                         Destroy(child);
                 }
 
-                PokemonState poke = board.Players[p].Pokemons[k];
+                CreatureState poke = board.Players[p].Creatures[k];
                 AttackRule rule   = board.GetAttackRule(poke.Type);
                 int stonesRequired = poke.MaxEnergy;
-                int n = stonesRequired; // Pokemon-specific energy limit (max 9)
+                int n = stonesRequired; // Creature-specific energy limit (max 9)
 
                 RectTransform bgRt = bgTf.GetComponent<RectTransform>();
                 float barW   = bgRt.sizeDelta.x;
@@ -1310,17 +1293,17 @@ public class BoardInputHandler : MonoBehaviour
                     pipImg.color = new Color(0.18f, 0.18f, 0.18f, 0.7f); // empty state
                     pips[i] = pipImg;
                 }
-                pokemonPips[idx] = pips;
+                creaturePips[idx] = pips;
 
                 // Attack label: e.g. "Collect 6 Fire → Ember (10 dmg)"
-                if (pokemonAttackLabels[idx] != null)
+                if (creatureAttackLabels[idx] != null)
                 {
                     string valUnit = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "heal" : "dmg";
                     int actualVal = poke.BaseValue + poke.EvolutionDamageBonus;
                     string dmgPart = $" ({actualVal} {valUnit})";
-                    pokemonAttackLabels[idx].text =
+                    creatureAttackLabels[idx].text =
                         $"Collect {n} {poke.Type} → {rule.AttackName}{dmgPart}";
-                    pokemonAttackLabels[idx].color = GetGemColor(poke.Type) * 0.9f;
+                    creatureAttackLabels[idx].color = GetGemColor(poke.Type) * 0.9f;
                 }
             }
         }
@@ -1335,13 +1318,13 @@ public class BoardInputHandler : MonoBehaviour
 
         for (int p = 0; p < 2; p++)
         {
-            for (int k = 0; k < board.Players[p].Pokemons.Count && k < 2; k++)
+            for (int k = 0; k < board.Players[p].Creatures.Count && k < 2; k++)
             {
                 int idx      = p * 2 + k;
-                Image[] pips = pokemonPips[idx];
+                Image[] pips = creaturePips[idx];
                 if (pips == null) continue;
 
-                PokemonState poke = board.Players[p].Pokemons[k];
+                CreatureState poke = board.Players[p].Creatures[k];
                 Color gemCol   = GetGemColor(poke.Type); // uses static array — zero alloc
 
                 int stonesRequired = poke.MaxEnergy;
@@ -1442,7 +1425,7 @@ public class BoardInputHandler : MonoBehaviour
         BoardManager.OnMovesChanged  += UpdatePlayerUI;
         BoardManager.OnHPChanged     += UpdatePlayerUI;
         BoardManager.OnShowMessage   += ShowMessage;
-        // Refresh pip bars whenever any Pokémon collects stones mid-turn
+        // Refresh pip bars whenever any Creature collects stones mid-turn
         BoardManager.OnEnergyChanged += RefreshPips;
         BoardManager.OnEvolutionStonesChanged += OnEvolutionUpdate;
         BoardManager.OnEvolved                 += OnEvolutionUpdate;
@@ -1485,7 +1468,7 @@ public class BoardInputHandler : MonoBehaviour
         containerRt.anchorMax = new Vector2(0.5f, 0.5f);
         containerRt.pivot = new Vector2(0.5f, 0.5f);
         containerRt.sizeDelta = new Vector2(100f, 40f);
-        // Position it right in the middle between the two Pokemon columns
+        // Position it right in the middle between the two Creature columns
         containerRt.anchoredPosition = new Vector2(0f, -30f);
 
         // Create Image for Pokéball Icon
@@ -1678,6 +1661,7 @@ public class BoardInputHandler : MonoBehaviour
         btnTxt.fontStyle = TMPro.FontStyles.Bold;
         btnTxt.alignment = TMPro.TextAlignmentOptions.Center;
         btnTxt.color = Color.white;
+        btnTxt.raycastTarget = false;
         if (messageText != null) btnTxt.font = messageText.font;
 
         // Set up click action
@@ -1693,13 +1677,13 @@ public class BoardInputHandler : MonoBehaviour
         modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
     }
 
-    private void ShowEvolutionSelectionPopup(int playerIdx, Action<PokemonState> onSelected)
+    private void ShowEvolutionSelectionPopup(int playerIdx, Action<CreatureState> onSelected)
     {
         if (playerIdx == 1)
         {
             PlayerState botPlayer = BoardManager.GetInstance().Players[1];
-            PokemonState chosen = null;
-            foreach (var p in botPlayer.Pokemons)
+            CreatureState chosen = null;
+            foreach (var p in botPlayer.Creatures)
             {
                 if (!p.IsEvolved)
                 {
@@ -1707,9 +1691,9 @@ public class BoardInputHandler : MonoBehaviour
                     break;
                 }
             }
-            if (chosen == null && botPlayer.Pokemons.Count > 0)
+            if (chosen == null && botPlayer.Creatures.Count > 0)
             {
-                chosen = botPlayer.Pokemons[UnityEngine.Random.Range(0, botPlayer.Pokemons.Count)];
+                chosen = botPlayer.Creatures[UnityEngine.Random.Range(0, botPlayer.Creatures.Count)];
             }
 
             if (chosen != null)
@@ -1779,21 +1763,21 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.offsetMax = new Vector2(-10f, -15f);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
-        titleTxt.text = "CHOOSE POKEMON TO EVOLVE";
+        titleTxt.text = "CHOOSE CREATURE TO ASCEND";
         titleTxt.fontSize = 24f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
         titleTxt.color = new Color(1f, 0.8f, 0.2f, 1f); // Gold title
         if (messageText != null) titleTxt.font = messageText.font;
 
-        // 4. Create columns for the two Pokémon
+        // 4. Create columns for the two Creature
         float cardWidth = 200f;
         float cardHeight = 260f;
         float spacing = 20f;
 
-        for (int i = 0; i < player.Pokemons.Count && i < 2; i++)
+        for (int i = 0; i < player.Creatures.Count && i < 2; i++)
         {
-            PokemonState poke = player.Pokemons[i];
+            CreatureState poke = player.Creatures[i];
             
             // Create Column Panel (Button)
             GameObject cardGo = new GameObject($"PokeCard_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
@@ -1811,7 +1795,7 @@ public class BoardInputHandler : MonoBehaviour
             Image cardImg = cardGo.GetComponent<Image>();
             cardImg.color = new Color(0.2f, 0.2f, 0.28f, 1f); // Dark card body
 
-            // Outer outline for the pokemon card
+            // Outer outline for the creature card
             GameObject cardOutlineGo = new GameObject("Outline", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             cardOutlineGo.transform.SetParent(cardGo.transform, false);
             RectTransform outlineRt = cardOutlineGo.GetComponent<RectTransform>();
@@ -1821,8 +1805,9 @@ public class BoardInputHandler : MonoBehaviour
             outlineRt.offsetMax = new Vector2(-2f, -2f);
             Image outlineImg = cardOutlineGo.GetComponent<Image>();
             outlineImg.color = new Color(0.12f, 0.12f, 0.18f, 1f);
+            outlineImg.raycastTarget = false;
 
-            // Pokémon Avatar/Sprite
+            // Creature Avatar/Sprite
             GameObject avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             avatarGo.transform.SetParent(cardOutlineGo.transform, false);
             RectTransform avatarRt = avatarGo.GetComponent<RectTransform>();
@@ -1835,8 +1820,9 @@ public class BoardInputHandler : MonoBehaviour
             Image avatarImg = avatarGo.GetComponent<Image>();
             avatarImg.sprite = poke.Avatar;
             avatarImg.preserveAspect = true;
+            avatarImg.raycastTarget = false;
 
-            // Pokémon Name
+            // Creature Name
             GameObject nameGo = new GameObject("NameText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
             nameGo.transform.SetParent(cardOutlineGo.transform, false);
             RectTransform nameRt = nameGo.GetComponent<RectTransform>();
@@ -1852,9 +1838,10 @@ public class BoardInputHandler : MonoBehaviour
             nameTxt.fontStyle = TMPro.FontStyles.Bold;
             nameTxt.alignment = TMPro.TextAlignmentOptions.Center;
             nameTxt.color = Color.white;
+            nameTxt.raycastTarget = false;
             if (messageText != null) nameTxt.font = messageText.font;
 
-            // Pokémon Stats Description
+            // Creature Stats Description
             GameObject statGo = new GameObject("StatText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
             statGo.transform.SetParent(cardOutlineGo.transform, false);
             RectTransform statRt = statGo.GetComponent<RectTransform>();
@@ -1873,9 +1860,10 @@ public class BoardInputHandler : MonoBehaviour
             statTxt.fontSize = 13f;
             statTxt.alignment = TMPro.TextAlignmentOptions.Center;
             statTxt.color = GetGemColor(poke.Type) * 1.2f;
+            statTxt.raycastTarget = false;
             if (messageText != null) statTxt.font = messageText.font;
 
-            // Pokémon Ability Text
+            // Creature Ability Text
             GameObject abilityGo = new GameObject("AbilityText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
             abilityGo.transform.SetParent(cardOutlineGo.transform, false);
             RectTransform abilityRt = abilityGo.GetComponent<RectTransform>();
@@ -1893,11 +1881,12 @@ public class BoardInputHandler : MonoBehaviour
             abilityTxt.fontSize = 13f;
             abilityTxt.alignment = TMPro.TextAlignmentOptions.Center;
             abilityTxt.color = Color.white;
+            abilityTxt.raycastTarget = false;
             if (messageText != null) abilityTxt.font = messageText.font;
 
             // Set up click action
             UnityEngine.UI.Button button = cardGo.GetComponent<UnityEngine.UI.Button>();
-            PokemonState capturedPoke = poke; // local scope capture
+            CreatureState capturedPoke = poke; // local scope capture
             button.onClick.AddListener(() =>
             {
                 Destroy(_evoSelectionPopupInstance);
@@ -1934,6 +1923,7 @@ public class BoardInputHandler : MonoBehaviour
         cancelTxt.fontStyle = TMPro.FontStyles.Bold;
         cancelTxt.alignment = TMPro.TextAlignmentOptions.Center;
         cancelTxt.color = Color.white;
+        cancelTxt.raycastTarget = false;
         if (messageText != null) cancelTxt.font = messageText.font;
 
         // Set up click action
@@ -1948,13 +1938,13 @@ public class BoardInputHandler : MonoBehaviour
         modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack);
     }
 
-    private void ShowEvolutionSuccessPopup(PokemonState poke, int oldVal, int newVal, Action onClose)
+    private void ShowEvolutionSuccessPopup(CreatureState poke, int oldVal, int newVal, Action onClose)
     {
         bool isBot = false;
         var bm = BoardManager.GetInstance();
         if (bm != null && bm.Players != null && bm.Players.Length > 1)
         {
-            isBot = bm.Players[1].Pokemons.Contains(poke);
+            isBot = bm.Players[1].Creatures.Contains(poke);
         }
 
         if (_evoSuccessPopupInstance != null)
@@ -2015,14 +2005,14 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.offsetMax = new Vector2(-10f, -15f);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
-        titleTxt.text = $"{poke.Name.ToUpper()} EVOLVED!";
+        titleTxt.text = $"{poke.Name.ToUpper()} ASCENDED!";
         titleTxt.fontSize = 26f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
         titleTxt.color = new Color(0f, 1f, 0.6f, 1f); // Neon green
         if (messageText != null) titleTxt.font = messageText.font;
 
-        // 4. Pokémon Avatar
+        // 4. Creature Avatar
         GameObject avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         avatarGo.transform.SetParent(borderGo.transform, false);
         RectTransform avatarRt = avatarGo.GetComponent<RectTransform>();
@@ -2103,6 +2093,7 @@ public class BoardInputHandler : MonoBehaviour
         btnTxt.fontStyle = TMPro.FontStyles.Bold;
         btnTxt.alignment = TMPro.TextAlignmentOptions.Center;
         btnTxt.color = new Color(0.05f, 0.05f, 0.08f, 1f); // dark text
+        btnTxt.raycastTarget = false;
         if (messageText != null) btnTxt.font = messageText.font;
 
         // Set up click action
@@ -2126,25 +2117,25 @@ public class BoardInputHandler : MonoBehaviour
         }
     }
 
-    private void SetupPokemonClickListeners()
+    private void SetupCreatureClickListeners()
     {
         if (p1Poke1Avatar != null)
         {
             var btn = p1Poke1Avatar.gameObject.GetComponent<UnityEngine.UI.Button>();
             if (btn == null) btn = p1Poke1Avatar.gameObject.AddComponent<UnityEngine.UI.Button>();
             btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => OnPokemonAvatarClicked(0, 0));
+            btn.onClick.AddListener(() => OnCreatureAvatarClicked(0, 0));
         }
         if (p1Poke2Avatar != null)
         {
             var btn = p1Poke2Avatar.gameObject.GetComponent<UnityEngine.UI.Button>();
             if (btn == null) btn = p1Poke2Avatar.gameObject.AddComponent<UnityEngine.UI.Button>();
             btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => OnPokemonAvatarClicked(0, 1));
+            btn.onClick.AddListener(() => OnCreatureAvatarClicked(0, 1));
         }
     }
 
-    private void OnPokemonAvatarClicked(int playerIdx, int pokemonIdx)
+    private void OnCreatureAvatarClicked(int playerIdx, int creatureIdx)
     {
         BoardManager board = BoardManager.GetInstance();
         if (board == null || board.Players == null) return;
@@ -2153,12 +2144,12 @@ public class BoardInputHandler : MonoBehaviour
         if (board.Players[playerIdx].MovesRemaining <= 0) return; // needs at least 1 move
 
         PlayerState player = board.Players[playerIdx];
-        PokemonState poke = player.Pokemons[pokemonIdx];
+        CreatureState poke = player.Creatures[creatureIdx];
 
         ShowManualEvolutionPopup(playerIdx, poke);
     }
 
-    private void ShowManualEvolutionPopup(int playerIdx, PokemonState poke)
+    private void ShowManualEvolutionPopup(int playerIdx, CreatureState poke)
     {
         if (_manualEvoPopupInstance != null)
         {
@@ -2221,7 +2212,7 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.offsetMax = new Vector2(-10f, -15f);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
-        titleTxt.text = canEvolve ? "EVOLUTION AVAILABLE" : "EVOLUTION LOCKED";
+        titleTxt.text = canEvolve ? "ASCENSION AVAILABLE" : "ASCENSION LOCKED";
         titleTxt.fontSize = 22f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
@@ -2240,11 +2231,11 @@ public class BoardInputHandler : MonoBehaviour
         TMPro.TextMeshProUGUI descTxt = descGo.GetComponent<TMPro.TextMeshProUGUI>();
         if (canEvolve)
         {
-            descTxt.text = $"Do you want to evolve {poke.Name}?\n<color=#FFFF00>(Costs 1 Move & resets Evolution Stones)</color>";
+            descTxt.text = $"Do you want to ascend {poke.Name}?\n<color=#FFFF00>(Costs 1 Move & resets Ascension Gems)</color>";
         }
         else
         {
-            descTxt.text = $"{poke.Name} requires {PlayerState.EvolutionRequired} evolution stones to evolve. You currently have {player.EvolutionStones}/{PlayerState.EvolutionRequired}.";
+            descTxt.text = $"{poke.Name} requires {PlayerState.EvolutionRequired} ascension gems to ascend. You currently have {player.EvolutionStones}/{PlayerState.EvolutionRequired}.";
         }
         descTxt.fontSize = 16f;
         descTxt.alignment = TMPro.TextAlignmentOptions.Center;
@@ -2255,7 +2246,7 @@ public class BoardInputHandler : MonoBehaviour
         if (canEvolve)
         {
             // Evolve Button
-            GameObject evolveGo = new GameObject("EvolveButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+            GameObject evolveGo = new GameObject("AscendButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
             evolveGo.transform.SetParent(borderGo.transform, false);
             RectTransform evolveRt = evolveGo.GetComponent<RectTransform>();
             evolveRt.anchorMin = new Vector2(0.5f, 0f);
@@ -2275,11 +2266,12 @@ public class BoardInputHandler : MonoBehaviour
             evolveTextRt.offsetMin = Vector2.zero;
             evolveTextRt.offsetMax = Vector2.zero;
             TMPro.TextMeshProUGUI evolveTxt = evolveTextGo.GetComponent<TMPro.TextMeshProUGUI>();
-            evolveTxt.text = "Evolve";
+            evolveTxt.text = "Ascend";
             evolveTxt.fontSize = 16f;
             evolveTxt.fontStyle = TMPro.FontStyles.Bold;
             evolveTxt.alignment = TMPro.TextAlignmentOptions.Center;
             evolveTxt.color = new Color(0.05f, 0.05f, 0.08f, 1f);
+            evolveTxt.raycastTarget = false;
             if (messageText != null) evolveTxt.font = messageText.font;
 
             UnityEngine.UI.Button evolveBtn = evolveGo.GetComponent<UnityEngine.UI.Button>();
@@ -2315,6 +2307,7 @@ public class BoardInputHandler : MonoBehaviour
             cancelTxt.fontStyle = TMPro.FontStyles.Bold;
             cancelTxt.alignment = TMPro.TextAlignmentOptions.Center;
             cancelTxt.color = Color.white;
+            cancelTxt.raycastTarget = false;
             if (messageText != null) cancelTxt.font = messageText.font;
 
             UnityEngine.UI.Button cancelBtn = cancelGo.GetComponent<UnityEngine.UI.Button>();
@@ -2350,6 +2343,7 @@ public class BoardInputHandler : MonoBehaviour
             closeTxt.fontSize = 16f;
             closeTxt.fontStyle = TMPro.FontStyles.Bold;
             closeTxt.alignment = TMPro.TextAlignmentOptions.Center;
+            closeTxt.raycastTarget = false;
             closeTxt.color = Color.white;
             if (messageText != null) closeTxt.font = messageText.font;
 
@@ -2372,5 +2366,19 @@ public class BoardInputHandler : MonoBehaviour
             Destroy(_evoSuccessPopupInstance);
             onClose?.Invoke();
         }
+    }
+
+    private string GetCategoryName(GemType type)
+    {
+        return type switch
+        {
+            GemType.Fire => "Fire Category",
+            GemType.Water => "Water Category",
+            GemType.Nature => "Nature Category",
+            GemType.Electric => "Storm Category",
+            GemType.Psychic => "Psychic Category",
+            GemType.Healing => "Light Category",
+            _ => type.ToString()
+        };
     }
 }

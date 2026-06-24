@@ -10,6 +10,6 @@ public enum GemType
     Electric  = 3,
     Psychic   = 4,
     Healing   = 5,
-    Evolution = 6,  // Special evolution stone — collect 4 to evolve active Pokémon (+5 bonus damage)
+    Evolution = 6,  // Special evolution stone — collect 4 to evolve active Creature (+5 bonus damage)
     Charry    = 7   // Empty / placeholder cell
 }

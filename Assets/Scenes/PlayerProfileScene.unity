@@ -1739,8 +1739,8 @@ MonoBehaviour:
   lossesValueText: {fileID: 1815901739}
   winRateText: {fileID: 1984650254}
   battlesPlayedText: {fileID: 326604300}
-  pokemonGridParent: {fileID: 997161126}
-  pokemonCardPrefab: {fileID: 496538510642651180, guid: 58b7039914186a1beae0bb9229824e1a,
+  creatureGridParent: {fileID: 997161126}
+  creatureCardPrefab: {fileID: 496538510642651180, guid: 58b7039914186a1beae0bb9229824e1a,
     type: 3}
   collectionCountText: {fileID: 1200824007}
   backButton: {fileID: 1893903268}

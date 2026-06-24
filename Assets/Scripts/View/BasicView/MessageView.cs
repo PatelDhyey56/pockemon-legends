@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
@@ -29,6 +29,10 @@ public class MessageView : View
 
     public static MessageView GetInstance()
     {
+        if (_instance == null)
+        {
+            _instance = FindFirstObjectByType<MessageView>(FindObjectsInactive.Include);
+        }
         return _instance;
     }
 

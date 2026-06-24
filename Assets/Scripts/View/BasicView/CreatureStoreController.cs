@@ -6,11 +6,11 @@ using System.Collections.Generic;
 using DG.Tweening;
 
 /// <summary>
-/// Pokémon Store — purchase new Pokémon with coins.
+/// Creature Store — purchase new Creature with coins.
 /// Attach to a GameObject in the StoreScene.
 /// Scene name: "StoreScene"
 /// </summary>
-public class PokemonStoreController : MonoBehaviour
+public class CreatureStoreController : MonoBehaviour
 {
     [Header("Store UI")]
     [SerializeField] private Transform       cardContainer;    // scroll view content parent
@@ -20,11 +20,13 @@ public class PokemonStoreController : MonoBehaviour
 
     [Header("Confirm Popup (scene-assigned, can be left empty)")]
     [SerializeField] private GameObject      confirmPopup;
-    [SerializeField] private TextMeshProUGUI confirmPokemonName;
+    [UnityEngine.Serialization.FormerlySerializedAs("confirmCreatureName")]
+    [SerializeField] private TextMeshProUGUI confirmCreatureName;
     [SerializeField] private TextMeshProUGUI confirmPriceText;
     [SerializeField] private Button          confirmYesBtn;
     [SerializeField] private Button          confirmNoBtn;
-    [SerializeField] private Image           confirmPokemonAvatar;
+    [UnityEngine.Serialization.FormerlySerializedAs("confirmCreatureAvatar")]
+    [SerializeField] private Image           confirmCreatureAvatar;
 
     [Header("Result Popup")]
     [SerializeField] private GameObject      resultPopup;
@@ -38,6 +40,8 @@ public class PokemonStoreController : MonoBehaviour
     private TextMeshProUGUI _popupStoneCapText;
     private TextMeshProUGUI _popupBasePowerText;
     private TextMeshProUGUI _popupEvoledPowerText;
+    private TextMeshProUGUI _popupSkillText;
+    private TextMeshProUGUI _popupEffectText;
     private TextMeshProUGUI _popupCostText;
     private Button          _popupBuyBtn;
     private TextMeshProUGUI _popupBuyBtnLabel;
@@ -59,37 +63,46 @@ public class PokemonStoreController : MonoBehaviour
 
     private void Start()
     {
-        // Hide legacy scene popup if wired up
-        if (confirmPopup != null) confirmPopup.SetActive(false);
-        if (resultPopup  != null) resultPopup.SetActive(false);
-
-        RefreshCoinsUI();
-        BuildCards();
-        BuildPurchasePopup();
-
-        // Boost scroll sensitivity and force layout on the ScrollRect/Content
-        if (cardContainer != null)
+        try
         {
-            var scrollRect = cardContainer.GetComponentInParent<UnityEngine.UI.ScrollRect>();
-            if (scrollRect != null)
+            // Hide legacy scene popup if wired up
+            if (confirmPopup != null) confirmPopup.SetActive(false);
+            if (resultPopup  != null) resultPopup.SetActive(false);
+
+            RefreshCoinsUI();
+            BuildCards();
+            BuildPurchasePopup();
+
+            // Boost scroll sensitivity and force layout on the ScrollRect/Content
+            if (cardContainer != null)
             {
-                scrollRect.scrollSensitivity      = 45f;
-                scrollRect.movementType           = UnityEngine.UI.ScrollRect.MovementType.Elastic;
-                scrollRect.elasticity             = 0.15f;
-                scrollRect.inertia                = true;
-                scrollRect.decelerationRate       = 0.99f;
-                scrollRect.vertical               = true;
-                scrollRect.horizontal             = false;
+                var scrollRect = cardContainer.GetComponentInParent<UnityEngine.UI.ScrollRect>();
+                if (scrollRect != null)
+                {
+                    scrollRect.scrollSensitivity      = 45f;
+                    scrollRect.movementType           = UnityEngine.UI.ScrollRect.MovementType.Elastic;
+                    scrollRect.elasticity             = 0.15f;
+                    scrollRect.inertia                = true;
+                    scrollRect.decelerationRate       = 0.99f;
+                    scrollRect.vertical               = true;
+                    scrollRect.horizontal             = false;
+                }
             }
+
+            PlayerProfileManager.OnCoinsChanged   += RefreshCoinsUI;
+            PlayerProfileManager.OnProfileChanged += RefreshCards;
+
+            // Keep legacy buttons wired in case scene still uses them
+            if (confirmYesBtn != null) confirmYesBtn.onClick.AddListener(OnConfirmPurchase);
+            if (confirmNoBtn  != null) confirmNoBtn.onClick.AddListener(ClosePurchasePopup);
+            if (backButton    != null) backButton.onClick.AddListener(OnBackButtonClick);
+
+            DisableButtonTextRaycasts(gameObject);
         }
-
-        PlayerProfileManager.OnCoinsChanged   += RefreshCoinsUI;
-        PlayerProfileManager.OnProfileChanged += RefreshCards;
-
-        // Keep legacy buttons wired in case scene still uses them
-        if (confirmYesBtn != null) confirmYesBtn.onClick.AddListener(OnConfirmPurchase);
-        if (confirmNoBtn  != null) confirmNoBtn.onClick.AddListener(ClosePurchasePopup);
-        if (backButton    != null) backButton.onClick.AddListener(OnBackButtonClick);
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[CreatureStoreController] Exception in Start: {ex}");
+        }
     }
 
     private void OnDestroy()
@@ -102,21 +115,34 @@ public class PokemonStoreController : MonoBehaviour
 
     private void BuildCards()
     {
-        if (cardContainer == null || storeCardPrefab == null) return;
+        if (cardContainer == null)
+        {
+            Debug.LogError("[CreatureStoreController] BuildCards aborted: cardContainer is null!");
+            return;
+        }
+        if (storeCardPrefab == null)
+        {
+            Debug.LogError("[CreatureStoreController] BuildCards aborted: storeCardPrefab is null!");
+            return;
+        }
 
         foreach (var c in _cards) Destroy(c);
         _cards.Clear();
 
         var profile = PlayerProfileManager.GetInstance();
-        if (profile == null) return;
+        if (profile == null)
+        {
+            Debug.LogError("[CreatureStoreController] BuildCards aborted: PlayerProfileManager instance is null!");
+            return;
+        }
 
         int index = 0;
-        foreach (var entry in PlayerProfileManager.AllPokemons)
+        foreach (var entry in PlayerProfileManager.AllCreatures)
         {
             GameObject card = Instantiate(storeCardPrefab, cardContainer);
             _cards.Add(card);
 
-            bool owned     = profile.OwnsPokemons(entry.Name);
+            bool owned     = profile.OwnsCreatures(entry.Name);
             bool canAfford = profile.Coins >= entry.Price;
 
             // Card click → purchase popup
@@ -129,7 +155,7 @@ public class PokemonStoreController : MonoBehaviour
             // Avatar
             Image avatarImg = card.transform.Find("Avatar")?.GetComponent<Image>();
             if (avatarImg != null)
-                avatarImg.sprite = AvatarGenerator.CreatePokemonSprite(entry.Name);
+                avatarImg.sprite = AvatarGenerator.CreateCreatureSprite(entry.Name);
 
             // Name
             TextMeshProUGUI nameText = card.transform.Find("NameText")?.GetComponent<TextMeshProUGUI>();
@@ -139,7 +165,7 @@ public class PokemonStoreController : MonoBehaviour
             TextMeshProUGUI typeText = card.transform.Find("TypeText")?.GetComponent<TextMeshProUGUI>();
             if (typeText != null)
             {
-                typeText.text = entry.Type.ToString();
+                typeText.text = GetCategoryName(entry.Type);
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
                     typeText.color = tc;
             }
@@ -169,6 +195,7 @@ public class PokemonStoreController : MonoBehaviour
                 }
                 else
                 {
+                    buyBtn.gameObject.SetActive(true);
                     buyBtn.interactable = canAfford;
                     var buyImg = buyBtn.GetComponent<Image>();
                     if (buyImg != null)
@@ -197,6 +224,9 @@ public class PokemonStoreController : MonoBehaviour
             if (fitter != null)
                 UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(
                     cardContainer.GetComponent<RectTransform>());
+            
+            // Clean up raycast blockers on the instantiated card buttons
+            DisableButtonTextRaycasts(cardContainer.gameObject);
         }
     }
 
@@ -217,7 +247,7 @@ public class PokemonStoreController : MonoBehaviour
     /// Layout (top → bottom, all centered):
     ///   [✕ Close]  (top-right corner)
     ///   [Avatar  120×120]
-    ///   [Pokémon Name]
+    ///   [Creature Name]
     ///   [── separator ──]
     ///   🔥 Stone Type:     Fire
     ///   💎 Stone Capacity: 5 Stones
@@ -256,7 +286,7 @@ public class PokemonStoreController : MonoBehaviour
         var box = new GameObject("DialogBox", typeof(RectTransform), typeof(Image));
         box.transform.SetParent(_purchasePopup.transform, false);
         var boxRect = box.GetComponent<RectTransform>();
-        boxRect.sizeDelta        = new Vector2(600f, 560f);
+        boxRect.sizeDelta        = new Vector2(600f, 660f); // Increased height to fit skill + description
         boxRect.anchoredPosition = Vector2.zero;
 
         var boxImg = box.GetComponent<Image>();
@@ -290,7 +320,7 @@ public class PokemonStoreController : MonoBehaviour
         avatarRect.anchorMin        = new Vector2(0.5f, 0.5f);
         avatarRect.anchorMax        = new Vector2(0.5f, 0.5f);
         avatarRect.pivot            = new Vector2(0.5f, 0.5f);
-        avatarRect.anchoredPosition = new Vector2(0f, 215f);
+        avatarRect.anchoredPosition = new Vector2(0f, 255f); // Shifted up
         avatarRect.sizeDelta        = new Vector2(110f, 110f);
         _popupAvatar = avatarGo.AddComponent<Image>();
 
@@ -302,19 +332,19 @@ public class PokemonStoreController : MonoBehaviour
         glowRect.anchorMin        = new Vector2(0.5f, 0.5f);
         glowRect.anchorMax        = new Vector2(0.5f, 0.5f);
         glowRect.pivot            = new Vector2(0.5f, 0.5f);
-        glowRect.anchoredPosition = new Vector2(0f, 215f);
+        glowRect.anchoredPosition = new Vector2(0f, 255f); // Shifted up
         glowRect.sizeDelta        = new Vector2(126f, 126f);
         var glowImg = glowGo.GetComponent<Image>();
         glowImg.color = new Color(1f, 1f, 1f, 0.12f);
         avatarGo.transform.SetAsLastSibling();
 
-        // ── Pokémon Name ─────────────────────────────────────────────
-        var nameGo = MakeChild(box.transform, "PokemonName");
+        // ── Creature Name ─────────────────────────────────────────────
+        var nameGo = MakeChild(box.transform, "CreatureName");
         var nameRect = nameGo.AddComponent<RectTransform>();
         nameRect.anchorMin        = new Vector2(0.5f, 0.5f);
         nameRect.anchorMax        = new Vector2(0.5f, 0.5f);
         nameRect.pivot            = new Vector2(0.5f, 0.5f);
-        nameRect.anchoredPosition = new Vector2(0f, 148f);
+        nameRect.anchoredPosition = new Vector2(0f, 185f); // Shifted up
         nameRect.sizeDelta        = new Vector2(520f, 38f);
         _popupNameText = nameGo.AddComponent<TextMeshProUGUI>();
         _popupNameText.fontSize    = 26f;
@@ -323,10 +353,10 @@ public class PokemonStoreController : MonoBehaviour
         _popupNameText.color       = Color.white;
 
         // ── Top separator ─────────────────────────────────────────────
-        MakeSeparator(box.transform, 108f);
+        MakeSeparator(box.transform, 145f); // Shifted up
 
         // ── Stat rows (left-aligned, with icon + label + value) ──────
-        float rowY    = 80f;   // top stat Y (inside box, positive = up)
+        float rowY    = 110f;  // Shifted up
         float rowStep = 42f;   // spacing between rows
 
         // Row: Stone Type
@@ -349,12 +379,22 @@ public class PokemonStoreController : MonoBehaviour
         _popupEvoledPowerText = evoPowRow;
         rowY -= rowStep;
 
+        // Row: Skill
+        var skillRow = MakeStatRow(box.transform, "SkillRow", rowY);
+        _popupSkillText = skillRow;
+        rowY -= rowStep;
+
+        // Row: Effect
+        var effectRow = MakeStatRow(box.transform, "EffectRow", rowY);
+        _popupEffectText = effectRow;
+        rowY -= rowStep;
+
         // Row: Cost
         var costRow = MakeStatRow(box.transform, "CostRow", rowY);
         _popupCostText = costRow;
 
         // ── Bottom separator ──────────────────────────────────────────
-        MakeSeparator(box.transform, -108f);
+        MakeSeparator(box.transform, -180f); // Shifted down
 
         // ── PURCHASE button ───────────────────────────────────────────
         var buyGo = new GameObject("PurchaseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -363,7 +403,7 @@ public class PokemonStoreController : MonoBehaviour
         buyRect.anchorMin        = new Vector2(0.5f, 0.5f);
         buyRect.anchorMax        = new Vector2(0.5f, 0.5f);
         buyRect.pivot            = new Vector2(0.5f, 0.5f);
-        buyRect.anchoredPosition = new Vector2(0f, -160f);
+        buyRect.anchoredPosition = new Vector2(0f, -240f); // Shifted down
         buyRect.sizeDelta        = new Vector2(320f, 54f);
 
         _popupBuyBtnImg       = buyGo.GetComponent<Image>();
@@ -435,21 +475,22 @@ public class PokemonStoreController : MonoBehaviour
         tmp.fontSize  = fontSize;
         tmp.color     = color;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.raycastTarget = false;
         return tmp;
     }
 
     // ─── Open Purchase Popup ──────────────────────────────────────────
 
-    private void OnCardClicked(string pokemonName)
+    private void OnCardClicked(string creatureName)
     {
-        var entry = PlayerProfileManager.AllPokemons.Find(p => p.Name == pokemonName);
+        var entry = PlayerProfileManager.AllCreatures.Find(p => p.Name == creatureName);
         if (entry == null) return;
 
         var profile  = PlayerProfileManager.GetInstance();
-        bool isOwned = profile != null && profile.OwnsPokemons(pokemonName);
+        bool isOwned = profile != null && profile.OwnsCreatures(creatureName);
 
-        // Only set pending purchase for unowned Pokémon
-        _pendingPurchaseName = isOwned ? null : pokemonName;
+        // Only set pending purchase for unowned Creature
+        _pendingPurchaseName = isOwned ? null : creatureName;
 
         bool canAfford = !isOwned && profile != null && profile.Coins >= entry.Price;
 
@@ -458,16 +499,16 @@ public class PokemonStoreController : MonoBehaviour
 
         // ── Avatar ──────────────────────────────────────────────────
         if (_popupAvatar != null)
-            _popupAvatar.sprite = AvatarGenerator.CreatePokemonSprite(pokemonName);
+            _popupAvatar.sprite = AvatarGenerator.CreateCreatureSprite(creatureName);
 
         // ── Name ────────────────────────────────────────────────────
         if (_popupNameText != null)
-            _popupNameText.text = pokemonName.ToUpper();
+            _popupNameText.text = creatureName.ToUpper();
 
         // ── Lookup stats ─────────────────────────────────────────────
-        int basePower   = BoardManager.GetBaseValueForPokemon(pokemonName);
+        int basePower   = BoardManager.GetBaseValueForCreature(creatureName);
         int evolvedPower = basePower + 5;
-        int stoneLimit  = BoardManager.GetMaxEnergyForPokemon(pokemonName);
+        int stoneLimit  = BoardManager.GetMaxEnergyForCreature(creatureName);
 
         bool isHeal     = entry.Type == GemType.Nature || entry.Type == GemType.Healing;
         string powerLabel = isHeal ? "Heal & Dmg" : "Damage";
@@ -497,11 +538,11 @@ public class PokemonStoreController : MonoBehaviour
         // ── Stat rows (rich text: label dim, value bright) ───────────
         if (_popupStoneTypeText != null)
             _popupStoneTypeText.text =
-                $"{typeIcon}  <color=#AAAACC>Stone Type:</color>     <b><color={typeColor}>{entry.Type}</color></b>";
+                $"{typeIcon}  <color=#AAAACC>Gem Type:</color>     <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
 
         if (_popupStoneCapText != null)
             _popupStoneCapText.text =
-                $"💎  <color=#AAAACC>Stone Capacity:</color>  <b><color=#FFE066>{stoneLimit} Stones</color></b>";
+                $"💎  <color=#AAAACC>Gem Capacity:</color>  <b><color=#FFE066>{stoneLimit} Gems</color></b>";
 
         if (_popupBasePowerText != null)
             _popupBasePowerText.text =
@@ -509,7 +550,20 @@ public class PokemonStoreController : MonoBehaviour
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"✨  <color=#AAAACC>Evolved {powerLabel}:</color> <b><color=#AAFFAA>{evolvedPower}</color></b>";
+                $"✨  <color=#AAAACC>Ascended {powerLabel}:</color> <b><color=#AAFFAA>{evolvedPower}</color></b>";
+
+        var attackConfig = CreatureAttackConfig.Load();
+        var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
+        string abilityName = rule != null ? rule.AttackName : "Tackle";
+        string abilityDesc = rule != null ? rule.EffectDescription : "Deals damage";
+
+        if (_popupSkillText != null)
+            _popupSkillText.text =
+                $"⚡  <color=#AAAACC>Ability:</color>        <b><color=#FFAA22>{abilityName}</color></b>";
+
+        if (_popupEffectText != null)
+            _popupEffectText.text =
+                $"📖  <color=#AAAACC>Effect:</color>         <b><color=#DDDDFF>{abilityDesc}</color></b>";
 
         if (isOwned)
         {
@@ -566,17 +620,17 @@ public class PokemonStoreController : MonoBehaviour
         _purchasePopup.SetActive(true);
         _purchasePopup.transform.SetAsLastSibling();
         _purchasePopup.transform.localScale = Vector3.zero;
-        _purchasePopup.transform.DOScale(1f, 0.28f).SetEase(Ease.OutBack);
+        _purchasePopup.transform.DOScale(1f, 0.28f).SetEase(Ease.OutBack).SetUpdate(true);
     }
 
     // Also keep support for legacy BuyButton on cards
-    private void OnBuyButtonClick(string pokemonName) => OnCardClicked(pokemonName);
+    private void OnBuyButtonClick(string creatureName) => OnCardClicked(creatureName);
 
     private void ClosePurchasePopup()
     {
         if (_purchasePopup != null)
         {
-            _purchasePopup.transform.DOScale(0f, 0.18f).SetEase(Ease.InBack)
+            _purchasePopup.transform.DOScale(0f, 0.18f).SetEase(Ease.InBack).SetUpdate(true)
                 .OnComplete(() => _purchasePopup.SetActive(false));
         }
         if (confirmPopup != null) confirmPopup.SetActive(false);
@@ -587,19 +641,19 @@ public class PokemonStoreController : MonoBehaviour
 
     private void OnConfirmPurchase()
     {
+        string creatureToBuy = _pendingPurchaseName;
         ClosePurchasePopup();
 
         var profile = PlayerProfileManager.GetInstance();
         if (profile == null) return;
 
-        bool success = profile.PurchasePokemon(_pendingPurchaseName);
+        bool success = profile.PurchaseCreature(creatureToBuy);
 
         string msg = success
-            ? $"{_pendingPurchaseName} added to your collection! 🎉"
+            ? $"{creatureToBuy} added to your collection! 🎉"
             : "Purchase failed (not enough coins).";
 
         ShowResult(msg, success);
-        _pendingPurchaseName = null;
     }
 
     private void OnCancelPurchase() => ClosePurchasePopup();
@@ -614,12 +668,42 @@ public class PokemonStoreController : MonoBehaviour
         }
         resultPopup.SetActive(true);
         resultPopup.transform.localScale = Vector3.zero;
-        resultPopup.transform.DOScale(1f, 0.2f).SetEase(Ease.OutBack);
-        DOVirtual.DelayedCall(2.5f, () => { if (resultPopup != null) resultPopup.SetActive(false); });
+        resultPopup.transform.DOScale(1f, 0.2f).SetEase(Ease.OutBack).SetUpdate(true);
+        DOVirtual.DelayedCall(2.5f, () => { if (resultPopup != null) resultPopup.SetActive(false); }, true);
     }
 
     public void OnBackButtonClick()
     {
         SceneManager.LoadScene(Constants.SCENE_MENU);
+    }
+
+    private string GetCategoryName(GemType type)
+    {
+        return type switch
+        {
+            GemType.Fire => "Fire Category",
+            GemType.Water => "Water Category",
+            GemType.Nature => "Nature Category",
+            GemType.Electric => "Storm Category",
+            GemType.Psychic => "Psychic Category",
+            GemType.Healing => "Light Category",
+            _ => type.ToString()
+        };
+    }
+
+    private void DisableButtonTextRaycasts(GameObject parent)
+    {
+        if (parent == null) return;
+        var buttons = parent.GetComponentsInChildren<Button>(true);
+        foreach (var btn in buttons)
+        {
+            var texts = btn.GetComponentsInChildren<TMPro.TMP_Text>(true);
+            foreach (var txt in texts)
+            {
+                txt.raycastTarget = false;
+            }
+            // Do not disable image raycast targets as buttons rely on child background images (like CardBg)
+            // or nested button graphics (like BuyButton) to receive and process pointer clicks.
+        }
     }
 }

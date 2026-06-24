@@ -1,4 +1,4 @@
-﻿using DG.Tweening;
+using DG.Tweening;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -21,6 +21,10 @@ public class RateAppPopUpView : View
 
     public static RateAppPopUpView GetInstance()
     {
+        if (_instance == null)
+        {
+            _instance = FindFirstObjectByType<RateAppPopUpView>(FindObjectsInactive.Include);
+        }
         return _instance;
     }
 

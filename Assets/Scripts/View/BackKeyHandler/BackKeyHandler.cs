@@ -15,6 +15,10 @@ public class BackKeyHandler : MonoBehaviour
 
     public static BackKeyHandler GetInstance()
     {
+        if (_instance == null)
+        {
+            _instance = FindFirstObjectByType<BackKeyHandler>(FindObjectsInactive.Include);
+        }
         return _instance;
     }
 
