@@ -67,6 +67,8 @@ public class PlayerProfileController : MonoBehaviour
     private TextMeshProUGUI _popupStoneCapText;
     private TextMeshProUGUI _popupBasePowerText;
     private TextMeshProUGUI _popupEvoledPowerText;
+    private TextMeshProUGUI _popupSkillText;
+    private TextMeshProUGUI _popupEffectText;
     private Button          _popupBattleBtn;
     private TextMeshProUGUI _popupBattleBtnText;
     private Image           _popupBattleBtnImg;
@@ -87,7 +89,7 @@ public class PlayerProfileController : MonoBehaviour
         {
             backButton.onClick.AddListener(OnBackButtonClick);
             var backText = backButton.GetComponentInChildren<TextMeshProUGUI>();
-            if (backText != null) backText.text = "RETURN // DEPLOY_SQUAD";
+            if (backText != null) backText.text = "RETURN // DEPLOY SQUAD";
         }
 
         // Subscribe to live updates (e.g. if profile changes mid-scene)
@@ -149,8 +151,8 @@ public class PlayerProfileController : MonoBehaviour
             avatarBg.DOColor(bg, 0.4f).SetUpdate(true);
         }
 
-        if (usernameText != null) usernameText.text = $"TRAINER_{p.Username.ToUpper()} // CORE_INTERFACE";
-        if (levelText    != null) levelText.text    = $"LEVEL // SYSTEM_POWER: Lvl {p.Level}";
+        if (usernameText != null) usernameText.text = $"TRAINER {p.Username.ToUpper()} // CORE INTERFACE";
+        if (levelText    != null) levelText.text    = $"LEVEL // SYSTEM POWER: Lvl {p.Level}";
 
         // XP bar
         float progress = p.GetLevelProgress();
@@ -184,7 +186,7 @@ public class PlayerProfileController : MonoBehaviour
         if (coinsValueText != null)
         {
             coinsValueText.gameObject.SetActive(true);
-            coinsValueText.text = $"🪙  {p.Coins}";
+            coinsValueText.text = $"<color=#FFD700>🪙</color>  {p.Coins}";
         }
 
         int totalBattles = p.Wins + p.Losses;
@@ -244,7 +246,7 @@ public class PlayerProfileController : MonoBehaviour
         int owned  = profile.OwnedCreatures.Count;
 
         if (collectionCountText != null)
-            collectionCountText.text = $"VAULT_ACCESS_GRANTED // SQUAD_v2.0  ||  SLOTS_OCCUPIED: [{owned:D2}/{total:D2}]";
+            collectionCountText.text = $"VAULT ACCESS GRANTED // SQUAD v2.0  ||  SLOTS OCCUPIED: [{owned:D2}/{total:D2}]";
 
         int index = 0;
         foreach (var entry in PlayerProfileManager.AllCreatures)
@@ -276,7 +278,7 @@ public class PlayerProfileController : MonoBehaviour
             if (nameText != null)
             {
                 nameText.text  = entry.Name.ToUpper();
-                nameText.fontSize = 15f;
+                nameText.fontSize = 32f;
                 nameText.enableWordWrapping = false;
                 nameText.color = isOwned ? Color.white : new Color(0.7f, 0.7f, 0.7f, 0.7f);
             }
@@ -287,16 +289,16 @@ public class PlayerProfileController : MonoBehaviour
             {
                 string classType = entry.Type switch
                 {
-                    GemType.Fire     => "THERMAL_STRIKER // GEN_IX",
-                    GemType.Water    => "HYDRO_INTELLIGENCE // VECT_X",
-                    GemType.Nature   => "BIO_TACTICAL // REV_IV",
-                    GemType.Electric => "VOLT_AMPLIFIER // AMP_VI",
-                    GemType.Psychic  => "ASTRAL_PROJECTION // DIM_XI",
-                    GemType.Healing  => "NANO_REPAIR // RECA_II",
-                    _                => "STANDARD_UNIT // STD_I"
+                    GemType.Fire     => "THERMAL STRIKER // GEN IX",
+                    GemType.Water    => "HYDRO INTELLIGENCE // VECT X",
+                    GemType.Nature   => "BIO TACTICAL // REV IV",
+                    GemType.Electric => "VOLT AMPLIFIER // AMP VI",
+                    GemType.Psychic  => "ASTRAL PROJECTION // DIM XI",
+                    GemType.Healing  => "NANO REPAIR // RECA II",
+                    _                => "STANDARD UNIT // STD I"
                 };
                 typeText.text = $"CLASS: {classType}";
-                typeText.fontSize = 9f;
+                typeText.fontSize = 18f;
                 typeText.enableWordWrapping = false;
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
                 {
@@ -311,35 +313,47 @@ public class PlayerProfileController : MonoBehaviour
                 int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
                 int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
                 
-                int atkBlocks = Mathf.Clamp(dmg / 3, 1, 8);
-                int energyBlocks = Mathf.Clamp(energy, 1, 8);
-                
-                string atkBar = new string('■', atkBlocks).PadRight(8, '□');
-                string energyBar = new string('■', energyBlocks).PadRight(8, '□');
-                
-                statsText.text = $"ATK: {dmg * 49} MHz [{atkBar}]\nENG: {energy * 148} kJ  [{energyBar}]";
-                statsText.fontSize = 9.5f;
-                statsText.lineSpacing = -8f;
+                statsText.text = $"ATK {dmg}  ⚡{energy}";
+                statsText.fontSize = 20f;
                 statsText.enableWordWrapping = false;
-                statsText.color = isOwned ? new Color(0f, 0.9f, 0.9f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
+                statsText.color = isOwned ? new Color(0.8f, 0.8f, 0.8f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
             }
 
             // — Price (not shown on owned cards, show "Owned")
             TextMeshProUGUI priceText = card.transform.Find("PriceText")?.GetComponent<TextMeshProUGUI>();
             if (priceText != null)
             {
+                var priceRt = priceText.GetComponent<RectTransform>();
                 if (isOwned)
                 {
-                    priceText.text = $"CORE_STABILITY: {(entry.IsStarter ? "98%" : "100%")}";
-                    priceText.fontSize = 9.5f;
+                    priceText.text = entry.IsStarter ? "Starter" : "Owned";
+                    priceText.fontSize = 22f;
                     priceText.enableWordWrapping = false;
-                    priceText.color = new Color(0f, 0.9f, 0.9f, 0.8f); // cyan
+                    priceText.color = new Color(0.3f, 0.9f, 0.4f);
+                    if (priceRt != null)
+                    {
+                        priceRt.anchoredPosition = new Vector2(0f, -300f);
+                        priceRt.sizeDelta = new Vector2(420f, 60f);
+                    }
+                    priceText.alignment = TextAlignmentOptions.Center;
                 }
                 else
                 {
-                    priceText.text = entry.Price > 0 ? $"Locked (🪙 {entry.Price})" : "Locked";
+                    priceText.text = entry.Price > 0 ? $"Locked (<color=#FFD700>🪙</color> {entry.Price})" : "Locked";
                     priceText.color = new Color(0.85f, 0.35f, 0.35f); // reddish
+                    if (priceRt != null)
+                    {
+                        priceRt.anchoredPosition = new Vector2(0f, -300f);
+                        priceRt.sizeDelta = new Vector2(420f, 60f);
+                    }
+                    priceText.alignment = TextAlignmentOptions.Center;
                 }
+            }
+
+            var buyBtnTrans = card.transform.Find("BuyButton");
+            if (buyBtnTrans != null)
+            {
+                buyBtnTrans.gameObject.SetActive(false);
             }
 
             // — SlotLabel / Specimen ID
@@ -363,17 +377,17 @@ public class PlayerProfileController : MonoBehaviour
                     "Light Phoenix"     => "PHX",
                     _                   => "SPC"
                 };
-                slotLabel.text = $"SPECIMEN_ID: {specimenPrefix}_{index+1:D2}";
-                slotLabel.fontSize = 9.5f;
-                slotLabel.enableWordWrapping = false;
+                slotLabel.text = $"SPECIMEN ID: {specimenPrefix}_{index+1:D2}";
+                 slotLabel.fontSize = 18f;
+                 slotLabel.enableWordWrapping = false;
                 slotLabel.color = new Color(0f, 0.9f, 0.9f, 0.7f); // semi-transparent cyan
             }
 
             // — Type background tint
             Image cardBg = card.transform.Find("CardBg")?.GetComponent<Image>();
-            if (cardBg != null && TypeColors.TryGetValue(entry.Type, out Color bg))
+            if (cardBg != null)
             {
-                cardBg.color = isOwned ? new Color(bg.r, bg.g, bg.b, 0.22f) : new Color(bg.r * 0.4f, bg.g * 0.4f, bg.b * 0.4f, 0.12f);
+                cardBg.color = new Color(0.08f, 0.08f, 0.12f, 0.95f);
             }
 
             // — "In Team" badge
@@ -455,7 +469,7 @@ public class PlayerProfileController : MonoBehaviour
         var box = new GameObject("DialogBox", typeof(RectTransform), typeof(Image));
         box.transform.SetParent(_detailsPopup.transform, false);
         var boxRect = box.GetComponent<RectTransform>();
-        boxRect.sizeDelta        = new Vector2(600f, 520f);
+        boxRect.sizeDelta        = new Vector2(850f, 1150f); // Rescaled to 850x1150
         boxRect.anchoredPosition = Vector2.zero;
         var boxImg = box.GetComponent<Image>();
         boxImg.color = new Color(0.09f, 0.09f, 0.13f, 0.97f);
@@ -469,8 +483,8 @@ public class PlayerProfileController : MonoBehaviour
         xRect.anchorMin        = new Vector2(1f, 1f);
         xRect.anchorMax        = new Vector2(1f, 1f);
         xRect.pivot            = new Vector2(1f, 1f);
-        xRect.anchoredPosition = new Vector2(-12f, -12f);
-        xRect.sizeDelta        = new Vector2(44f, 44f);
+        xRect.anchoredPosition = new Vector2(-15f, -15f);
+        xRect.sizeDelta        = new Vector2(55f, 55f);
         xGo.GetComponent<Image>().color = new Color(0.80f, 0.18f, 0.18f, 0.92f);
         xGo.GetComponent<Button>().onClick.AddListener(CloseDetailsPopup);
         var xLabel = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -479,7 +493,7 @@ public class PlayerProfileController : MonoBehaviour
         xLabelRect.anchorMin = Vector2.zero; xLabelRect.anchorMax = Vector2.one;
         xLabelRect.offsetMin = Vector2.zero; xLabelRect.offsetMax = Vector2.zero;
         var xTMP = xLabel.GetComponent<TextMeshProUGUI>();
-        xTMP.text = "✕"; xTMP.fontSize = 22f; xTMP.alignment = TextAlignmentOptions.Center;
+        xTMP.text = "X"; xTMP.fontSize = 28f; xTMP.alignment = TextAlignmentOptions.Center;
         xTMP.fontStyle = FontStyles.Bold; xTMP.color = Color.white;
         xTMP.raycastTarget = false;
 
@@ -490,8 +504,8 @@ public class PlayerProfileController : MonoBehaviour
         avatarRect.anchorMin        = new Vector2(0.5f, 0.5f);
         avatarRect.anchorMax        = new Vector2(0.5f, 0.5f);
         avatarRect.pivot            = new Vector2(0.5f, 0.5f);
-        avatarRect.anchoredPosition = new Vector2(0f, 200f);
-        avatarRect.sizeDelta        = new Vector2(200f, 200f);
+        avatarRect.anchoredPosition = new Vector2(0f, 280f);
+        avatarRect.sizeDelta        = new Vector2(500f, 500f);
         _popupAvatar = avatarGo.GetComponent<Image>();
         if (_popupAvatar != null) _popupAvatar.preserveAspect = true;
 
@@ -504,28 +518,30 @@ public class PlayerProfileController : MonoBehaviour
         nameRect.anchorMin        = new Vector2(0.5f, 0.5f);
         nameRect.anchorMax        = new Vector2(0.5f, 0.5f);
         nameRect.pivot            = new Vector2(0.5f, 0.5f);
-        nameRect.anchoredPosition = new Vector2(0f, 135f);
-        nameRect.sizeDelta        = new Vector2(500f, 38f);
+        nameRect.anchoredPosition = new Vector2(0f, -25f);
+        nameRect.sizeDelta        = new Vector2(750f, 60f);
         _popupNameText = nameGo.GetComponent<TextMeshProUGUI>();
-        _popupNameText.fontSize  = 26f;
+        _popupNameText.fontSize  = 44f;
         _popupNameText.fontStyle = FontStyles.Bold;
         _popupNameText.alignment = TextAlignmentOptions.Center;
         _popupNameText.color     = Color.white;
 
         // ── Top separator ────────────────────────────────────────────
-        MakeProfileSeparator(box.transform, 97f);
+        MakeProfileSeparator(box.transform, -70f);
 
         // ── Stat rows ────────────────────────────────────────────────
-        float rowY    = 62f;
-        float rowStep = 42f;
+        float rowY    = -110f;
+        float rowStep = 54f;
 
         _popupStoneTypeText   = MakeProfileStatRow(box.transform, "StoneTypeRow",  rowY); rowY -= rowStep;
         _popupStoneCapText    = MakeProfileStatRow(box.transform, "StoneCapRow",   rowY); rowY -= rowStep;
         _popupBasePowerText   = MakeProfileStatRow(box.transform, "BasePowRow",    rowY); rowY -= rowStep;
-        _popupEvoledPowerText = MakeProfileStatRow(box.transform, "EvoPowRow",     rowY);
+        _popupEvoledPowerText = MakeProfileStatRow(box.transform, "EvoPowRow",     rowY); rowY -= rowStep;
+        _popupSkillText       = MakeProfileStatRow(box.transform, "SkillRow",      rowY); rowY -= rowStep;
+        _popupEffectText      = MakeProfileStatRow(box.transform, "EffectRow",     rowY);
 
         // ── Bottom separator ─────────────────────────────────────────
-        MakeProfileSeparator(box.transform, -108f);
+        MakeProfileSeparator(box.transform, -475f);
 
         // ── Close button (bottom left side) ──────────────────────────
         var closeGo = new GameObject("CloseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -534,8 +550,8 @@ public class PlayerProfileController : MonoBehaviour
         closeRect.anchorMin        = new Vector2(0.5f, 0.5f);
         closeRect.anchorMax        = new Vector2(0.5f, 0.5f);
         closeRect.pivot            = new Vector2(0.5f, 0.5f);
-        closeRect.anchoredPosition = new Vector2(-120f, -155f);
-        closeRect.sizeDelta        = new Vector2(200f, 50f);
+        closeRect.anchoredPosition = new Vector2(-180f, -525f);
+        closeRect.sizeDelta        = new Vector2(280f, 65f);
         closeGo.GetComponent<Image>().color = new Color(0.15f, 0.50f, 0.85f, 1f);
         closeGo.GetComponent<Button>().onClick.AddListener(CloseDetailsPopup);
         var closeTextGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -544,7 +560,7 @@ public class PlayerProfileController : MonoBehaviour
         ctRect.anchorMin = Vector2.zero; ctRect.anchorMax = Vector2.one;
         ctRect.offsetMin = Vector2.zero; ctRect.offsetMax = Vector2.zero;
         var closeTMP = closeTextGo.GetComponent<TextMeshProUGUI>();
-        closeTMP.text = "CLOSE"; closeTMP.fontSize = 18f;
+        closeTMP.text = "CLOSE"; closeTMP.fontSize = 24f;
         closeTMP.fontStyle = FontStyles.Bold;
         closeTMP.alignment = TextAlignmentOptions.Center; closeTMP.color = Color.white;
         closeTMP.raycastTarget = false;
@@ -556,8 +572,8 @@ public class PlayerProfileController : MonoBehaviour
         battleRect.anchorMin        = new Vector2(0.5f, 0.5f);
         battleRect.anchorMax        = new Vector2(0.5f, 0.5f);
         battleRect.pivot            = new Vector2(0.5f, 0.5f);
-        battleRect.anchoredPosition = new Vector2(120f, -155f);
-        battleRect.sizeDelta        = new Vector2(240f, 50f);
+        battleRect.anchoredPosition = new Vector2(180f, -525f);
+        battleRect.sizeDelta        = new Vector2(280f, 65f);
         _popupBattleBtnImg = battleGo.GetComponent<Image>();
         _popupBattleBtn = battleGo.GetComponent<Button>();
         var battleTextGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -566,7 +582,7 @@ public class PlayerProfileController : MonoBehaviour
         btRect.anchorMin = Vector2.zero; btRect.anchorMax = Vector2.one;
         btRect.offsetMin = Vector2.zero; btRect.offsetMax = Vector2.zero;
         _popupBattleBtnText = battleTextGo.GetComponent<TextMeshProUGUI>();
-        _popupBattleBtnText.fontSize = 18f;
+        _popupBattleBtnText.fontSize = 24f;
         _popupBattleBtnText.fontStyle = FontStyles.Bold;
         _popupBattleBtnText.alignment = TextAlignmentOptions.Center; _popupBattleBtnText.color = Color.white;
         _popupBattleBtnText.raycastTarget = false;
@@ -591,7 +607,7 @@ public class PlayerProfileController : MonoBehaviour
         r.anchorMax        = new Vector2(0.5f, 0.5f);
         r.pivot            = new Vector2(0.5f, 0.5f);
         r.anchoredPosition = new Vector2(0f, anchoredY);
-        r.sizeDelta        = new Vector2(520f, 1.5f);
+        r.sizeDelta        = new Vector2(750f, 2f);
         sep.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.12f);
     }
 
@@ -605,9 +621,9 @@ public class PlayerProfileController : MonoBehaviour
         r.anchorMax        = new Vector2(0.5f, 0.5f);
         r.pivot            = new Vector2(0.5f, 0.5f);
         r.anchoredPosition = new Vector2(0f, anchoredY);
-        r.sizeDelta        = new Vector2(520f, 36f);
+        r.sizeDelta        = new Vector2(750f, 44f);
         var tmp = go.GetComponent<TextMeshProUGUI>();
-        tmp.fontSize         = 17f;
+        tmp.fontSize         = 24f;
         tmp.alignment        = TextAlignmentOptions.Left;
         tmp.color            = new Color(0.88f, 0.88f, 0.92f, 1f);
         tmp.textWrappingMode = TextWrappingModes.NoWrap;
@@ -660,21 +676,39 @@ public class PlayerProfileController : MonoBehaviour
         };
         string powerIcon = isHeal ? "💊" : "⚔️";
 
+        var attackConfig = CreatureAttackConfig.Load();
+        var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
+        string abilityName = rule != null ? rule.AttackName : "Tackle";
+        string abilityDesc = rule != null ? rule.EffectDescription : "Deals damage";
+        int abilityDamage = rule != null ? rule.Damage : 10;
+        int stonesReq = rule != null ? rule.StonesRequired : 5;
+
+        string abilityPowerIcon = isHeal ? "💖" : "💥";
+        string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
+
         if (_popupStoneTypeText != null)
             _popupStoneTypeText.text =
-                $"{typeIcon}  <color=#AAAACC>ELEMENTAL_CLASS:</color>   <b><color={typeColor}>{GetCategoryName(entry.Type).ToUpper()}</color></b>";
+                $"{typeIcon}  <color=#AAAACC>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
 
         if (_popupStoneCapText != null)
             _popupStoneCapText.text =
-                $"💎  <color=#AAAACC>CORE_ENERGY_LIMIT:</color> <b><color=#FFE066>{stoneLimit} ENERGY_UNITS</color></b>";
+                $"{powerIcon}  <color=#AAAACC>Power:</color>           <b><color=#FFE066>{basePower}</color></b>";
 
         if (_popupBasePowerText != null)
             _popupBasePowerText.text =
-                $"{powerIcon}  <color=#AAAACC>ATK_PWR_LOAD:</color>      <b><color=#66EEFF>{basePower * 49} MHz</color></b>";
+                $"{abilityPowerIcon}  <color=#AAAACC>{abilityPowerLabel}</color>  <b><color=#66EEFF>{abilityDamage}</color></b>";
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"✨  <color=#AAAACC>EVOLVED_PWR_LOAD:</color> <b><color=#AAFFAA>{evolvedPower * 49} MHz</color></b>";
+                $"💎  <color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
+
+        if (_popupSkillText != null)
+            _popupSkillText.text =
+                $"⚡  <color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
+
+        if (_popupEffectText != null)
+            _popupEffectText.text =
+                $"📖  <color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
 
         // ── Battle Button Config ────────────────────────────────────
         if (_popupBattleBtn != null && _popupBattleBtnText != null && _popupBattleBtnImg != null)
@@ -686,12 +720,12 @@ public class PlayerProfileController : MonoBehaviour
                 // Update text and color
                 if (inTeam)
                 {
-                    _popupBattleBtnText.text = "✓ DECOMMISSION_UNIT";
+                    _popupBattleBtnText.text = "✓ DECOMMISSION UNIT";
                     _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Green
                 }
                 else
                 {
-                    _popupBattleBtnText.text = "DEPLOY_UNIT_TO_SQUAD";
+                    _popupBattleBtnText.text = "DEPLOY UNIT TO SQUAD";
                     _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f); // Orange/Gold
                 }
 
@@ -704,12 +738,12 @@ public class PlayerProfileController : MonoBehaviour
                         bool nowInTeam = profile.BattleTeam.Contains(name);
                         if (nowInTeam)
                         {
-                            _popupBattleBtnText.text = "✓ DECOMMISSION_UNIT";
+                            _popupBattleBtnText.text = "✓ DECOMMISSION UNIT";
                             _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f);
                         }
                         else
                         {
-                            _popupBattleBtnText.text = "DEPLOY_UNIT_TO_SQUAD";
+                            _popupBattleBtnText.text = "DEPLOY UNIT TO SQUAD";
                             _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f);
                         }
                         BuildCreatureGrid();
@@ -723,7 +757,7 @@ public class PlayerProfileController : MonoBehaviour
             else
             {
                 // Unowned creature redirect to store scene
-                _popupBattleBtnText.text = $"🔒 BUY (🪙 {entry.Price})";
+                _popupBattleBtnText.text = $"🔒 BUY (<color=#FFD700>🪙</color> {entry.Price})";
                 _popupBattleBtnImg.color = new Color(0.75f, 0.25f, 0.25f, 1f); // Reddish
 
                 _popupBattleBtn.onClick.RemoveAllListeners();

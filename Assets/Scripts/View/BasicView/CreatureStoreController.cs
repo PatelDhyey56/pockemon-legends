@@ -183,43 +183,64 @@ public class CreatureStoreController : MonoBehaviour
 
             // Price / Owned
             TextMeshProUGUI priceText = card.transform.Find("PriceText")?.GetComponent<TextMeshProUGUI>();
-            if (priceText != null)
-            {
-                if (owned)
-                    priceText.text = entry.IsStarter ? "Free (Starter)" : "Owned ✓";
-                else
-                    priceText.text = entry.Price > 0 ? $"🪙 {entry.Price}" : "Free";
-            }
-
-            // Card background tint
-            Image cardBg = card.transform.Find("CardBg")?.GetComponent<Image>();
-            if (cardBg != null && TypeColors.TryGetValue(entry.Type, out Color bg))
-                cardBg.color = new Color(bg.r, bg.g, bg.b, 0.18f);
-
-            // Buy button on card
             Button buyBtn = card.transform.Find("BuyButton")?.GetComponent<Button>();
-            if (buyBtn != null)
+
+            if (owned)
             {
-                if (owned)
+                if (priceText != null)
+                {
+                    priceText.gameObject.SetActive(true);
+                    priceText.text = entry.IsStarter ? "Free (Starter)" : "Owned ✓";
+                    var priceRt = priceText.GetComponent<RectTransform>();
+                    if (priceRt != null)
+                    {
+                        priceRt.anchoredPosition = new Vector2(0f, -300f);
+                        priceRt.sizeDelta = new Vector2(420f, 60f);
+                    }
+                    priceText.alignment = TextAlignmentOptions.Center;
+                }
+                if (buyBtn != null)
                 {
                     buyBtn.gameObject.SetActive(false);
                 }
-                else
+            }
+            else
+            {
+                if (priceText != null)
+                {
+                    priceText.gameObject.SetActive(false);
+                }
+                if (buyBtn != null)
                 {
                     buyBtn.gameObject.SetActive(true);
                     buyBtn.interactable = canAfford;
+                    var buyRt = buyBtn.GetComponent<RectTransform>();
+                    if (buyRt != null)
+                    {
+                        buyRt.anchoredPosition = new Vector2(0f, -300f);
+                        buyRt.sizeDelta = new Vector2(320f, 60f);
+                    }
                     var buyImg = buyBtn.GetComponent<Image>();
                     if (buyImg != null)
                         buyImg.color = canAfford ? Color.white : new Color(1f, 1f, 1f, 0.35f);
 
                     TextMeshProUGUI btnLabel = buyBtn.GetComponentInChildren<TextMeshProUGUI>();
                     if (btnLabel != null)
-                        btnLabel.text = canAfford ? "Buy" : "🪙 Needed";
+                    {
+                        btnLabel.text = entry.Price > 0 
+                            ? (canAfford ? $"Buy <color=#FFD700>🪙</color> {entry.Price}" : $"Needed <color=#FFD700>🪙</color> {entry.Price}") 
+                            : "Free";
+                    }
 
                     buyBtn.onClick.RemoveAllListeners();
                     buyBtn.onClick.AddListener(() => OnCardClicked(captureName));
                 }
             }
+
+            // Card background tint - set to light black for visibility
+            Image cardBg = card.transform.Find("CardBg")?.GetComponent<Image>();
+            if (cardBg != null)
+                cardBg.color = new Color(0.08f, 0.08f, 0.12f, 0.95f);
 
             // Stagger scale-in animation
             card.transform.localScale = Vector3.zero;
@@ -247,7 +268,7 @@ public class CreatureStoreController : MonoBehaviour
     {
         var profile = PlayerProfileManager.GetInstance();
         if (coinsText != null && profile != null)
-            coinsText.text = $"🪙 {profile.Coins}";
+            coinsText.text = $"<color=#FFD700>🪙</color> {profile.Coins}";
         RefreshCards();
     }
 
@@ -297,7 +318,7 @@ public class CreatureStoreController : MonoBehaviour
         var box = new GameObject("DialogBox", typeof(RectTransform), typeof(Image));
         box.transform.SetParent(_purchasePopup.transform, false);
         var boxRect = box.GetComponent<RectTransform>();
-        boxRect.sizeDelta        = new Vector2(600f, 660f); // Increased height to fit skill + description
+        boxRect.sizeDelta        = new Vector2(850f, 1150f); // Rescaled to 850x1150
         boxRect.anchoredPosition = Vector2.zero;
 
         var boxImg = box.GetComponent<Image>();
@@ -312,8 +333,8 @@ public class CreatureStoreController : MonoBehaviour
         xRect.anchorMin        = new Vector2(1f, 1f);
         xRect.anchorMax        = new Vector2(1f, 1f);
         xRect.pivot            = new Vector2(1f, 1f);
-        xRect.anchoredPosition = new Vector2(-12f, -12f);
-        xRect.sizeDelta        = new Vector2(44f, 44f);
+        xRect.anchoredPosition = new Vector2(-15f, -15f);
+        xRect.sizeDelta        = new Vector2(55f, 55f);
 
         var xCircle = xGo.AddComponent<Image>();
         xCircle.color = new Color(0.80f, 0.18f, 0.18f, 0.92f);
@@ -321,7 +342,7 @@ public class CreatureStoreController : MonoBehaviour
         var xBtn = xGo.AddComponent<Button>();
         xBtn.onClick.AddListener(ClosePurchasePopup);
 
-        var xLabel = MakeTextChild(xGo.transform, "✕", 22f, Color.white);
+        var xLabel = MakeTextChild(xGo.transform, "X", 28f, Color.white);
         xLabel.alignment = TextAlignmentOptions.Center;
         xLabel.fontStyle = FontStyles.Bold;
 
@@ -331,8 +352,8 @@ public class CreatureStoreController : MonoBehaviour
         avatarRect.anchorMin        = new Vector2(0.5f, 0.5f);
         avatarRect.anchorMax        = new Vector2(0.5f, 0.5f);
         avatarRect.pivot            = new Vector2(0.5f, 0.5f);
-        avatarRect.anchoredPosition = new Vector2(0f, 255f); // Shifted up
-        avatarRect.sizeDelta        = new Vector2(200f, 200f);
+        avatarRect.anchoredPosition = new Vector2(0f, 280f); // Rescaled
+        avatarRect.sizeDelta        = new Vector2(500f, 500f);
         _popupAvatar = avatarGo.AddComponent<Image>();
         if (_popupAvatar != null) _popupAvatar.preserveAspect = true;
 
@@ -344,20 +365,20 @@ public class CreatureStoreController : MonoBehaviour
         nameRect.anchorMin        = new Vector2(0.5f, 0.5f);
         nameRect.anchorMax        = new Vector2(0.5f, 0.5f);
         nameRect.pivot            = new Vector2(0.5f, 0.5f);
-        nameRect.anchoredPosition = new Vector2(0f, 185f); // Shifted up
-        nameRect.sizeDelta        = new Vector2(520f, 38f);
+        nameRect.anchoredPosition = new Vector2(0f, -25f); // Rescaled
+        nameRect.sizeDelta        = new Vector2(750f, 60f);
         _popupNameText = nameGo.AddComponent<TextMeshProUGUI>();
-        _popupNameText.fontSize    = 26f;
+        _popupNameText.fontSize    = 44f;
         _popupNameText.fontStyle   = FontStyles.Bold;
         _popupNameText.alignment   = TextAlignmentOptions.Center;
         _popupNameText.color       = Color.white;
 
         // ── Top separator ─────────────────────────────────────────────
-        MakeSeparator(box.transform, 145f); // Shifted up
+        MakeSeparator(box.transform, -70f); // Rescaled
 
         // ── Stat rows (left-aligned, with icon + label + value) ──────
-        float rowY    = 110f;  // Shifted up
-        float rowStep = 42f;   // spacing between rows
+        float rowY    = -110f;  // Rescaled
+        float rowStep = 54f;   // Rescaled
 
         // Row: Stone Type
         var stoneTypeRow = MakeStatRow(box.transform, "StoneTypeRow", rowY);
@@ -394,7 +415,7 @@ public class CreatureStoreController : MonoBehaviour
         _popupCostText = costRow;
 
         // ── Bottom separator ──────────────────────────────────────────
-        MakeSeparator(box.transform, -180f); // Shifted down
+        MakeSeparator(box.transform, -475f); // Rescaled
 
         // ── PURCHASE button ───────────────────────────────────────────
         var buyGo = new GameObject("PurchaseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -403,8 +424,8 @@ public class CreatureStoreController : MonoBehaviour
         buyRect.anchorMin        = new Vector2(0.5f, 0.5f);
         buyRect.anchorMax        = new Vector2(0.5f, 0.5f);
         buyRect.pivot            = new Vector2(0.5f, 0.5f);
-        buyRect.anchoredPosition = new Vector2(0f, -240f); // Shifted down
-        buyRect.sizeDelta        = new Vector2(320f, 54f);
+        buyRect.anchoredPosition = new Vector2(0f, -525f); // Rescaled
+        buyRect.sizeDelta        = new Vector2(360f, 65f);
 
         _popupBuyBtnImg       = buyGo.GetComponent<Image>();
         _popupBuyBtnImg.color = new Color(0.12f, 0.72f, 0.35f); // green
@@ -437,7 +458,7 @@ public class CreatureStoreController : MonoBehaviour
         r.anchorMax        = new Vector2(0.5f, 0.5f);
         r.pivot            = new Vector2(0.5f, 0.5f);
         r.anchoredPosition = new Vector2(0f, anchoredY);
-        r.sizeDelta        = new Vector2(520f, 1.5f);
+        r.sizeDelta        = new Vector2(750f, 2f);
         sep.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.12f);
     }
 
@@ -451,9 +472,9 @@ public class CreatureStoreController : MonoBehaviour
         r.anchorMax        = new Vector2(0.5f, 0.5f);
         r.pivot            = new Vector2(0.5f, 0.5f);
         r.anchoredPosition = new Vector2(0f, anchoredY);
-        r.sizeDelta        = new Vector2(520f, 36f);
+        r.sizeDelta        = new Vector2(750f, 44f);
         var tmp = go.GetComponent<TextMeshProUGUI>();
-        tmp.fontSize             = 17f;
+        tmp.fontSize             = 24f;
         tmp.alignment            = TextAlignmentOptions.Left;
         tmp.color                = new Color(0.88f, 0.88f, 0.92f, 1f);
         tmp.textWrappingMode     = TextWrappingModes.NoWrap;
@@ -535,35 +556,40 @@ public class CreatureStoreController : MonoBehaviour
         };
         string powerIcon = isHeal ? "💊" : "⚔️";
 
-        // ── Stat rows (rich text: label dim, value bright) ───────────
-        if (_popupStoneTypeText != null)
-            _popupStoneTypeText.text =
-                $"{typeIcon}  <color=#AAAACC>Gem Type:</color>     <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
-
-        if (_popupStoneCapText != null)
-            _popupStoneCapText.text =
-                $"💎  <color=#AAAACC>Gem Capacity:</color>  <b><color=#FFE066>{stoneLimit} Gems</color></b>";
-
-        if (_popupBasePowerText != null)
-            _popupBasePowerText.text =
-                $"{powerIcon}  <color=#AAAACC>Base {powerLabel}:</color>   <b><color=#66EEFF>{basePower}</color></b>";
-
-        if (_popupEvoledPowerText != null)
-            _popupEvoledPowerText.text =
-                $"✨  <color=#AAAACC>Evolved {powerLabel}:</color> <b><color=#AAFFAA>{evolvedPower}</color></b>";
-
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
         string abilityName = rule != null ? rule.AttackName : "Tackle";
         string abilityDesc = rule != null ? rule.EffectDescription : "Deals damage";
+        int abilityDamage = rule != null ? rule.Damage : 10;
+        int stonesReq = rule != null ? rule.StonesRequired : 5;
+
+        string abilityPowerIcon = isHeal ? "💖" : "💥";
+        string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
+
+        // ── Stat rows (rich text: label dim, value bright) ───────────
+        if (_popupStoneTypeText != null)
+            _popupStoneTypeText.text =
+                $"{typeIcon}  <color=#AAAACC>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
+
+        if (_popupStoneCapText != null)
+            _popupStoneCapText.text =
+                $"{powerIcon}  <color=#AAAACC>Power:</color>           <b><color=#FFE066>{basePower}</color></b>";
+
+        if (_popupBasePowerText != null)
+            _popupBasePowerText.text =
+                $"{abilityPowerIcon}  <color=#AAAACC>{abilityPowerLabel}</color>  <b><color=#66EEFF>{abilityDamage}</color></b>";
+
+        if (_popupEvoledPowerText != null)
+            _popupEvoledPowerText.text =
+                $"💎  <color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
 
         if (_popupSkillText != null)
             _popupSkillText.text =
-                $"⚡  <color=#AAAACC>Ability:</color>        <b><color=#FFAA22>{abilityName}</color></b>";
+                $"⚡  <color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
 
         if (_popupEffectText != null)
             _popupEffectText.text =
-                $"📖  <color=#AAAACC>Effect:</color>         <b><color=#DDDDFF>{abilityDesc}</color></b>";
+                $"📖  <color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
 
         if (isOwned)
         {
@@ -593,9 +619,9 @@ public class CreatureStoreController : MonoBehaviour
             {
                 _popupCostText.gameObject.SetActive(true);
                 string coinColor = canAfford ? "#FFD700" : "#FF6666";
-                string suffix    = canAfford ? "" : "  <color=#FF5555><size=14>(Not enough 🪙)</size></color>";
+                string suffix    = canAfford ? "" : "  <color=#FF5555><size=14>(Not enough <color=#FFD700>🪙</color>)</size></color>";
                 _popupCostText.text =
-                    $"🪙  <color=#AAAACC>Cost:</color>            <b><color={coinColor}>{entry.Price}</color></b>{suffix}";
+                    $"<color=#FFD700>🪙</color>  <color=#AAAACC>Cost:</color>            <b><color={coinColor}>{entry.Price}</color></b>{suffix}";
             }
 
             if (_popupBuyBtn != null)
@@ -611,7 +637,7 @@ public class CreatureStoreController : MonoBehaviour
             }
             if (_popupBuyBtnLabel != null)
             {
-                _popupBuyBtnLabel.text  = canAfford ? "🪙  PURCHASE" : "🔒  NOT ENOUGH COINS";
+                _popupBuyBtnLabel.text  = canAfford ? "<color=#FFD700>🪙</color>  PURCHASE" : "🔒  NOT ENOUGH COINS";
                 _popupBuyBtnLabel.color = canAfford ? Color.white : new Color(1f, 1f, 1f, 0.45f);
             }
         }

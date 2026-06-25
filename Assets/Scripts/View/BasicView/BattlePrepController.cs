@@ -254,7 +254,7 @@ public class BattlePrepController : MonoBehaviour
         var p = PlayerProfileManager.GetInstance();
         if (p != null && coinsValueText != null)
         {
-            coinsValueText.text = $"🪙  {p.Coins}";
+            coinsValueText.text = $"<color=#FFD700>🪙</color>  {p.Coins}";
         }
         RefreshBattleButtonState();
     }
@@ -340,22 +340,41 @@ public class BattlePrepController : MonoBehaviour
             TextMeshProUGUI priceText = card.transform.Find("PriceText")?.GetComponent<TextMeshProUGUI>();
             if (priceText != null)
             {
+                var priceRt = priceText.GetComponent<RectTransform>();
                 if (isOwned)
                 {
                     priceText.text = entry.IsStarter ? "Starter" : "Owned";
                     priceText.color = new Color(0.3f, 0.9f, 0.4f);
+                    if (priceRt != null)
+                    {
+                        priceRt.anchoredPosition = new Vector2(0f, -300f);
+                        priceRt.sizeDelta = new Vector2(420f, 60f);
+                    }
+                    priceText.alignment = TextAlignmentOptions.Center;
                 }
                 else
                 {
-                    priceText.text = entry.Price > 0 ? $"Locked (🪙 {entry.Price})" : "Locked";
+                    priceText.text = entry.Price > 0 ? $"Locked (<color=#FFD700>🪙</color> {entry.Price})" : "Locked";
                     priceText.color = new Color(0.85f, 0.35f, 0.35f);
+                    if (priceRt != null)
+                    {
+                        priceRt.anchoredPosition = new Vector2(-100f, -300f);
+                        priceRt.sizeDelta = new Vector2(200f, 60f);
+                    }
+                    priceText.alignment = TextAlignmentOptions.Center;
                 }
             }
 
-            Image cardBg = card.transform.Find("CardBg")?.GetComponent<Image>();
-            if (cardBg != null && TypeColors.TryGetValue(entry.Type, out Color bg))
+            var buyBtnTrans = card.transform.Find("BuyButton");
+            if (buyBtnTrans != null)
             {
-                cardBg.color = isOwned ? new Color(bg.r, bg.g, bg.b, 0.22f) : new Color(bg.r * 0.4f, bg.g * 0.4f, bg.b * 0.4f, 0.12f);
+                buyBtnTrans.gameObject.SetActive(false);
+            }
+
+            Image cardBg = card.transform.Find("CardBg")?.GetComponent<Image>();
+            if (cardBg != null)
+            {
+                cardBg.color = new Color(0.08f, 0.08f, 0.12f, 0.95f);
             }
 
             // In Team checkmark
@@ -458,7 +477,7 @@ public class BattlePrepController : MonoBehaviour
         var box = new GameObject("DialogBox", typeof(RectTransform), typeof(Image));
         box.transform.SetParent(_detailsPopup.transform, false);
         var boxRect = box.GetComponent<RectTransform>();
-        boxRect.sizeDelta        = new Vector2(600f, 660f); // Height of 660 to fit all rows
+        boxRect.sizeDelta        = new Vector2(850f, 1150f); // Rescaled to 850x1150
         boxRect.anchoredPosition = Vector2.zero;
         var boxImg = box.GetComponent<Image>();
         boxImg.color = new Color(0.09f, 0.09f, 0.13f, 0.97f);
@@ -471,8 +490,8 @@ public class BattlePrepController : MonoBehaviour
         xRect.anchorMin        = new Vector2(1f, 1f);
         xRect.anchorMax        = new Vector2(1f, 1f);
         xRect.pivot            = new Vector2(1f, 1f);
-        xRect.anchoredPosition = new Vector2(-12f, -12f);
-        xRect.sizeDelta        = new Vector2(44f, 44f);
+        xRect.anchoredPosition = new Vector2(-15f, -15f);
+        xRect.sizeDelta        = new Vector2(55f, 55f);
         xGo.GetComponent<Image>().color = new Color(0.80f, 0.18f, 0.18f, 0.92f);
         xGo.GetComponent<Button>().onClick.AddListener(CloseDetailsPopup);
 
@@ -482,7 +501,7 @@ public class BattlePrepController : MonoBehaviour
         xlRect.anchorMin = Vector2.zero; xlRect.anchorMax = Vector2.one;
         xlRect.offsetMin = Vector2.zero; xlRect.offsetMax = Vector2.zero;
         var xTMP = xLabel.GetComponent<TextMeshProUGUI>();
-        xTMP.text = "✕"; xTMP.fontSize = 22f; xTMP.alignment = TextAlignmentOptions.Center;
+        xTMP.text = "X"; xTMP.fontSize = 28f; xTMP.alignment = TextAlignmentOptions.Center;
         xTMP.fontStyle = FontStyles.Bold; xTMP.color = Color.white;
         xTMP.raycastTarget = false;
 
@@ -493,8 +512,8 @@ public class BattlePrepController : MonoBehaviour
         avatarRect.anchorMin        = new Vector2(0.5f, 0.5f);
         avatarRect.anchorMax        = new Vector2(0.5f, 0.5f);
         avatarRect.pivot            = new Vector2(0.5f, 0.5f);
-        avatarRect.anchoredPosition = new Vector2(0f, 255f);
-        avatarRect.sizeDelta        = new Vector2(200f, 200f);
+        avatarRect.anchoredPosition = new Vector2(0f, 280f);
+        avatarRect.sizeDelta        = new Vector2(500f, 500f);
         _popupAvatar = avatarGo.GetComponent<Image>();
         if (_popupAvatar != null) _popupAvatar.preserveAspect = true;
 
@@ -507,20 +526,20 @@ public class BattlePrepController : MonoBehaviour
         nameRect.anchorMin        = new Vector2(0.5f, 0.5f);
         nameRect.anchorMax        = new Vector2(0.5f, 0.5f);
         nameRect.pivot            = new Vector2(0.5f, 0.5f);
-        nameRect.anchoredPosition = new Vector2(0f, 185f);
-        nameRect.sizeDelta        = new Vector2(500f, 38f);
+        nameRect.anchoredPosition = new Vector2(0f, -25f);
+        nameRect.sizeDelta        = new Vector2(750f, 60f);
         _popupNameText = nameGo.GetComponent<TextMeshProUGUI>();
-        _popupNameText.fontSize  = 26f;
+        _popupNameText.fontSize  = 44f;
         _popupNameText.fontStyle = FontStyles.Bold;
         _popupNameText.alignment = TextAlignmentOptions.Center;
         _popupNameText.color     = Color.white;
 
         // ── Top separator ──
-        MakePrepSeparator(box.transform, 145f);
+        MakePrepSeparator(box.transform, -70f);
 
         // ── Stat rows ──
-        float rowY    = 110f;
-        float rowStep = 42f;
+        float rowY    = -110f;
+        float rowStep = 54f;
 
         _popupStoneTypeText   = MakePrepStatRow(box.transform, "StoneTypeRow",  rowY); rowY -= rowStep;
         _popupStoneCapText    = MakePrepStatRow(box.transform, "StoneCapRow",   rowY); rowY -= rowStep;
@@ -530,7 +549,7 @@ public class BattlePrepController : MonoBehaviour
         _popupEffectText      = MakePrepStatRow(box.transform, "EffectRow",     rowY);
 
         // ── Bottom separator ──
-        MakePrepSeparator(box.transform, -180f);
+        MakePrepSeparator(box.transform, -475f);
 
         // ── Close button (bottom left) ──
         var closeGo = new GameObject("CloseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -539,8 +558,8 @@ public class BattlePrepController : MonoBehaviour
         closeRect.anchorMin        = new Vector2(0.5f, 0.5f);
         closeRect.anchorMax        = new Vector2(0.5f, 0.5f);
         closeRect.pivot            = new Vector2(0.5f, 0.5f);
-        closeRect.anchoredPosition = new Vector2(-120f, -240f);
-        closeRect.sizeDelta        = new Vector2(200f, 50f);
+        closeRect.anchoredPosition = new Vector2(-180f, -525f);
+        closeRect.sizeDelta        = new Vector2(280f, 65f);
         closeGo.GetComponent<Image>().color = new Color(0.15f, 0.50f, 0.85f, 1f);
         closeGo.GetComponent<Button>().onClick.AddListener(CloseDetailsPopup);
 
@@ -550,7 +569,7 @@ public class BattlePrepController : MonoBehaviour
         ctRect.anchorMin = Vector2.zero; ctRect.anchorMax = Vector2.one;
         ctRect.offsetMin = Vector2.zero; ctRect.offsetMax = Vector2.zero;
         var closeTMP = closeTextGo.GetComponent<TextMeshProUGUI>();
-        closeTMP.text = "CLOSE"; closeTMP.fontSize = 18f;
+        closeTMP.text = "CLOSE"; closeTMP.fontSize = 24f;
         closeTMP.fontStyle = FontStyles.Bold;
         closeTMP.alignment = TextAlignmentOptions.Center; closeTMP.color = Color.white;
         closeTMP.raycastTarget = false;
@@ -562,8 +581,8 @@ public class BattlePrepController : MonoBehaviour
         battleRect.anchorMin        = new Vector2(0.5f, 0.5f);
         battleRect.anchorMax        = new Vector2(0.5f, 0.5f);
         battleRect.pivot            = new Vector2(0.5f, 0.5f);
-        battleRect.anchoredPosition = new Vector2(120f, -240f);
-        battleRect.sizeDelta        = new Vector2(240f, 50f);
+        battleRect.anchoredPosition = new Vector2(180f, -525f);
+        battleRect.sizeDelta        = new Vector2(280f, 65f);
         _popupBattleBtnImg = battleGo.GetComponent<Image>();
         _popupBattleBtn = battleGo.GetComponent<Button>();
 
@@ -573,7 +592,7 @@ public class BattlePrepController : MonoBehaviour
         btRect.anchorMin = Vector2.zero; btRect.anchorMax = Vector2.one;
         btRect.offsetMin = Vector2.zero; btRect.offsetMax = Vector2.zero;
         _popupBattleBtnText = battleTextGo.GetComponent<TextMeshProUGUI>();
-        _popupBattleBtnText.fontSize = 18f;
+        _popupBattleBtnText.fontSize = 24f;
         _popupBattleBtnText.fontStyle = FontStyles.Bold;
         _popupBattleBtnText.alignment = TextAlignmentOptions.Center; _popupBattleBtnText.color = Color.white;
         _popupBattleBtnText.raycastTarget = false;
@@ -599,7 +618,7 @@ public class BattlePrepController : MonoBehaviour
         r.anchorMax        = new Vector2(0.5f, 0.5f);
         r.pivot            = new Vector2(0.5f, 0.5f);
         r.anchoredPosition = new Vector2(0f, anchoredY);
-        r.sizeDelta        = new Vector2(520f, 1.5f);
+        r.sizeDelta        = new Vector2(750f, 2f);
         sep.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.12f);
     }
 
@@ -612,9 +631,9 @@ public class BattlePrepController : MonoBehaviour
         r.anchorMax        = new Vector2(0.5f, 0.5f);
         r.pivot            = new Vector2(0.5f, 0.5f);
         r.anchoredPosition = new Vector2(0f, anchoredY);
-        r.sizeDelta        = new Vector2(520f, 36f);
+        r.sizeDelta        = new Vector2(750f, 44f);
         var tmp = go.GetComponent<TextMeshProUGUI>();
-        tmp.fontSize         = 17f;
+        tmp.fontSize         = 24f;
         tmp.alignment        = TextAlignmentOptions.Left;
         tmp.color            = new Color(0.88f, 0.88f, 0.92f, 1f);
         tmp.textWrappingMode = TextWrappingModes.NoWrap;
@@ -665,34 +684,39 @@ public class BattlePrepController : MonoBehaviour
         };
         string powerIcon = isHeal ? "💊" : "⚔️";
 
-        if (_popupStoneTypeText != null)
-            _popupStoneTypeText.text =
-                $"{typeIcon}  <color=#AAAACC>Gem Type:</color>     <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
-
-        if (_popupStoneCapText != null)
-            _popupStoneCapText.text =
-                $"💎  <color=#AAAACC>Gem Capacity:</color>  <b><color=#FFE066>{stoneLimit} Gems</color></b>";
-
-        if (_popupBasePowerText != null)
-            _popupBasePowerText.text =
-                $"{powerIcon}  <color=#AAAACC>Base {powerLabel}:</color>   <b><color=#66EEFF>{basePower}</color></b>";
-
-        if (_popupEvoledPowerText != null)
-            _popupEvoledPowerText.text =
-                $"✨  <color=#AAAACC>Evolved {powerLabel}:</color> <b><color=#AAFFAA>{evolvedPower}</color></b>";
-
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
         string abilityName = rule != null ? rule.AttackName : "Tackle";
         string abilityDesc = rule != null ? rule.EffectDescription : "Deals damage";
+        int abilityDamage = rule != null ? rule.Damage : 10;
+        int stonesReq = rule != null ? rule.StonesRequired : 5;
+
+        string abilityPowerIcon = isHeal ? "💖" : "💥";
+        string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
+
+        if (_popupStoneTypeText != null)
+            _popupStoneTypeText.text =
+                $"{typeIcon}  <color=#AAAACC>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
+
+        if (_popupStoneCapText != null)
+            _popupStoneCapText.text =
+                $"{powerIcon}  <color=#AAAACC>Power:</color>           <b><color=#FFE066>{basePower}</color></b>";
+
+        if (_popupBasePowerText != null)
+            _popupBasePowerText.text =
+                $"{abilityPowerIcon}  <color=#AAAACC>{abilityPowerLabel}</color>  <b><color=#66EEFF>{abilityDamage}</color></b>";
+
+        if (_popupEvoledPowerText != null)
+            _popupEvoledPowerText.text =
+                $"💎  <color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
 
         if (_popupSkillText != null)
             _popupSkillText.text =
-                $"⚡  <color=#AAAACC>Ability:</color>        <b><color=#FFAA22>{abilityName}</color></b>";
+                $"⚡  <color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
 
         if (_popupEffectText != null)
             _popupEffectText.text =
-                $"📖  <color=#AAAACC>Effect:</color>         <b><color=#DDDDFF>{abilityDesc}</color></b>";
+                $"📖  <color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
 
         // ── Battle Button Config ──
         if (_popupBattleBtn != null && _popupBattleBtnText != null && _popupBattleBtnImg != null)
@@ -769,7 +793,7 @@ public class BattlePrepController : MonoBehaviour
         bool canAfford = profile.CanAffordBattle;
 
         int betFee = profile.SelectedBet;
-        startBattleButtonText.text = $"START BATTLE (🪙 {betFee})";
+        startBattleButtonText.text = $"START BATTLE (<color=#FFD700>🪙</color> {betFee})";
 
         if (hasTwo && canAfford)
         {

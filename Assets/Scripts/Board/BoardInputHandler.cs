@@ -987,7 +987,7 @@ public class BoardInputHandler : MonoBehaviour
         EnforceFilledImage(p2Poke1EnergyBar);
         EnforceFilledImage(p2Poke2EnergyBar);
 
-        SetupCreatureClickListeners();
+        // Creature click listeners are now statically wired in the scene
 
         UpdatePlayerUI();
     }
@@ -2192,22 +2192,14 @@ public class BoardInputHandler : MonoBehaviour
         }
     }
 
-    private void SetupCreatureClickListeners()
+    public void OnP1Poke1AvatarClicked()
     {
-        if (p1Poke1Avatar != null)
-        {
-            var btn = p1Poke1Avatar.gameObject.GetComponent<UnityEngine.UI.Button>();
-            if (btn == null) btn = p1Poke1Avatar.gameObject.AddComponent<UnityEngine.UI.Button>();
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => OnCreatureAvatarClicked(0, 0));
-        }
-        if (p1Poke2Avatar != null)
-        {
-            var btn = p1Poke2Avatar.gameObject.GetComponent<UnityEngine.UI.Button>();
-            if (btn == null) btn = p1Poke2Avatar.gameObject.AddComponent<UnityEngine.UI.Button>();
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => OnCreatureAvatarClicked(0, 1));
-        }
+        OnCreatureAvatarClicked(0, 0);
+    }
+
+    public void OnP1Poke2AvatarClicked()
+    {
+        OnCreatureAvatarClicked(0, 1);
     }
 
     private void OnCreatureAvatarClicked(int playerIdx, int creatureIdx)
