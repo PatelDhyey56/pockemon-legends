@@ -58,8 +58,8 @@ public class GridModel
             for (int c = 0; c < COLS - 2; c++)
             {
                 GemType g = Grid[r, c];
-                // Charry stones never form match-3 lines
-                if (g == GemType.Charry) continue;
+                // Empty cells never form match-3 lines
+                if (g == GemType.Empty) continue;
                 if (g == Grid[r, c + 1] && g == Grid[r, c + 2])
                 {
                     matched.Add(new Vector2Int(c,     r));
@@ -74,8 +74,8 @@ public class GridModel
             for (int r = 0; r < ROWS - 2; r++)
             {
                 GemType g = Grid[r, c];
-                // Charry stones never form match-3 lines
-                if (g == GemType.Charry) continue;
+                // Empty cells never form match-3 lines
+                if (g == GemType.Empty) continue;
                 if (g == Grid[r + 1, c] && g == Grid[r + 2, c])
                 {
                     matched.Add(new Vector2Int(c, r));
@@ -92,12 +92,12 @@ public class GridModel
     {
         foreach (Vector2Int pos in positions)
         {
-            Grid[pos.y, pos.x] = GemType.Charry;
+            Grid[pos.y, pos.x] = GemType.Empty;
         }
     }
 
     /// <summary>
-    /// Applies gravity: existing stones fall down to fill Charry gaps.
+    /// Applies gravity: existing stones fall down to fill Empty gaps.
     /// Returns a list of stones that moved, with their old and new positions.
     /// </summary>
     public List<CascadeMove> Cascade()
@@ -108,13 +108,13 @@ public class GridModel
             int writeRow = ROWS - 1;
             for (int r = ROWS - 1; r >= 0; r--)
             {
-                if (Grid[r, c] != GemType.Charry)
+                if (Grid[r, c] != GemType.Empty)
                 {
                     if (writeRow != r)
                     {
                         moves.Add(new CascadeMove(new Vector2Int(c, r), new Vector2Int(c, writeRow)));
                         Grid[writeRow, c] = Grid[r, c];
-                        Grid[r, c] = GemType.Charry;
+                        Grid[r, c] = GemType.Empty;
                     }
                     writeRow--;
                 }
@@ -123,14 +123,14 @@ public class GridModel
             // Ensure any remaining cells above the compacted column are cleared.
             for (int r = writeRow; r >= 0; r--)
             {
-                Grid[r, c] = GemType.Charry;
+                Grid[r, c] = GemType.Empty;
             }
         }
         return moves;
     }
 
     /// <summary>
-    /// Fills every Charry (empty) cell with a random gem.
+    /// Fills every Empty (empty) cell with a random gem.
     /// Returns the positions of all cells that were refilled so
     /// the view layer can play a distinct "drop from top" animation
     /// for brand-new stones vs. existing stones that simply fell down.
@@ -142,7 +142,7 @@ public class GridModel
         {
             for (int c = 0; c < COLS; c++)
             {
-                if (Grid[r, c] == GemType.Charry)
+                if (Grid[r, c] == GemType.Empty)
                 {
                     Grid[r, c] = GetRandomGem();
                     refilled.Add(new Vector2Int(c, r));
@@ -220,15 +220,15 @@ public class GridModel
     }
 
     /// <summary>
-    /// Returns a random gem type. Evolution stones appear at ~8% probability.
-    /// Charry is NEVER returned — it is only set internally for empty cells.
+    /// Returns a random gem type. Charry stones appear at ~8% probability.
+    /// Empty is NEVER returned — it is only set internally for empty cells.
     /// </summary>
     private GemType GetRandomGem()
     {
-        // Weighted pool: 6 normal types + 1 Evolution slot → 7 slots, Evolution = ~14%
-        // Use 12 slots so Evolution is ~8%: 11 normal, 1 Evolution
+        // Weighted pool: 6 normal types + 1 Charry slot → 7 slots, Charry = ~14%
+        // Use 12 slots so Charry is ~8%: 11 normal, 1 Charry
         int roll = Random.Range(0, 12);
-        if (roll == 0) return GemType.Evolution;
+        if (roll == 0) return GemType.Charry;
         // Distribute remaining 11 rolls across 6 normal types
         return (GemType)(roll % 6);
     }

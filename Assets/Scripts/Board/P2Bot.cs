@@ -242,7 +242,7 @@ public class P2Bot : MonoBehaviour
         foreach (Vector2Int pos in matches)
         {
             GemType type = grid.Grid[pos.y, pos.x];
-            if (type == GemType.Evolution)
+            if (type == GemType.Charry)
             {
                 score += 20;
                 isStrategic = true;

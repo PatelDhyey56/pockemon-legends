@@ -550,7 +550,7 @@ public class CreatureStoreController : MonoBehaviour
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"✨  <color=#AAAACC>Ascended {powerLabel}:</color> <b><color=#AAFFAA>{evolvedPower}</color></b>";
+                $"✨  <color=#AAAACC>Evolved {powerLabel}:</color> <b><color=#AAFFAA>{evolvedPower}</color></b>";
 
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;

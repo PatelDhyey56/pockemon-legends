@@ -674,7 +674,7 @@ public class PlayerProfileController : MonoBehaviour
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"✨  <color=#AAAACC>ASCENDED_PWR_LOAD:</color> <b><color=#AAFFAA>{evolvedPower * 49} MHz</color></b>";
+                $"✨  <color=#AAAACC>EVOLVED_PWR_LOAD:</color> <b><color=#AAFFAA>{evolvedPower * 49} MHz</color></b>";
 
         // ── Battle Button Config ────────────────────────────────────
         if (_popupBattleBtn != null && _popupBattleBtnText != null && _popupBattleBtnImg != null)

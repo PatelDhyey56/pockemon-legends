@@ -84,7 +84,7 @@ public class BoardUIGenerator : EditorWindow
         GameObject playerUIPanel = new GameObject("PlayerUIPanel", typeof(RectTransform));
         playerUIPanel.transform.SetParent(canvas.transform, false);
         RectTransform panelRt = playerUIPanel.GetComponent<RectTransform>();
-        panelRt.sizeDelta = new Vector2(840f, 300f);
+        panelRt.sizeDelta = new Vector2(840f, 400f);
         panelRt.anchoredPosition = new Vector2(0f, 680f); // Moved up to make room
         panelRt.localScale = new Vector3(1.15f, 1.15f, 1f);
 
@@ -95,7 +95,7 @@ public class BoardUIGenerator : EditorWindow
         bannerGo.transform.SetParent(canvas.transform, false);
         RectTransform bannerRt = bannerGo.GetComponent<RectTransform>();
         bannerRt.sizeDelta = new Vector2(550f, 75f);
-        bannerRt.anchoredPosition = new Vector2(0f, 445f); // Centered perfectly between cards and board
+        bannerRt.anchoredPosition = new Vector2(0f, 280f); // Centered perfectly between cards and board
         Image bannerImg = bannerGo.GetComponent<Image>();
         
         // Use Unity's default rounded background sprite for a pill-like shape
@@ -146,7 +146,7 @@ public class BoardUIGenerator : EditorWindow
         GameObject card = new GameObject(isP1 ? "P1Card" : "P2Card", typeof(RectTransform), typeof(Image));
         card.transform.SetParent(parent, false);
         RectTransform cardRt = card.GetComponent<RectTransform>();
-        cardRt.sizeDelta = new Vector2(400f, 280f);
+        cardRt.sizeDelta = new Vector2(400f, 375f);
         cardRt.anchoredPosition = new Vector2(posX, 0f);
         Image bgImg = card.GetComponent<Image>();
         bgImg.color = new Color(0.08f, 0.12f, 0.18f, 0.95f);
@@ -156,7 +156,7 @@ public class BoardUIGenerator : EditorWindow
         // Inner border
         GameObject inner = new GameObject("InnerBorder", typeof(RectTransform), typeof(Image), typeof(Outline));
         inner.transform.SetParent(card.transform, false);
-        inner.GetComponent<RectTransform>().sizeDelta = new Vector2(394f, 274f);
+        inner.GetComponent<RectTransform>().sizeDelta = new Vector2(394f, 369f);
         inner.GetComponent<Image>().color = Color.clear;
         Outline outline = inner.GetComponent<Outline>();
         outline.effectColor = new Color(1f, 1f, 1f, 0.15f);
@@ -167,7 +167,7 @@ public class BoardUIGenerator : EditorWindow
         nameGo.transform.SetParent(card.transform, false);
         RectTransform nameRt = nameGo.GetComponent<RectTransform>();
         nameRt.sizeDelta = new Vector2(380f, 35f);
-        nameRt.anchoredPosition = new Vector2(0f, 115f);
+        nameRt.anchoredPosition = new Vector2(0f, 162.5f);
         TextMeshProUGUI nameTxt = nameGo.GetComponent<TextMeshProUGUI>();
         nameTxt.alignment = TextAlignmentOptions.Center;
         nameTxt.fontSize = 20f;
@@ -180,7 +180,7 @@ public class BoardUIGenerator : EditorWindow
         movesGo.transform.SetParent(card.transform, false);
         RectTransform movesRt = movesGo.GetComponent<RectTransform>();
         movesRt.sizeDelta = new Vector2(80f, 20f);
-        movesRt.anchoredPosition = new Vector2(155f, 115f);
+        movesRt.anchoredPosition = new Vector2(155f, 100f);
         TextMeshProUGUI movesTxt = movesGo.GetComponent<TextMeshProUGUI>();
         movesTxt.alignment = TextAlignmentOptions.Right;
         movesTxt.fontSize = 11f;
@@ -191,7 +191,7 @@ public class BoardUIGenerator : EditorWindow
         hpBgGo.transform.SetParent(card.transform, false);
         RectTransform hpBgRt = hpBgGo.GetComponent<RectTransform>();
         hpBgRt.sizeDelta = new Vector2(360f, 20f);
-        hpBgRt.anchoredPosition = new Vector2(0f, 85f);
+        hpBgRt.anchoredPosition = new Vector2(0f, 132.5f);
         hpBgGo.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.05f, 0.9f);
 
         GameObject hpTrailGo = new GameObject("HPBarTrailing", typeof(RectTransform), typeof(Image));
@@ -212,11 +212,12 @@ public class BoardUIGenerator : EditorWindow
         fillImg.color = new Color(0.2f, 0.8f, 0.3f);
         so.FindProperty(pfx + "HpBar").objectReferenceValue = fillImg;
 
+        // HPText
         GameObject hpTextGo = new GameObject("HPText", typeof(RectTransform), typeof(TextMeshProUGUI));
         hpTextGo.transform.SetParent(card.transform, false);
         RectTransform hpTextRt = hpTextGo.GetComponent<RectTransform>();
         hpTextRt.sizeDelta = new Vector2(360f, 20f);
-        hpTextRt.anchoredPosition = new Vector2(0f, 87f);
+        hpTextRt.anchoredPosition = new Vector2(0f, 134.5f);
         TextMeshProUGUI hpTxt = hpTextGo.GetComponent<TextMeshProUGUI>();
         hpTxt.alignment = TextAlignmentOptions.Center;
         hpTxt.fontSize = 12f;

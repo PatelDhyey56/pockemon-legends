@@ -340,8 +340,8 @@ public class BoardManager : MonoBehaviour
                 foreach (Vector2Int pos in matches)
                 {
                     GemType type = Grid.Grid[pos.y, pos.x];
-                    if (type == GemType.Charry) continue;
-                    if (type == GemType.Evolution)
+                    if (type == GemType.Empty) continue;
+                    if (type == GemType.Charry)
                     {
                         evolutionStonesThisBatch++;
                         continue;
@@ -586,7 +586,7 @@ public class BoardManager : MonoBehaviour
             List<Vector2Int> allTiles = new List<Vector2Int>();
             for (int r = 0; r < GridModel.ROWS; r++)
                 for (int c = 0; c < GridModel.COLS; c++)
-                    if (Grid.Grid[r, c] != GemType.Charry)
+                    if (Grid.Grid[r, c] != GemType.Empty)
                         allTiles.Add(new Vector2Int(c, r));
 
             int removeLimit = 1;

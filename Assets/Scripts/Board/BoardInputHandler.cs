@@ -15,6 +15,7 @@ public class BoardInputHandler : MonoBehaviour
     [SerializeField] private Color borderColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
     [SerializeField] private float borderWidth = 3f;
     [SerializeField] private Color boardBgColor = new Color(0.05f, 0.05f, 0.05f, 0.7f);
+    [SerializeField] private float charryScale = 0.40f;
 
     // Resolved at runtime; driven by AspectRatio.MaxBoardCellSize when available.
     private float _resolvedCellSize;
@@ -37,7 +38,7 @@ public class BoardInputHandler : MonoBehaviour
         new Color(1.00f, 0.78f, 0.00f), // Electric — amber-yellow     (element_gem_6)
         new Color(0.70f, 0.15f, 0.95f), // Psychic  — violet-purple    (element_gem_5)
         new Color(0.58f, 0.42f, 0.22f), // Healing  — warm earth-brown (element_gem_1)
-        new Color(0.95f, 0.10f, 0.10f), // Evolution — crimson-red Pokéball stone
+        new Color(0.95f, 0.10f, 0.10f), // Charry — crimson-red Charry stone
     };
     private static readonly Color _pipEmptyColor = new Color(0.18f, 0.18f, 0.18f, 0.7f);
     private static readonly Color _activePanel   = new Color(0.15f, 0.15f, 0.18f, 0.95f);
@@ -46,9 +47,9 @@ public class BoardInputHandler : MonoBehaviour
     // Drag committed flag to suppress redundant OnGemDrag calls after swap fires
     private bool _dragCommitted;
 
-    // Evolution stone sprite — loaded once from Resources/Gems/evolution_stone
+    // Charry stone sprite — loaded once from Resources/Gems/charry
     private Sprite _evolutionStoneSprite;
-    // Evolution stone highlight color for board cells
+    // Charry stone highlight color for board cells
     private static readonly Color _evolutionGlow = new Color(0.95f, 0.10f, 0.10f);
 
     [Header("Visuals")]
@@ -178,7 +179,7 @@ public class BoardInputHandler : MonoBehaviour
         }
 
         if (gemSprites[6] == null)
-            gemSprites[6] = Resources.Load<Sprite>("Gems/evolution_stone");
+            gemSprites[6] = Resources.Load<Sprite>("Gems/charry");
         if (gemSprites[6] != null)
             anyLoaded = true;
 
@@ -186,7 +187,7 @@ public class BoardInputHandler : MonoBehaviour
         {
             UnityEngine.Debug.LogWarning("[BoardInputHandler] No gem sprites found. " +
                 "Place gem sprites in Assets/Resources/Gems/ named element_block_1..element_block_6 " +
-                "and evolution_stone, or assign the `gemSprites` array in the inspector.");
+                "and charry, or assign the `gemSprites` array in the inspector.");
         }
 
         for (int i = 0; i < expected; i++)
@@ -316,11 +317,11 @@ public class BoardInputHandler : MonoBehaviour
             {
                 if (gemRects != null && gemRects[r, c] != null)
                 {
-                    // Only restore scale for visible cells — Charry (hidden) cells
+                    // Only restore scale for visible cells — Empty (hidden) cells
                     // must stay at scale 0 so they don’t flash back into view.
-                    bool isCharry = board?.Grid != null
-                                 && board.Grid.Grid[r, c] == GemType.Charry;
-                    if (!isCharry)
+                    bool isEmpty = board?.Grid != null
+                                 && board.Grid.Grid[r, c] == GemType.Empty;
+                    if (!isEmpty)
                         gemRects[r, c].localScale = Vector3.one;
                 }
             }
@@ -393,7 +394,7 @@ public class BoardInputHandler : MonoBehaviour
         float totalH = GridModel.ROWS * cs + (GridModel.ROWS - 1) * spacing;
 
         boardRect = boardParent.GetComponent<RectTransform>();
-        boardRect.sizeDelta = new Vector2(totalW, totalH);
+        boardRect.sizeDelta = new Vector2(1025f, totalH);
 
         if (boardParent.parent != null)
         {
@@ -753,12 +754,12 @@ public class BoardInputHandler : MonoBehaviour
 
                 Vector2 targetPos = GridToAnchored(r, c);
 
-                bool isCharry  = idx == (int)GemType.Charry;
+                bool isEmpty  = idx == (int)GemType.Empty;
                 bool hasSprite = gemSprites != null && idx >= 0 && idx < gemSprites.Length && gemSprites[idx] != null;
                 bool isFalling = fallToSet.Contains(new Vector2Int(c, r));
                 bool isNew     = !isFalling && newSet.Contains(new Vector2Int(c, r));
 
-                if (isCharry)
+                if (isEmpty)
                 {
                     img.sprite = null; img.color = Color.clear;
                     if (cg != null) cg.alpha = 0f;
@@ -780,7 +781,7 @@ public class BoardInputHandler : MonoBehaviour
                     rt2.anchoredPosition = oldAnchored;
                     rt2.localScale = Vector3.one;
                     img.raycastTarget = false;
-                    img.transform.localScale = (gem == GemType.Evolution) ? new Vector3(1.35f, 1.35f, 1f) : Vector3.one;
+                    img.transform.localScale = (gem == GemType.Charry) ? new Vector3(charryScale, charryScale, 1f) : Vector3.one;
 
                     // Bring this cell to front so it renders above other cells
                     // during the falling animation (avoids overlap artifacts).
@@ -794,7 +795,7 @@ public class BoardInputHandler : MonoBehaviour
                     rt2.anchoredPosition = targetPos + new Vector2(0f, dropDistance);
                     rt2.localScale = Vector3.one * 0.6f;
                     img.raycastTarget = false;
-                    img.transform.localScale = (gem == GemType.Evolution) ? new Vector3(1.35f, 1.35f, 1f) : Vector3.one;
+                    img.transform.localScale = (gem == GemType.Charry) ? new Vector3(charryScale, charryScale, 1f) : Vector3.one;
                 }
                 else
                 {
@@ -805,7 +806,7 @@ public class BoardInputHandler : MonoBehaviour
                     rt2.anchoredPosition = targetPos;
                     rt2.localScale = Vector3.one;
                     img.raycastTarget = true;
-                    img.transform.localScale = (gem == GemType.Evolution) ? new Vector3(1.35f, 1.35f, 1f) : Vector3.one;
+                    img.transform.localScale = (gem == GemType.Charry) ? new Vector3(charryScale, charryScale, 1f) : Vector3.one;
                 }
             }
         }
@@ -835,7 +836,7 @@ public class BoardInputHandler : MonoBehaviour
             if (!IsAlive(img2) || !IsAlive(rt2b)) continue;
 
             GemType gem2 = board.Grid.Grid[r, c];
-            if (gem2 == GemType.Charry) continue;
+            if (gem2 == GemType.Empty) continue;
 
             Vector2 targetPos2 = GridToAnchored(r, c);
 
@@ -877,7 +878,7 @@ public class BoardInputHandler : MonoBehaviour
             if (!IsAlive(img2) || !IsAlive(rt2b)) continue;
 
             GemType gem2 = board.Grid.Grid[r, c];
-            if (gem2 == GemType.Charry) continue;
+            if (gem2 == GemType.Empty) continue;
 
             Vector2 targetPos2 = GridToAnchored(r, c);
 
@@ -922,7 +923,7 @@ public class BoardInputHandler : MonoBehaviour
 
                 GemType gem = bm.Grid.Grid[r, c];
                 int     idx = (int)gem;
-                bool isCharry = idx == (int)GemType.Charry;
+                bool isEmpty = idx == (int)GemType.Empty;
 
                 var canvasGroup = img.GetComponent<CanvasGroup>();
 
@@ -931,7 +932,7 @@ public class BoardInputHandler : MonoBehaviour
                     -(r * (_resolvedCellSize + spacing) - totalH / 2f + _resolvedCellSize / 2f)
                 );
 
-                if (isCharry)
+                if (isEmpty)
                 {
                     img.sprite = null;
                     img.color  = Color.clear;
@@ -949,7 +950,7 @@ public class BoardInputHandler : MonoBehaviour
                     img.sprite = hasSprite ? gemSprites[idx] : fallbackGemSprite;
                     img.color  = hasSprite ? Color.white : GetGemColor(gem);
                     img.raycastTarget = true;
-                    img.transform.localScale = (gem == GemType.Evolution) ? new Vector3(1.35f, 1.35f, 1f) : Vector3.one;
+                    img.transform.localScale = (gem == GemType.Charry) ? new Vector3(charryScale, charryScale, 1f) : Vector3.one;
                 }
             }
         }
@@ -1010,15 +1011,6 @@ public class BoardInputHandler : MonoBehaviour
         p1NameText.text = board.Players[0].Name;
         if (p1MovesText != null)
         {
-            RectTransform rt = p1MovesText.GetComponent<RectTransform>();
-            if (rt != null)
-            {
-                rt.anchorMin = new Vector2(0.5f, 0.5f);
-                rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(1f, 0.5f);
-                rt.anchoredPosition = new Vector2(185f, 115f);
-                rt.sizeDelta = new Vector2(200f, rt.sizeDelta.y);
-            }
             p1MovesText.text = "Moves: " + GetMovesIndicator(board.Players[0].MovesRemaining);
         }
         
@@ -1064,7 +1056,7 @@ public class BoardInputHandler : MonoBehaviour
         var p1Poke1 = board.Players[0].Creatures[0];
         p1Poke1Avatar.sprite = p1Poke1.Avatar;
         if (p1Poke1Avatar != null) p1Poke1Avatar.preserveAspect = true;
-        p1Poke1Name.text = (p1Poke1.IsEvolved ? "★ Ascended " : "") + p1Poke1.Name + " (" + GetCategoryName(p1Poke1.Type) + ")";
+        p1Poke1Name.text = (p1Poke1.IsEvolved ? "★ Evolved " : "") + p1Poke1.Name + " (" + GetCategoryName(p1Poke1.Type) + ")";
         p1Poke1EnergyText.text = "Gems: " + p1Poke1.CurrentEnergy + "/" + p1Poke1.MaxEnergy;
         if (p1Poke1EnergyBar != null && p1Poke1EnergyBar) p1Poke1EnergyBar.fillAmount = (float)p1Poke1.CurrentEnergy / p1Poke1.MaxEnergy;
         if (IsAlive(p1Poke1Stone))
@@ -1079,7 +1071,7 @@ public class BoardInputHandler : MonoBehaviour
         var p1Poke2 = board.Players[0].Creatures[1];
         p1Poke2Avatar.sprite = p1Poke2.Avatar;
         if (p1Poke2Avatar != null) p1Poke2Avatar.preserveAspect = true;
-        p1Poke2Name.text = (p1Poke2.IsEvolved ? "★ Ascended " : "") + p1Poke2.Name + " (" + GetCategoryName(p1Poke2.Type) + ")";
+        p1Poke2Name.text = (p1Poke2.IsEvolved ? "★ Evolved " : "") + p1Poke2.Name + " (" + GetCategoryName(p1Poke2.Type) + ")";
         p1Poke2EnergyText.text = "Gems: " + p1Poke2.CurrentEnergy + "/" + p1Poke2.MaxEnergy;
         if (p1Poke2EnergyBar != null && p1Poke2EnergyBar) p1Poke2EnergyBar.fillAmount = (float)p1Poke2.CurrentEnergy / p1Poke2.MaxEnergy;
         if (IsAlive(p1Poke2Stone))
@@ -1094,15 +1086,6 @@ public class BoardInputHandler : MonoBehaviour
         p2NameText.text = board.Players[1].Name;
         if (p2MovesText != null)
         {
-            RectTransform rt = p2MovesText.GetComponent<RectTransform>();
-            if (rt != null)
-            {
-                rt.anchorMin = new Vector2(0.5f, 0.5f);
-                rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(1f, 0.5f);
-                rt.anchoredPosition = new Vector2(185f, 115f);
-                rt.sizeDelta = new Vector2(200f, rt.sizeDelta.y);
-            }
             p2MovesText.text = "Moves: " + GetMovesIndicator(board.Players[1].MovesRemaining);
         }
         
@@ -1148,7 +1131,7 @@ public class BoardInputHandler : MonoBehaviour
         var p2Poke1 = board.Players[1].Creatures[0];
         p2Poke1Avatar.sprite = p2Poke1.Avatar;
         if (p2Poke1Avatar != null) p2Poke1Avatar.preserveAspect = true;
-        p2Poke1Name.text = (p2Poke1.IsEvolved ? "★ Ascended " : "") + p2Poke1.Name + " (" + GetCategoryName(p2Poke1.Type) + ")";
+        p2Poke1Name.text = (p2Poke1.IsEvolved ? "★ Evolved " : "") + p2Poke1.Name + " (" + GetCategoryName(p2Poke1.Type) + ")";
         p2Poke1EnergyText.text = "Gems: " + p2Poke1.CurrentEnergy + "/" + p2Poke1.MaxEnergy;
         if (p2Poke1EnergyBar != null && p2Poke1EnergyBar) p2Poke1EnergyBar.fillAmount = (float)p2Poke1.CurrentEnergy / p2Poke1.MaxEnergy;
         if (IsAlive(p2Poke1Stone))
@@ -1163,7 +1146,7 @@ public class BoardInputHandler : MonoBehaviour
         var p2Poke2 = board.Players[1].Creatures[1];
         p2Poke2Avatar.sprite = p2Poke2.Avatar;
         if (p2Poke2Avatar != null) p2Poke2Avatar.preserveAspect = true;
-        p2Poke2Name.text = (p2Poke2.IsEvolved ? "★ Ascended " : "") + p2Poke2.Name + " (" + GetCategoryName(p2Poke2.Type) + ")";
+        p2Poke2Name.text = (p2Poke2.IsEvolved ? "★ Evolved " : "") + p2Poke2.Name + " (" + GetCategoryName(p2Poke2.Type) + ")";
         p2Poke2EnergyText.text = "Gems: " + p2Poke2.CurrentEnergy + "/" + p2Poke2.MaxEnergy;
         if (p2Poke2EnergyBar != null && p2Poke2EnergyBar) p2Poke2EnergyBar.fillAmount = (float)p2Poke2.CurrentEnergy / p2Poke2.MaxEnergy;
         if (IsAlive(p2Poke2Stone))
@@ -1482,7 +1465,7 @@ public class BoardInputHandler : MonoBehaviour
         if (playerIndex == 1 && p2EvoStoneIcon != null) return;
 
         // Create container GameObject
-        GameObject container = new GameObject("EvolutionUI_Group", typeof(RectTransform));
+        GameObject container = new GameObject("CharryUI_Group", typeof(RectTransform));
         container.transform.SetParent(cardTransform, false);
         
         RectTransform containerRt = container.GetComponent<RectTransform>();
@@ -1493,8 +1476,8 @@ public class BoardInputHandler : MonoBehaviour
         // Position it right in the middle between the two Creature columns
         containerRt.anchoredPosition = new Vector2(0f, -30f);
 
-        // Create Image for Pokéball Icon
-        GameObject iconGo = new GameObject("EvoStoneIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        // Create Image for Charry Icon
+        GameObject iconGo = new GameObject("CharryIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         iconGo.transform.SetParent(container.transform, false);
         RectTransform iconRt = iconGo.GetComponent<RectTransform>();
         iconRt.anchorMin = new Vector2(0f, 0.5f);
@@ -1508,7 +1491,7 @@ public class BoardInputHandler : MonoBehaviour
         iconImg.preserveAspect = true;
 
         // Create Text for Stone Count
-        GameObject textGo = new GameObject("EvoStoneText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
+        GameObject textGo = new GameObject("CharryText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
         textGo.transform.SetParent(container.transform, false);
         RectTransform textRt = textGo.GetComponent<RectTransform>();
         textRt.anchorMin = new Vector2(0f, 0.5f);
@@ -1855,7 +1838,7 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.offsetMax = new Vector2(-10f, -15f);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
-        titleTxt.text = "CHOOSE CREATURE TO ASCEND";
+        titleTxt.text = "CHOOSE CREATURE TO EVOLVE";
         titleTxt.fontSize = 24f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
@@ -2097,7 +2080,7 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.offsetMax = new Vector2(-10f, -15f);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
-        titleTxt.text = $"{poke.Name.ToUpper()} ASCENDED!";
+        titleTxt.text = $"{poke.Name.ToUpper()} EVOLVED!";
         titleTxt.fontSize = 26f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
@@ -2323,11 +2306,11 @@ public class BoardInputHandler : MonoBehaviour
         TMPro.TextMeshProUGUI descTxt = descGo.GetComponent<TMPro.TextMeshProUGUI>();
         if (canEvolve)
         {
-            descTxt.text = $"Do you want to ascend {poke.Name}?\n<color=#FFFF00>(Costs 1 Move & resets Ascension Gems)</color>";
+            descTxt.text = $"Do you want to evolve {poke.Name}?\n<color=#FFFF00>(Costs 1 Move & resets Charry Gems)</color>";
         }
         else
         {
-            descTxt.text = $"{poke.Name} requires {PlayerState.EvolutionRequired} ascension gems to ascend. You currently have {player.EvolutionStones}/{PlayerState.EvolutionRequired}.";
+            descTxt.text = $"{poke.Name} requires {PlayerState.EvolutionRequired} Charry gems to evolve. You currently have {player.EvolutionStones}/{PlayerState.EvolutionRequired}.";
         }
         descTxt.fontSize = 16f;
         descTxt.alignment = TMPro.TextAlignmentOptions.Center;
@@ -2338,7 +2321,7 @@ public class BoardInputHandler : MonoBehaviour
         if (canEvolve)
         {
             // Evolve Button
-            GameObject evolveGo = new GameObject("AscendButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+            GameObject evolveGo = new GameObject("EvolveButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
             evolveGo.transform.SetParent(borderGo.transform, false);
             RectTransform evolveRt = evolveGo.GetComponent<RectTransform>();
             evolveRt.anchorMin = new Vector2(0.5f, 0f);
@@ -2358,7 +2341,7 @@ public class BoardInputHandler : MonoBehaviour
             evolveTextRt.offsetMin = Vector2.zero;
             evolveTextRt.offsetMax = Vector2.zero;
             TMPro.TextMeshProUGUI evolveTxt = evolveTextGo.GetComponent<TMPro.TextMeshProUGUI>();
-            evolveTxt.text = "Ascend";
+            evolveTxt.text = "Evolve";
             evolveTxt.fontSize = 16f;
             evolveTxt.fontStyle = TMPro.FontStyles.Bold;
             evolveTxt.alignment = TMPro.TextAlignmentOptions.Center;
