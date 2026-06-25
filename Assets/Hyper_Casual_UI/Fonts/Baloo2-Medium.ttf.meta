@@ -1,0 +1,28 @@
+fileFormatVersion: 2
+guid: 24890dede851293478dd30b60a3bd52a
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontNames:
+  - Baloo 2
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 375832
+  packageName: Hyper Casual UI Pack
+  packageVersion: 1.0
+  assetPath: Assets/Hyper_Casual_UI/Fonts/Baloo2-Medium.ttf
+  uploadId: 906102
