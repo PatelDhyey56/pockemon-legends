@@ -182,16 +182,6 @@ public class HomeMenuController : MonoBehaviour
             insufficientFundsText.text = $"Need 🪙 {p.SelectedBet} to play!";
         }
 
-        // Grey out play button if can't afford
-        if (playButton != null)
-        {
-            var colors = playButton.colors;
-            colors.normalColor = canAfford
-                ? new Color(0.15f, 0.75f, 0.3f)    // green — ready
-                : new Color(0.5f, 0.5f, 0.5f);      // grey — insufficient funds
-            playButton.colors = colors;
-        }
-
         RefreshBetSelectionUI();
     }
 
@@ -324,52 +314,25 @@ public class HomeMenuController : MonoBehaviour
 
     private void RefreshBetSelectionUI()
     {
+        // Color theming is handled entirely in the Inspector / Prefab.
+        // This method only tracks the selected bet for gameplay logic.
         var profile = PlayerProfileManager.GetInstance();
-        if (profile == null || betButtons == null || betImages == null || betTexts == null) return;
+        if (profile == null || betButtons == null) return;
 
         int selectedBet = profile.SelectedBet;
         int[] betAmounts = { 250, 500, 1000 };
 
         for (int i = 0; i < 3; i++)
         {
-            if (i >= betButtons.Length || i >= betImages.Length || i >= betTexts.Length) break;
-
+            if (i >= betButtons.Length) break;
             var btn = betButtons[i];
-            var img = betImages[i];
-            var rewardTmp = betTexts[i];
-
-            if (btn == null || img == null) continue;
+            if (btn == null) continue;
 
             int bet = betAmounts[i];
             bool canAfford = profile.Coins >= bet;
-            bool isSelected = selectedBet == bet;
 
-            var betTextTrans = btn.transform.Find("BetText");
-            var betTmp = betTextTrans != null ? betTextTrans.GetComponent<TextMeshProUGUI>() : null;
-
-            if (!canAfford)
-            {
-                img.color = new Color(0.08f, 0.08f, 0.1f, 0.5f);
-                if (betTmp != null) betTmp.color = new Color(0.4f, 0.4f, 0.4f, 0.5f);
-                if (rewardTmp != null) rewardTmp.color = new Color(0.4f, 0.4f, 0.4f, 0.5f);
-            }
-            else if (isSelected)
-            {
-                img.color = i switch
-                {
-                    0 => new Color(0.15f, 0.5f, 0.85f, 1f),
-                    1 => new Color(0.9f, 0.7f, 0.1f, 1f),
-                    _ => new Color(0.85f, 0.25f, 0.15f, 1f)
-                };
-                if (betTmp != null) betTmp.color = Color.white;
-                if (rewardTmp != null) rewardTmp.color = Color.white;
-            }
-            else
-            {
-                img.color = new Color(0.12f, 0.12f, 0.16f, 0.95f);
-                if (betTmp != null) betTmp.color = new Color(0.7f, 0.7f, 0.8f, 0.8f);
-                if (rewardTmp != null) rewardTmp.color = new Color(0.6f, 0.6f, 0.7f, 0.7f);
-            }
+            // Only control interactability — no color overrides
+            btn.interactable = canAfford;
         }
     }
 
