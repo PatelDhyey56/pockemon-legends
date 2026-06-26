@@ -44,7 +44,7 @@ public class ExitBattleButton : MonoBehaviour
         modalRt.anchorMin = new Vector2(0.5f, 0.5f);
         modalRt.anchorMax = new Vector2(0.5f, 0.5f);
         modalRt.pivot = new Vector2(0.5f, 0.5f);
-        modalRt.sizeDelta = new Vector2(700f, 480f);
+        modalRt.sizeDelta = new Vector2(780f, 900f);
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
@@ -64,12 +64,12 @@ public class ExitBattleButton : MonoBehaviour
         titleRt.anchorMin = new Vector2(0.5f, 1f);
         titleRt.anchorMax = new Vector2(0.5f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
-        titleRt.sizeDelta = new Vector2(600f, 80f);
-        titleRt.anchoredPosition = new Vector2(0f, -60f);
+        titleRt.sizeDelta = new Vector2(700f, 80f);
+        titleRt.anchoredPosition = new Vector2(0f, -55f);
 
         TextMeshProUGUI titleTxt = titleGo.GetComponent<TextMeshProUGUI>();
         titleTxt.text = "EXIT BATTLE";
-        titleTxt.fontSize = 50f;
+        titleTxt.fontSize = 46f;
         titleTxt.fontStyle = FontStyles.Bold;
         titleTxt.alignment = TextAlignmentOptions.Center;
         titleTxt.color = Color.white;
@@ -81,12 +81,14 @@ public class ExitBattleButton : MonoBehaviour
         descRt.anchorMin = new Vector2(0.5f, 0.5f);
         descRt.anchorMax = new Vector2(0.5f, 0.5f);
         descRt.pivot = new Vector2(0.5f, 0.5f);
-        descRt.sizeDelta = new Vector2(600f, 120f);
-        descRt.anchoredPosition = new Vector2(0f, 10f);
+        descRt.sizeDelta = new Vector2(680f, 200f);
+        descRt.anchoredPosition = new Vector2(0f, 20f);
 
         TextMeshProUGUI descTxt = descGo.GetComponent<TextMeshProUGUI>();
         descTxt.text = "Are you sure you want to quit the battle?";
         descTxt.fontSize = 28f;
+        descTxt.enableWordWrapping = true;
+        descTxt.lineSpacing = 1.15f;
         descTxt.alignment = TextAlignmentOptions.Center;
         descTxt.color = Color.white;
 

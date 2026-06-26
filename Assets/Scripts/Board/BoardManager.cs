@@ -95,6 +95,9 @@ public class BoardManager : MonoBehaviour
     public PlayerState[] Players { get; private set; }
     public int ActivePlayerIndex { get; private set; }
 
+    public const int FirstTurnMaxHP  = 90;   // player who moves first
+    public const int SecondTurnMaxHP = 100;  // player who moves second (extra HP balances first-turn advantage)
+
     private void Awake()
     {
         if (_instance == null)
@@ -205,8 +208,6 @@ public class BoardManager : MonoBehaviour
         {
             Name          = "You",
             MovesRemaining = 2,
-            HP            = 80,
-            MaxHP         = 80,
             Shield        = 0
         };
 
@@ -249,14 +250,25 @@ public class BoardManager : MonoBehaviour
         {
             Name          = botNames[UnityEngine.Random.Range(0, botNames.Length)],
             MovesRemaining = 2,
-            HP            = 80,
-            MaxHP         = 80,
             Shield        = 0
         };
         AssignRandomCreatures(Players[1]);
 
         ActivePlayerIndex = UnityEngine.Random.Range(0, 2);
+        ApplyTurnOrderHpBalance();
         IsProcessing = false;
+    }
+
+    /// <summary>
+    /// First-turn player gets 90 HP; second-turn player gets 100 HP to offset going second.
+    /// </summary>
+    private void ApplyTurnOrderHpBalance()
+    {
+        int secondTurnIdx = ActivePlayerIndex == 0 ? 1 : 0;
+        Players[ActivePlayerIndex].HP    = FirstTurnMaxHP;
+        Players[ActivePlayerIndex].MaxHP = FirstTurnMaxHP;
+        Players[secondTurnIdx].HP        = SecondTurnMaxHP;
+        Players[secondTurnIdx].MaxHP     = SecondTurnMaxHP;
     }
 
 
@@ -272,7 +284,24 @@ public class BoardManager : MonoBehaviour
         OnBoardInitialized?.Invoke();
         OnTurnChanged?.Invoke();
         OnMovesChanged?.Invoke();
-        OnShowMessage?.Invoke(Players[ActivePlayerIndex].Name + "'s Turn!");
+        OnHPChanged?.Invoke();
+        string firstPlayer = Players[ActivePlayerIndex].Name;
+        string secondPlayer = Players[ActivePlayerIndex == 0 ? 1 : 0].Name;
+        OnShowMessage?.Invoke(
+            firstPlayer + " goes first (" + FirstTurnMaxHP + " HP)! " +
+            secondPlayer + " has " + SecondTurnMaxHP + " HP.");
+    }
+
+    /// <summary>
+    /// Starts a fresh battle using the player's current BattleTeam selection.
+    /// </summary>
+    public void RestartBattle()
+    {
+        StopAllCoroutines();
+        IsProcessing = false;
+        IsWaitingForEvolutionSelection = false;
+        _pendingAbilities.Clear();
+        InitBoard();
     }
 
     public bool TrySwap(Vector2Int from, Vector2Int to)

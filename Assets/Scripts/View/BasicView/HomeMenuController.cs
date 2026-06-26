@@ -37,6 +37,7 @@ public class HomeMenuController : MonoBehaviour
 
     [Header("Logout Confirm Popup")]
     [SerializeField] private GameObject      logoutPopup;
+    [SerializeField] private RectTransform   logoutDialogBox;
     [SerializeField] private Button          logoutYesBtn;
     [SerializeField] private Button          logoutNoBtn;
 
@@ -268,8 +269,17 @@ public class HomeMenuController : MonoBehaviour
     {
         if (logoutPopup == null) return;
         logoutPopup.SetActive(true);
-        logoutPopup.transform.localScale = Vector3.zero;
-        logoutPopup.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack).SetUpdate(true);
+
+        RectTransform dialog = logoutDialogBox != null
+            ? logoutDialogBox
+            : logoutPopup.transform.childCount > 0
+                ? logoutPopup.transform.GetChild(0) as RectTransform
+                : logoutPopup.transform as RectTransform;
+
+        if (dialog == null) return;
+
+        dialog.localScale = Vector3.zero;
+        dialog.DOScale(1f, 0.25f).SetEase(Ease.OutBack).SetUpdate(true);
     }
 
     public void OnLogoutConfirm()

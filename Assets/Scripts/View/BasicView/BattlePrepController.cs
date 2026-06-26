@@ -36,6 +36,16 @@ public class BattlePrepController : MonoBehaviour
     [SerializeField] private GameObject     creatureCardPrefab;
     [SerializeField] private TextMeshProUGUI collectionCountText;
 
+    [Header("Dialog Box Appearance")]
+    [Tooltip("Sprite used as the creature details popup background.")]
+    [SerializeField] private Sprite          dialogBoxBackground;
+
+    [Header("Card Appearance")]
+    [Tooltip("Sprite used as each creature card background.")]
+    [SerializeField] private Sprite          cardBackground;
+    [Tooltip("Sprite used as the battle-team badge background on cards.")]
+    [SerializeField] private Sprite          teamBadgeBackground;
+
     // ─── Navigation ─────────────────────────────────────────────────
     [Header("Navigation")]
     [SerializeField] private Button backButton;
@@ -58,7 +68,7 @@ public class BattlePrepController : MonoBehaviour
         { GemType.Nature,   new Color(0.35f, 0.90f, 0.15f) },
         { GemType.Electric, new Color(1.00f, 0.78f, 0.00f) },
         { GemType.Psychic,  new Color(0.70f, 0.15f, 0.95f) },
-        { GemType.Healing,  new Color(0.58f, 0.42f, 0.22f) },
+        { GemType.Healing,  new Color(0.85f, 0.35f, 0.55f) },
     };
 
     private readonly List<GameObject> _cards = new List<GameObject>();
@@ -95,8 +105,7 @@ public class BattlePrepController : MonoBehaviour
         if (winRateText       != null) winRateText.gameObject.SetActive(false);
         if (battlesPlayedText != null) battlesPlayedText.gameObject.SetActive(false);
 
-        // Resolve or build the Start Battle Button dynamically
-        SetupStartBattleButtonDynamically();
+        SetupStartBattleButton();
         
         if (noCoinsOkBtn != null) noCoinsOkBtn.onClick.AddListener(() => { if (noCoinsPopup != null) noCoinsPopup.SetActive(false); });
         if (noCoinsPopup != null) noCoinsPopup.SetActive(false);
@@ -122,90 +131,13 @@ public class BattlePrepController : MonoBehaviour
         }
     }
 
-    private void SetupStartBattleButtonDynamically()
+    private void SetupStartBattleButton()
     {
-        if (startBattleButton != null)
-        {
-            startBattleButtonImg = startBattleButton.GetComponent<Image>();
-            startBattleButtonText = startBattleButton.GetComponentInChildren<TextMeshProUGUI>();
-            startBattleButton.onClick.AddListener(OnStartBattleClick);
-            return;
-        }
+        if (startBattleButton == null) return;
 
-        // Try to find the Text GameObject under the same canvas
-        Transform canvasTransform = transform; // BattlePrepController is on the Canvas GameObject
-        Transform textTransform = null;
-
-        // Search for a text child with "START BATTLE" or named "Text" positioned in the bottom area
-        for (int i = 0; i < canvasTransform.childCount; i++)
-        {
-            Transform child = canvasTransform.GetChild(i);
-            var tmp = child.GetComponent<TextMeshProUGUI>();
-            var rt = child.GetComponent<RectTransform>();
-            if (tmp != null && (tmp.text.Contains("START BATTLE") || (child.name == "Text" && rt != null && rt.anchoredPosition.y < -700f)))
-            {
-                textTransform = child;
-                startBattleButtonText = tmp;
-                break;
-            }
-        }
-
-        if (textTransform != null)
-        {
-            // Create a new Button GameObject at the same hierarchy level
-            GameObject buttonGo = new GameObject("StartBattleButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
-            buttonGo.transform.SetParent(canvasTransform, false);
-
-            var buttonRect = buttonGo.GetComponent<RectTransform>();
-            var textRect = textTransform.GetComponent<RectTransform>();
-
-            // Copy layout properties from text to button
-            buttonRect.anchorMin = textRect.anchorMin;
-            buttonRect.anchorMax = textRect.anchorMax;
-            buttonRect.anchoredPosition = textRect.anchoredPosition;
-            buttonRect.sizeDelta = textRect.sizeDelta;
-            buttonRect.pivot = textRect.pivot;
-            buttonRect.rotation = textRect.rotation;
-            buttonRect.localScale = textRect.localScale;
-
-            // Reparent text to button
-            textTransform.SetParent(buttonGo.transform, false);
-
-            // Stretch text to fill button
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
-            textRect.anchoredPosition = Vector2.zero;
-            textRect.sizeDelta = Vector2.zero;
-
-            startBattleButton = buttonGo.GetComponent<Button>();
-            startBattleButtonImg = buttonGo.GetComponent<Image>();
-
-            // Copy background sprite from avatarBg (which is a standard UI sprite) to get round corners
-            if (avatarBg != null)
-            {
-                startBattleButtonImg.sprite = avatarBg.sprite;
-                startBattleButtonImg.type = Image.Type.Sliced;
-            }
-            else
-            {
-                startBattleButtonImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // fallback green
-            }
-
-            // Set button transition to color tint
-            startBattleButton.transition = Selectable.Transition.ColorTint;
-            var colors = startBattleButton.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(0.9f, 0.9f, 0.9f, 1f);
-            colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
-            colors.selectedColor = Color.white;
-            colors.disabledColor = new Color(0.7f, 0.7f, 0.7f, 0.5f);
-            startBattleButton.colors = colors;
-
-            // Register onClick
-            startBattleButton.onClick.AddListener(OnStartBattleClick);
-        }
+        startBattleButtonImg = startBattleButton.GetComponent<Image>();
+        startBattleButtonText = startBattleButton.GetComponentInChildren<TextMeshProUGUI>();
+        startBattleButton.onClick.AddListener(OnStartBattleClick);
     }
 
     private void OnDestroy()
@@ -285,7 +217,7 @@ public class BattlePrepController : MonoBehaviour
         int total = PlayerProfileManager.AllCreatures.Count;
         int owned = profile.OwnedCreatures.Count;
         if (collectionCountText != null)
-            collectionCountText.text = $"Owned Creatures: {owned} / {total}";
+            collectionCountText.text = $"{owned} / {total} collected";
 
         int index = 0;
         foreach (var entry in PlayerProfileManager.AllCreatures)
@@ -315,7 +247,7 @@ public class BattlePrepController : MonoBehaviour
             if (nameText != null)
             {
                 nameText.text  = entry.Name;
-                nameText.color = isOwned ? Color.white : new Color(0.7f, 0.7f, 0.7f, 0.7f);
+                nameText.color = new Color(1f, 0.97f, 0.88f, 1f);
             }
 
             TextMeshProUGUI typeText = card.transform.Find("TypeText")?.GetComponent<TextMeshProUGUI>();
@@ -323,9 +255,7 @@ public class BattlePrepController : MonoBehaviour
             {
                 typeText.text = GetCategoryName(entry.Type);
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
-                {
-                    typeText.color = isOwned ? tc : new Color(tc.r * 0.6f, tc.g * 0.6f, tc.b * 0.6f, 0.6f);
-                }
+                    typeText.color = tc;
             }
 
             TextMeshProUGUI statsText = card.transform.Find("StatsText")?.GetComponent<TextMeshProUGUI>();
@@ -333,75 +263,65 @@ public class BattlePrepController : MonoBehaviour
             {
                 int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
                 int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
-                statsText.text  = $"ATK {dmg}  EN {energy}";
-                statsText.color = isOwned ? new Color(0.8f, 0.8f, 0.8f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
+                statsText.text = $"ATK {dmg}  EN {energy}";
+                statsText.fontSize = 20f;
+                statsText.enableWordWrapping = false;
+                statsText.color = new Color(0.8f, 0.8f, 0.8f);
             }
 
             TextMeshProUGUI priceText = card.transform.Find("PriceText")?.GetComponent<TextMeshProUGUI>();
             if (priceText != null)
-            {
-                var priceRt = priceText.GetComponent<RectTransform>();
-                if (isOwned)
-                {
-                    priceText.text = entry.IsStarter ? "Starter" : "Owned";
-                    priceText.color = new Color(0.3f, 0.9f, 0.4f);
-                    if (priceRt != null)
-                    {
-                        priceRt.anchoredPosition = new Vector2(0f, -300f);
-                        priceRt.sizeDelta = new Vector2(420f, 60f);
-                    }
-                    priceText.alignment = TextAlignmentOptions.Center;
-                }
-                else
-                {
-                    priceText.text = entry.Price > 0 ? $"Locked ({entry.Price})" : "Locked";
-                    priceText.color = new Color(0.85f, 0.35f, 0.35f);
-                    if (priceRt != null)
-                    {
-                        priceRt.anchoredPosition = new Vector2(-100f, -300f);
-                        priceRt.sizeDelta = new Vector2(200f, 60f);
-                    }
-                    priceText.alignment = TextAlignmentOptions.Center;
-                }
-            }
+                priceText.gameObject.SetActive(false);
 
             var buyBtnTrans = card.transform.Find("BuyButton");
             if (buyBtnTrans != null)
-            {
                 buyBtnTrans.gameObject.SetActive(false);
-            }
+
+            TextMeshProUGUI slotLabel = card.transform.Find("SlotLabel")?.GetComponent<TextMeshProUGUI>();
+            if (slotLabel != null)
+                slotLabel.gameObject.SetActive(false);
 
             Image cardBg = card.transform.Find("CardBg")?.GetComponent<Image>();
             if (cardBg != null)
             {
-                cardBg.color = new Color(0.08f, 0.08f, 0.12f, 0.95f);
+                if (cardBackground != null)
+                {
+                    cardBg.sprite         = cardBackground;
+                    cardBg.type           = Image.Type.Simple;
+                    cardBg.preserveAspect = false;
+                }
+                cardBg.color = new Color(65 / 255f, 60 / 255f, 40 / 255f, 1f);
             }
 
-            // In Team checkmark
             GameObject teamBadge = card.transform.Find("TeamBadge")?.gameObject;
             if (teamBadge != null)
             {
+                Image badgeBg = teamBadge.GetComponent<Image>();
+                if (badgeBg != null)
+                {
+                    if (teamBadgeBackground != null)
+                    {
+                        badgeBg.sprite         = teamBadgeBackground;
+                        badgeBg.type           = Image.Type.Simple;
+                        badgeBg.preserveAspect = false;
+                    }
+                    badgeBg.color = Color.white;
+                }
+
+                var teamTextTMP = teamBadge.transform.Find("Text")?.GetComponent<TextMeshProUGUI>();
+                if (teamTextTMP != null)
+                {
+                    teamTextTMP.text  = "BATTLE";
+                    teamTextTMP.color = Color.black;
+                }
+
                 bool inTeam = isOwned && profile.BattleTeam.Contains(entry.Name);
                 teamBadge.SetActive(inTeam);
-                if (inTeam)
-                {
-                    int slotIndex = profile.BattleTeam.IndexOf(entry.Name) + 1;
-                    var slotLabelTMP = teamBadge.transform.Find("SlotLabel")?.GetComponent<TextMeshProUGUI>();
-                    if (slotLabelTMP != null)
-                    {
-                        slotLabelTMP.text = $"SLOT {slotIndex}";
-                    }
-                    var teamTextTMP = teamBadge.transform.Find("Text")?.GetComponent<TextMeshProUGUI>();
-                    if (teamTextTMP != null)
-                    {
-                        teamTextTMP.text = "READY";
-                    }
-                }
             }
 
             Image glowImage = card.transform.Find("OwnedGlow")?.GetComponent<Image>();
             if (glowImage != null)
-                glowImage.gameObject.SetActive(isOwned && profile.BattleTeam.Contains(entry.Name));
+                glowImage.gameObject.SetActive(false);
 
             GameObject lockOverlay = card.transform.Find("LockOverlay")?.gameObject;
             if (lockOverlay != null)
@@ -456,7 +376,6 @@ public class BattlePrepController : MonoBehaviour
         Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null) return;
 
-        // ── Dim overlay ──
         _detailsPopup = new GameObject("PrepDetailsPopup", typeof(RectTransform));
         _detailsPopup.transform.SetParent(canvas.transform, false);
         _detailsPopup.transform.SetAsLastSibling();
@@ -473,73 +392,80 @@ public class BattlePrepController : MonoBehaviour
         var bgBtn = _detailsPopup.AddComponent<Button>();
         bgBtn.onClick.AddListener(CloseDetailsPopup);
 
-        // ── Dialog box ──
         var box = new GameObject("DialogBox", typeof(RectTransform), typeof(Image));
         box.transform.SetParent(_detailsPopup.transform, false);
         var boxRect = box.GetComponent<RectTransform>();
-        boxRect.sizeDelta        = new Vector2(850f, 1150f); // Rescaled to 850x1150
+        boxRect.sizeDelta        = new Vector2(850f, 1150f);
         boxRect.anchoredPosition = Vector2.zero;
         var boxImg = box.GetComponent<Image>();
-        boxImg.color = new Color(0.09f, 0.09f, 0.13f, 0.97f);
+        if (dialogBoxBackground != null)
+        {
+            boxImg.sprite         = dialogBoxBackground;
+            boxImg.type           = Image.Type.Simple;
+            boxImg.preserveAspect = false;
+            boxImg.color          = Color.white;
+        }
+        else
+        {
+            boxImg.color = new Color(0.09f, 0.09f, 0.13f, 0.97f);
+        }
         box.AddComponent<Button>().onClick.AddListener(() => { });
 
-        // ── ✕ Close button (top-right corner) ──
         var xGo = new GameObject("CloseXBtn", typeof(RectTransform), typeof(Image), typeof(Button));
         xGo.transform.SetParent(box.transform, false);
         var xRect = xGo.GetComponent<RectTransform>();
         xRect.anchorMin        = new Vector2(1f, 1f);
         xRect.anchorMax        = new Vector2(1f, 1f);
         xRect.pivot            = new Vector2(1f, 1f);
-        xRect.anchoredPosition = new Vector2(-15f, -15f);
-        xRect.sizeDelta        = new Vector2(55f, 55f);
-        xGo.GetComponent<Image>().color = new Color(0.80f, 0.18f, 0.18f, 0.92f);
+        xRect.anchoredPosition = new Vector2(-45f, -75f);
+        xRect.sizeDelta        = new Vector2(75f, 75f);
+
+        var xCircle = xGo.GetComponent<Image>();
+        Sprite[] allIcons = Resources.LoadAll<Sprite>("buttons/icons");
+        Sprite icons9 = Array.Find(allIcons, s => s.name == "icons_9");
+        if (icons9 != null)
+        {
+            xCircle.sprite         = icons9;
+            xCircle.type           = Image.Type.Simple;
+            xCircle.preserveAspect = true;
+            xCircle.color          = Color.white;
+        }
+        else
+        {
+            xCircle.color = new Color(0.80f, 0.18f, 0.18f, 0.92f);
+        }
+
         xGo.GetComponent<Button>().onClick.AddListener(CloseDetailsPopup);
 
-        var xLabel = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        xLabel.transform.SetParent(xGo.transform, false);
-        var xlRect = xLabel.GetComponent<RectTransform>();
-        xlRect.anchorMin = Vector2.zero; xlRect.anchorMax = Vector2.one;
-        xlRect.offsetMin = Vector2.zero; xlRect.offsetMax = Vector2.zero;
-        var xTMP = xLabel.GetComponent<TextMeshProUGUI>();
-        xTMP.text = "X"; xTMP.fontSize = 28f; xTMP.alignment = TextAlignmentOptions.Center;
-        xTMP.fontStyle = FontStyles.Bold; xTMP.color = Color.white;
-        xTMP.raycastTarget = false;
-
-        // ── Avatar ──
         var avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         avatarGo.transform.SetParent(box.transform, false);
         var avatarRect = avatarGo.GetComponent<RectTransform>();
         avatarRect.anchorMin        = new Vector2(0.5f, 0.5f);
         avatarRect.anchorMax        = new Vector2(0.5f, 0.5f);
         avatarRect.pivot            = new Vector2(0.5f, 0.5f);
-        avatarRect.anchoredPosition = new Vector2(0f, 280f);
-        avatarRect.sizeDelta        = new Vector2(500f, 500f);
+        avatarRect.anchoredPosition = new Vector2(0f, 275f);
+        avatarRect.sizeDelta        = new Vector2(400f, 400f);
         _popupAvatar = avatarGo.GetComponent<Image>();
         if (_popupAvatar != null) _popupAvatar.preserveAspect = true;
 
-
-
-        // ── Creature Name ──
-        var nameGo = new GameObject("PokeName", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        var nameGo = new GameObject("CreatureName", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         nameGo.transform.SetParent(box.transform, false);
         var nameRect = nameGo.GetComponent<RectTransform>();
         nameRect.anchorMin        = new Vector2(0.5f, 0.5f);
         nameRect.anchorMax        = new Vector2(0.5f, 0.5f);
         nameRect.pivot            = new Vector2(0.5f, 0.5f);
-        nameRect.anchoredPosition = new Vector2(0f, -25f);
-        nameRect.sizeDelta        = new Vector2(750f, 60f);
+        nameRect.anchoredPosition = new Vector2(0f, 30f);
+        nameRect.sizeDelta        = new Vector2(750f, 70f);
         _popupNameText = nameGo.GetComponent<TextMeshProUGUI>();
-        _popupNameText.fontSize  = 44f;
+        _popupNameText.fontSize  = 50f;
         _popupNameText.fontStyle = FontStyles.Bold;
         _popupNameText.alignment = TextAlignmentOptions.Center;
-        _popupNameText.color     = Color.white;
+        _popupNameText.color     = Color.black;
 
-        // ── Top separator ──
-        MakePrepSeparator(box.transform, -70f);
+        MakePrepSeparator(box.transform, -25f);
 
-        // ── Stat rows ──
-        float rowY    = -110f;
-        float rowStep = 54f;
+        float rowY    = -65f;
+        float rowStep = 45f;
 
         _popupStoneTypeText   = MakePrepStatRow(box.transform, "StoneTypeRow",  rowY); rowY -= rowStep;
         _popupStoneCapText    = MakePrepStatRow(box.transform, "StoneCapRow",   rowY); rowY -= rowStep;
@@ -548,42 +474,18 @@ public class BattlePrepController : MonoBehaviour
         _popupSkillText       = MakePrepStatRow(box.transform, "SkillRow",      rowY); rowY -= rowStep;
         _popupEffectText      = MakePrepStatRow(box.transform, "EffectRow",     rowY);
 
-        // ── Bottom separator ──
-        MakePrepSeparator(box.transform, -475f);
+        MakePrepSeparator(box.transform, -315f);
 
-        // ── Close button (bottom left) ──
-        var closeGo = new GameObject("CloseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
-        closeGo.transform.SetParent(box.transform, false);
-        var closeRect = closeGo.GetComponent<RectTransform>();
-        closeRect.anchorMin        = new Vector2(0.5f, 0.5f);
-        closeRect.anchorMax        = new Vector2(0.5f, 0.5f);
-        closeRect.pivot            = new Vector2(0.5f, 0.5f);
-        closeRect.anchoredPosition = new Vector2(-180f, -525f);
-        closeRect.sizeDelta        = new Vector2(280f, 65f);
-        closeGo.GetComponent<Image>().color = new Color(0.15f, 0.50f, 0.85f, 1f);
-        closeGo.GetComponent<Button>().onClick.AddListener(CloseDetailsPopup);
-
-        var closeTextGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        closeTextGo.transform.SetParent(closeGo.transform, false);
-        var ctRect = closeTextGo.GetComponent<RectTransform>();
-        ctRect.anchorMin = Vector2.zero; ctRect.anchorMax = Vector2.one;
-        ctRect.offsetMin = Vector2.zero; ctRect.offsetMax = Vector2.zero;
-        var closeTMP = closeTextGo.GetComponent<TextMeshProUGUI>();
-        closeTMP.text = "CLOSE"; closeTMP.fontSize = 24f;
-        closeTMP.fontStyle = FontStyles.Bold;
-        closeTMP.alignment = TextAlignmentOptions.Center; closeTMP.color = Color.white;
-        closeTMP.raycastTarget = false;
-
-        // ── Battle Button (bottom right) ──
         var battleGo = new GameObject("BattleBtn", typeof(RectTransform), typeof(Image), typeof(Button));
         battleGo.transform.SetParent(box.transform, false);
         var battleRect = battleGo.GetComponent<RectTransform>();
         battleRect.anchorMin        = new Vector2(0.5f, 0.5f);
         battleRect.anchorMax        = new Vector2(0.5f, 0.5f);
         battleRect.pivot            = new Vector2(0.5f, 0.5f);
-        battleRect.anchoredPosition = new Vector2(180f, -525f);
-        battleRect.sizeDelta        = new Vector2(280f, 65f);
+        battleRect.anchoredPosition = new Vector2(0f, -415f);
+        battleRect.sizeDelta        = new Vector2(360f, 65f);
         _popupBattleBtnImg = battleGo.GetComponent<Image>();
+        _popupBattleBtnImg.color = new Color(0.12f, 0.72f, 0.35f, 1f);
         _popupBattleBtn = battleGo.GetComponent<Button>();
 
         var battleTextGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -592,9 +494,10 @@ public class BattlePrepController : MonoBehaviour
         btRect.anchorMin = Vector2.zero; btRect.anchorMax = Vector2.one;
         btRect.offsetMin = Vector2.zero; btRect.offsetMax = Vector2.zero;
         _popupBattleBtnText = battleTextGo.GetComponent<TextMeshProUGUI>();
-        _popupBattleBtnText.fontSize = 24f;
+        _popupBattleBtnText.fontSize = 20f;
         _popupBattleBtnText.fontStyle = FontStyles.Bold;
-        _popupBattleBtnText.alignment = TextAlignmentOptions.Center; _popupBattleBtnText.color = Color.white;
+        _popupBattleBtnText.alignment = TextAlignmentOptions.Center;
+        _popupBattleBtnText.color = Color.white;
         _popupBattleBtnText.raycastTarget = false;
 
         _detailsPopup.SetActive(false);
@@ -619,7 +522,7 @@ public class BattlePrepController : MonoBehaviour
         r.pivot            = new Vector2(0.5f, 0.5f);
         r.anchoredPosition = new Vector2(0f, anchoredY);
         r.sizeDelta        = new Vector2(750f, 2f);
-        sep.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.12f);
+        sep.GetComponent<Image>().color = new Color(0.1f, 0.1f, 0.1f, 0.4f);
     }
 
     private static TextMeshProUGUI MakePrepStatRow(Transform parent, string name, float anchoredY)
@@ -631,12 +534,12 @@ public class BattlePrepController : MonoBehaviour
         r.anchorMax        = new Vector2(0.5f, 0.5f);
         r.pivot            = new Vector2(0.5f, 0.5f);
         r.anchoredPosition = new Vector2(0f, anchoredY);
-        r.sizeDelta        = new Vector2(750f, 44f);
+        r.sizeDelta        = new Vector2(750f, 55f);
         var tmp = go.GetComponent<TextMeshProUGUI>();
-        tmp.fontSize         = 24f;
+        tmp.fontSize         = 30f;
         tmp.alignment        = TextAlignmentOptions.Left;
-        tmp.color            = new Color(0.88f, 0.88f, 0.92f, 1f);
-        tmp.textWrappingMode = TextWrappingModes.NoWrap;
+        tmp.color            = Color.black;
+        tmp.textWrappingMode = TextWrappingModes.Normal;
         return tmp;
     }
 
@@ -696,27 +599,27 @@ public class BattlePrepController : MonoBehaviour
 
         if (_popupStoneTypeText != null)
             _popupStoneTypeText.text =
-                $"{typeIcon}  <color=#AAAACC>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
+                $"{typeIcon} <color=#333333>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
 
         if (_popupStoneCapText != null)
             _popupStoneCapText.text =
-                $"{powerIcon}  <color=#AAAACC>Power:</color>           <b><color=#FFE066>{basePower}</color></b>";
+                $"{powerIcon} <color=#333333>Power:</color> <b><color=#AA7700>{basePower}</color></b>";
 
         if (_popupBasePowerText != null)
             _popupBasePowerText.text =
-                $"{abilityPowerIcon}  <color=#AAAACC>{abilityPowerLabel}</color>  <b><color=#66EEFF>{abilityDamage}</color></b>";
+                $"{abilityPowerIcon} <color=#333333>{abilityPowerLabel}</color> <b><color=#006699>{abilityDamage}</color></b>";
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"<color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
+                $"<color=#333333>Gems Required:</color> <b><color=#226622>{stonesReq}</color></b>";
 
         if (_popupSkillText != null)
             _popupSkillText.text =
-                $"<color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
+                $"<color=#333333>Ability:</color> <b><color=#AA5500>{abilityName}</color></b>";
 
         if (_popupEffectText != null)
             _popupEffectText.text =
-                $"<color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
+                $"<color=#333333>Effect:</color> <b><color=#444466>{abilityDesc}</color></b>";
 
         // ── Battle Button Config ──
         if (_popupBattleBtn != null && _popupBattleBtnText != null && _popupBattleBtnImg != null)
@@ -725,13 +628,13 @@ public class BattlePrepController : MonoBehaviour
 
             if (inTeam)
             {
-                _popupBattleBtnText.text = "REMOVE TEAM";
-                _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Green
+                _popupBattleBtnText.text = "DECOMMISSION UNIT";
+                _popupBattleBtnImg.color = new Color(0.10f, 0.55f, 0.20f, 0.30f);
             }
             else
             {
-                _popupBattleBtnText.text = "USE FOR BATTLE";
-                _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f); // Orange/Gold
+                _popupBattleBtnText.text = "DEPLOY UNIT TO SQUAD";
+                _popupBattleBtnImg.color = new Color(0.08f, 0.68f, 0.30f, 1.0f);
             }
 
             _popupBattleBtn.onClick.RemoveAllListeners();
@@ -743,13 +646,13 @@ public class BattlePrepController : MonoBehaviour
                     bool nowInTeam = profile.BattleTeam.Contains(name);
                     if (nowInTeam)
                     {
-                        _popupBattleBtnText.text = "REMOVE TEAM";
-                        _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f);
+                        _popupBattleBtnText.text = "DECOMMISSION UNIT";
+                        _popupBattleBtnImg.color = new Color(0.10f, 0.55f, 0.20f, 0.30f);
                     }
                     else
                     {
-                        _popupBattleBtnText.text = "USE FOR BATTLE";
-                        _popupBattleBtnImg.color = new Color(0.85f, 0.45f, 0.1f, 1f);
+                        _popupBattleBtnText.text = "DEPLOY UNIT TO SQUAD";
+                        _popupBattleBtnImg.color = new Color(0.08f, 0.68f, 0.30f, 1.0f);
                     }
                     BuildCreatureGrid();
                     RefreshBattleButtonState();
