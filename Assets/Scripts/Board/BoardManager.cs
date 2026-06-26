@@ -240,9 +240,14 @@ public class BoardManager : MonoBehaviour
         }
 
         // ── Player 2: Bot — always random ────────────────────────────────────────
+        string[] botNames = {
+            "Nova", "Shadow", "Blaze", "Luna", "Storm", "Echo", "Pixel",
+            "Raven", "Frost", "Slash", "Viper", "Photon", "Sage", "Axel",
+            "Wisp", "Maverick", "Zara", "Orion", "Jinx", "Cosmo"
+        };
         Players[1] = new PlayerState
         {
-            Name          = "Bot",
+            Name          = botNames[UnityEngine.Random.Range(0, botNames.Length)],
             MovesRemaining = 2,
             HP            = 80,
             MaxHP         = 80,

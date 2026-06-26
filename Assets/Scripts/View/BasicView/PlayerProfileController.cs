@@ -162,7 +162,7 @@ public class PlayerProfileController : MonoBehaviour
         if (xpProgressText != null)
         {
             if (p.Level >= PlayerProfileManager.MAX_LEVEL && p.GetXPToNextLevel() <= 0)
-                xpProgressText.text = "GAME COMPLETED 🏆";
+                xpProgressText.text = "GAME COMPLETED";
             else
                 xpProgressText.text = $"{p.XP} / {p.XP + p.GetXPToNextLevel()} XP";
         }
@@ -186,7 +186,7 @@ public class PlayerProfileController : MonoBehaviour
         if (coinsValueText != null)
         {
             coinsValueText.gameObject.SetActive(true);
-            coinsValueText.text = $"<color=#FFD700>🪙</color>  {p.Coins}";
+            coinsValueText.text = $"<color=#FFD700>{p.Coins}</color>";
         }
 
         int totalBattles = p.Wins + p.Losses;
@@ -195,22 +195,22 @@ public class PlayerProfileController : MonoBehaviour
         if (winsValueText != null)
         {
             winsValueText.gameObject.SetActive(true);
-            winsValueText.text = $"🟢 {p.Wins} W";
+                winsValueText.text = $"{p.Wins} W";
         }
         if (lossesValueText != null)
         {
             lossesValueText.gameObject.SetActive(true);
-            lossesValueText.text = $"🔴 {p.Losses} L";
+            lossesValueText.text = $"{p.Losses} L";
         }
         if (winRateText != null)
         {
             winRateText.gameObject.SetActive(true);
-            winRateText.text = $"📈 {winRate:F0}% Win";
+            winRateText.text = $"{winRate:F0}% Win";
         }
         if (battlesPlayedText != null)
         {
             battlesPlayedText.gameObject.SetActive(true);
-            battlesPlayedText.text = $"⚔️ {totalBattles} Match";
+            battlesPlayedText.text = $"{totalBattles} Match";
         }
     }
 
@@ -313,7 +313,7 @@ public class PlayerProfileController : MonoBehaviour
                 int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
                 int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
                 
-                statsText.text = $"ATK {dmg}  ⚡{energy}";
+                statsText.text = $"ATK {dmg}  EN {energy}";
                 statsText.fontSize = 20f;
                 statsText.enableWordWrapping = false;
                 statsText.color = isOwned ? new Color(0.8f, 0.8f, 0.8f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
@@ -339,7 +339,7 @@ public class PlayerProfileController : MonoBehaviour
                 }
                 else
                 {
-                    priceText.text = entry.Price > 0 ? $"Locked (<color=#FFD700>🪙</color> {entry.Price})" : "Locked";
+                    priceText.text = entry.Price > 0 ? $"Locked ({entry.Price})" : "Locked";
                     priceText.color = new Color(0.85f, 0.35f, 0.35f); // reddish
                     if (priceRt != null)
                     {
@@ -407,7 +407,7 @@ public class PlayerProfileController : MonoBehaviour
                     var teamTextTMP = teamBadge.transform.Find("Text")?.GetComponent<TextMeshProUGUI>();
                     if (teamTextTMP != null)
                     {
-                        teamTextTMP.text = "✓ BATTLE"; // right sign
+                        teamTextTMP.text = "BATTLE";
                     }
                 }
             }
@@ -666,15 +666,15 @@ public class PlayerProfileController : MonoBehaviour
         };
         string typeIcon = entry.Type switch
         {
-            GemType.Fire     => "🔥",
-            GemType.Water    => "💧",
-            GemType.Nature   => "🍃",
-            GemType.Electric => "⚡",
-            GemType.Psychic  => "🔮",
-            GemType.Healing  => "💖",
-            _                => "◆"
+            GemType.Fire     => "",
+            GemType.Water    => "",
+            GemType.Nature   => "",
+            GemType.Electric => "",
+            GemType.Psychic  => "",
+            GemType.Healing  => "",
+            _                => ""
         };
-        string powerIcon = isHeal ? "💊" : "⚔️";
+        string powerIcon = "";
 
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
@@ -683,7 +683,7 @@ public class PlayerProfileController : MonoBehaviour
         int abilityDamage = rule != null ? rule.Damage : 10;
         int stonesReq = rule != null ? rule.StonesRequired : 5;
 
-        string abilityPowerIcon = isHeal ? "💖" : "💥";
+        string abilityPowerIcon = "";
         string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
 
         if (_popupStoneTypeText != null)
@@ -700,15 +700,15 @@ public class PlayerProfileController : MonoBehaviour
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"💎  <color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
+                $"<color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
 
         if (_popupSkillText != null)
             _popupSkillText.text =
-                $"⚡  <color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
+                $"<color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
 
         if (_popupEffectText != null)
             _popupEffectText.text =
-                $"📖  <color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
+                $"<color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
 
         // ── Battle Button Config ────────────────────────────────────
         if (_popupBattleBtn != null && _popupBattleBtnText != null && _popupBattleBtnImg != null)
@@ -720,7 +720,7 @@ public class PlayerProfileController : MonoBehaviour
                 // Update text and color
                 if (inTeam)
                 {
-                    _popupBattleBtnText.text = "✓ DECOMMISSION UNIT";
+                    _popupBattleBtnText.text = "DECOMMISSION UNIT";
                     _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Green
                 }
                 else
@@ -738,7 +738,7 @@ public class PlayerProfileController : MonoBehaviour
                         bool nowInTeam = profile.BattleTeam.Contains(name);
                         if (nowInTeam)
                         {
-                            _popupBattleBtnText.text = "✓ DECOMMISSION UNIT";
+                            _popupBattleBtnText.text = "DECOMMISSION UNIT";
                             _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f);
                         }
                         else
@@ -757,7 +757,7 @@ public class PlayerProfileController : MonoBehaviour
             else
             {
                 // Unowned creature redirect to store scene
-                _popupBattleBtnText.text = $"🔒 BUY (<color=#FFD700>🪙</color> {entry.Price})";
+                _popupBattleBtnText.text = $"BUY ({entry.Price})";
                 _popupBattleBtnImg.color = new Color(0.75f, 0.25f, 0.25f, 1f); // Reddish
 
                 _popupBattleBtn.onClick.RemoveAllListeners();

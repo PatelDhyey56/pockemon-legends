@@ -254,7 +254,7 @@ public class BattlePrepController : MonoBehaviour
         var p = PlayerProfileManager.GetInstance();
         if (p != null && coinsValueText != null)
         {
-            coinsValueText.text = $"<color=#FFD700>🪙</color>  {p.Coins}";
+            coinsValueText.text = $"<color=#FFD700>{p.Coins}</color>";
         }
         RefreshBattleButtonState();
     }
@@ -333,7 +333,7 @@ public class BattlePrepController : MonoBehaviour
             {
                 int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
                 int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
-                statsText.text  = $"ATK {dmg}  ⚡{energy}";
+                statsText.text  = $"ATK {dmg}  EN {energy}";
                 statsText.color = isOwned ? new Color(0.8f, 0.8f, 0.8f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
             }
 
@@ -354,7 +354,7 @@ public class BattlePrepController : MonoBehaviour
                 }
                 else
                 {
-                    priceText.text = entry.Price > 0 ? $"Locked (<color=#FFD700>🪙</color> {entry.Price})" : "Locked";
+                    priceText.text = entry.Price > 0 ? $"Locked ({entry.Price})" : "Locked";
                     priceText.color = new Color(0.85f, 0.35f, 0.35f);
                     if (priceRt != null)
                     {
@@ -394,7 +394,7 @@ public class BattlePrepController : MonoBehaviour
                     var teamTextTMP = teamBadge.transform.Find("Text")?.GetComponent<TextMeshProUGUI>();
                     if (teamTextTMP != null)
                     {
-                        teamTextTMP.text = "✓ READY";
+                        teamTextTMP.text = "READY";
                     }
                 }
             }
@@ -674,15 +674,15 @@ public class BattlePrepController : MonoBehaviour
         };
         string typeIcon = entry.Type switch
         {
-            GemType.Fire     => "🔥",
-            GemType.Water    => "💧",
-            GemType.Nature   => "🍃",
-            GemType.Electric => "⚡",
-            GemType.Psychic  => "🔮",
-            GemType.Healing  => "💖",
-            _                => "◆"
+            GemType.Fire     => "",
+            GemType.Water    => "",
+            GemType.Nature   => "",
+            GemType.Electric => "",
+            GemType.Psychic  => "",
+            GemType.Healing  => "",
+            _                => ""
         };
-        string powerIcon = isHeal ? "💊" : "⚔️";
+        string powerIcon = "";
 
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
@@ -691,7 +691,7 @@ public class BattlePrepController : MonoBehaviour
         int abilityDamage = rule != null ? rule.Damage : 10;
         int stonesReq = rule != null ? rule.StonesRequired : 5;
 
-        string abilityPowerIcon = isHeal ? "💖" : "💥";
+        string abilityPowerIcon = "";
         string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
 
         if (_popupStoneTypeText != null)
@@ -708,15 +708,15 @@ public class BattlePrepController : MonoBehaviour
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"💎  <color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
+                $"<color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
 
         if (_popupSkillText != null)
             _popupSkillText.text =
-                $"⚡  <color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
+                $"<color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
 
         if (_popupEffectText != null)
             _popupEffectText.text =
-                $"📖  <color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
+                $"<color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
 
         // ── Battle Button Config ──
         if (_popupBattleBtn != null && _popupBattleBtnText != null && _popupBattleBtnImg != null)
@@ -725,7 +725,7 @@ public class BattlePrepController : MonoBehaviour
 
             if (inTeam)
             {
-                _popupBattleBtnText.text = "✓ REMOVE TEAM";
+                _popupBattleBtnText.text = "REMOVE TEAM";
                 _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Green
             }
             else
@@ -743,7 +743,7 @@ public class BattlePrepController : MonoBehaviour
                     bool nowInTeam = profile.BattleTeam.Contains(name);
                     if (nowInTeam)
                     {
-                        _popupBattleBtnText.text = "✓ REMOVE TEAM";
+                        _popupBattleBtnText.text = "REMOVE TEAM";
                         _popupBattleBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f);
                     }
                     else
@@ -793,7 +793,7 @@ public class BattlePrepController : MonoBehaviour
         bool canAfford = profile.CanAffordBattle;
 
         int betFee = profile.SelectedBet;
-        startBattleButtonText.text = $"START BATTLE (<color=#FFD700>🪙</color> {betFee})";
+        startBattleButtonText.text = $"START BATTLE ({betFee})";
 
         if (hasTwo && canAfford)
         {
@@ -844,7 +844,7 @@ public class BattlePrepController : MonoBehaviour
         int needed = p != null ? p.SelectedBet : 250;
         if (noCoinsText != null)
         {
-            noCoinsText.text = $"You need 🪙 {needed} coins to enter battle!\n\nYou have: 🪙 {p?.Coins ?? 0}\n\nVisit the Store to get more.";
+            noCoinsText.text = $"You need {needed} coins to enter battle!\n\nYou have: {p?.Coins ?? 0}\n\nVisit the Store to get more.";
         }
 
         noCoinsPopup.SetActive(true);

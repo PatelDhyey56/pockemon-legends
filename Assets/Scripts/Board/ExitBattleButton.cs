@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using DG.Tweening;
+using TMPro;
 
 public class ExitBattleButton : MonoBehaviour
 {
@@ -43,125 +44,104 @@ public class ExitBattleButton : MonoBehaviour
         modalRt.anchorMin = new Vector2(0.5f, 0.5f);
         modalRt.anchorMax = new Vector2(0.5f, 0.5f);
         modalRt.pivot = new Vector2(0.5f, 0.5f);
-        modalRt.sizeDelta = new Vector2(400f, 220f);
+        modalRt.sizeDelta = new Vector2(700f, 480f);
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
-        modalImg.color = new Color(0.12f, 0.12f, 0.16f, 1f);
-
-        // Inner Border
-        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        borderGo.transform.SetParent(modalWindow.transform, false);
-        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
-        borderRt.anchorMin = Vector2.zero;
-        borderRt.anchorMax = Vector2.one;
-        borderRt.offsetMin = new Vector2(4f, 4f);
-        borderRt.offsetMax = new Vector2(-4f, -4f);
-        Image borderImg = borderGo.GetComponent<Image>();
-        borderImg.color = new Color(0.18f, 0.18f, 0.24f, 1f);
+        Sprite[] popupSprites = Resources.LoadAll<Sprite>("buttons/popup");
+        Sprite bgSprite = System.Array.Find(popupSprites, s => s.name == "popup_2");
+        if (bgSprite != null)
+        {
+            modalImg.sprite = bgSprite;
+            modalImg.type = Image.Type.Simple;
+        }
+        modalImg.color = Color.white;
 
         // 3. Title Text
-        GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        titleGo.transform.SetParent(borderGo.transform, false);
+        GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        titleGo.transform.SetParent(modalWindow.transform, false);
         RectTransform titleRt = titleGo.GetComponent<RectTransform>();
-        titleRt.anchorMin = new Vector2(0f, 1f);
-        titleRt.anchorMax = new Vector2(1f, 1f);
+        titleRt.anchorMin = new Vector2(0.5f, 1f);
+        titleRt.anchorMax = new Vector2(0.5f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
-        titleRt.offsetMin = new Vector2(10f, -50f);
-        titleRt.offsetMax = new Vector2(-10f, -15f);
+        titleRt.sizeDelta = new Vector2(600f, 80f);
+        titleRt.anchoredPosition = new Vector2(0f, -60f);
 
-        TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
+        TextMeshProUGUI titleTxt = titleGo.GetComponent<TextMeshProUGUI>();
         titleTxt.text = "EXIT BATTLE";
-        titleTxt.fontSize = 22f;
-        titleTxt.fontStyle = TMPro.FontStyles.Bold;
-        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = new Color(0.9f, 0.3f, 0.3f, 1f); // Reddish color
+        titleTxt.fontSize = 50f;
+        titleTxt.fontStyle = FontStyles.Bold;
+        titleTxt.alignment = TextAlignmentOptions.Center;
+        titleTxt.color = Color.white;
 
         // 4. Description Text
-        GameObject descGo = new GameObject("DescriptionText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        descGo.transform.SetParent(borderGo.transform, false);
+        GameObject descGo = new GameObject("DescriptionText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        descGo.transform.SetParent(modalWindow.transform, false);
         RectTransform descRt = descGo.GetComponent<RectTransform>();
-        descRt.anchorMin = new Vector2(0f, 0f);
-        descRt.anchorMax = new Vector2(1f, 1f);
-        descRt.offsetMin = new Vector2(15f, 70f);
-        descRt.offsetMax = new Vector2(-15f, -60f);
+        descRt.anchorMin = new Vector2(0.5f, 0.5f);
+        descRt.anchorMax = new Vector2(0.5f, 0.5f);
+        descRt.pivot = new Vector2(0.5f, 0.5f);
+        descRt.sizeDelta = new Vector2(600f, 120f);
+        descRt.anchoredPosition = new Vector2(0f, 10f);
 
-        TMPro.TextMeshProUGUI descTxt = descGo.GetComponent<TMPro.TextMeshProUGUI>();
+        TextMeshProUGUI descTxt = descGo.GetComponent<TextMeshProUGUI>();
         descTxt.text = "Are you sure you want to quit the battle?";
-        descTxt.fontSize = 16f;
-        descTxt.alignment = TMPro.TextAlignmentOptions.Center;
+        descTxt.fontSize = 28f;
+        descTxt.alignment = TextAlignmentOptions.Center;
         descTxt.color = Color.white;
 
-        // 5. Yes Button
+        // 5. Load button sprites
+        Sprite[] popupBtnSprites = Resources.LoadAll<Sprite>("buttons/popup");
+        Sprite yesBtnSprite = System.Array.Find(popupBtnSprites, s => s.name == "popup_0");
+        Sprite noBtnSprite = System.Array.Find(popupBtnSprites, s => s.name == "popup_1");
+
+        // 6. Yes Button (200x70, posY = 65)
         GameObject yesGo = new GameObject("YesButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        yesGo.transform.SetParent(borderGo.transform, false);
+        yesGo.transform.SetParent(modalWindow.transform, false);
         RectTransform yesRt = yesGo.GetComponent<RectTransform>();
         yesRt.anchorMin = new Vector2(0.5f, 0f);
         yesRt.anchorMax = new Vector2(0.5f, 0f);
         yesRt.pivot = new Vector2(0.5f, 0f);
-        yesRt.sizeDelta = new Vector2(120f, 40f);
-        yesRt.anchoredPosition = new Vector2(-70f, 20f);
+        yesRt.sizeDelta = new Vector2(200f, 70f);
+        yesRt.anchoredPosition = new Vector2(-110f, 65f);
 
         Image yesImg = yesGo.GetComponent<Image>();
-        yesImg.color = new Color(0.9f, 0.3f, 0.3f, 1f); // Red
-
-        GameObject yesTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        yesTextGo.transform.SetParent(yesGo.transform, false);
-        RectTransform yesTextRt = yesTextGo.GetComponent<RectTransform>();
-        yesTextRt.anchorMin = Vector2.zero;
-        yesTextRt.anchorMax = Vector2.one;
-        yesTextRt.offsetMin = Vector2.zero;
-        yesTextRt.offsetMax = Vector2.zero;
-        TMPro.TextMeshProUGUI yesTxt = yesTextGo.GetComponent<TMPro.TextMeshProUGUI>();
-        yesTxt.text = "Yes";
-        yesTxt.fontSize = 16f;
-        yesTxt.fontStyle = TMPro.FontStyles.Bold;
-        yesTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        yesTxt.color = Color.white;
-        yesTxt.raycastTarget = false;
+        if (yesBtnSprite != null)
+        {
+            yesImg.sprite = yesBtnSprite;
+            yesImg.type = Image.Type.Simple;
+        }
+        yesImg.color = Color.white;
 
         UnityEngine.UI.Button yesBtn = yesGo.GetComponent<UnityEngine.UI.Button>();
         yesBtn.onClick.AddListener(() =>
         {
             Destroy(_confirmPopupInstance);
 
-            // Record this as a defeat (loss) before returning to the main menu
             var profile = PlayerProfileManager.GetInstance();
             if (profile != null)
-            {
                 profile.RecordBattleResult(false);
-            }
 
             SceneManager.LoadScene(Constants.SCENE_MENU);
         });
 
-        // 6. No Button
+        // 7. No Button (200x70, posY = 65)
         GameObject noGo = new GameObject("NoButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        noGo.transform.SetParent(borderGo.transform, false);
+        noGo.transform.SetParent(modalWindow.transform, false);
         RectTransform noRt = noGo.GetComponent<RectTransform>();
         noRt.anchorMin = new Vector2(0.5f, 0f);
         noRt.anchorMax = new Vector2(0.5f, 0f);
         noRt.pivot = new Vector2(0.5f, 0f);
-        noRt.sizeDelta = new Vector2(120f, 40f);
-        noRt.anchoredPosition = new Vector2(70f, 20f);
+        noRt.sizeDelta = new Vector2(200f, 70f);
+        noRt.anchoredPosition = new Vector2(110f, 65f);
 
         Image noImg = noGo.GetComponent<Image>();
-        noImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Grey
-
-        GameObject noTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        noTextGo.transform.SetParent(noGo.transform, false);
-        RectTransform noTextRt = noTextGo.GetComponent<RectTransform>();
-        noTextRt.anchorMin = Vector2.zero;
-        noTextRt.anchorMax = Vector2.one;
-        noTextRt.offsetMin = Vector2.zero;
-        noTextRt.offsetMax = Vector2.zero;
-        TMPro.TextMeshProUGUI noTxt = noTextGo.GetComponent<TMPro.TextMeshProUGUI>();
-        noTxt.text = "No";
-        noTxt.fontSize = 16f;
-        noTxt.fontStyle = TMPro.FontStyles.Bold;
-        noTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        noTxt.color = Color.white;
-        noTxt.raycastTarget = false;
+        if (noBtnSprite != null)
+        {
+            noImg.sprite = noBtnSprite;
+            noImg.type = Image.Type.Simple;
+        }
+        noImg.color = Color.white;
 
         UnityEngine.UI.Button noBtn = noGo.GetComponent<UnityEngine.UI.Button>();
         noBtn.onClick.AddListener(() =>

@@ -396,23 +396,8 @@ public class BoardInputHandler : MonoBehaviour
         boardRect = boardParent.GetComponent<RectTransform>();
         boardRect.sizeDelta = new Vector2(1025f, totalH);
 
-        if (boardParent.parent != null)
-        {
-            Transform bgTransform = boardParent.parent.Find("BoardBackground");
-            if (bgTransform != null)
-            {
-                RectTransform bgRt = bgTransform.GetComponent<RectTransform>();
-                if (bgRt != null)
-                {
-                    // Position and scale BoardBackground exactly as requested
-                    bgRt.sizeDelta = new Vector2(1000f, 1465f);
-                    bgRt.anchoredPosition = new Vector2(-40f, -235f);
-
-                    // Position boardParent at exactly (16, -200)
-                    boardRect.anchoredPosition = new Vector2(16f, -200f);
-                }
-            }
-        }
+        // Position boardParent at exactly (16, -200)
+        boardRect.anchoredPosition = new Vector2(16f, -200f);
 
         for (int r = 0; r < GridModel.ROWS; r++)
         {
@@ -1056,7 +1041,7 @@ public class BoardInputHandler : MonoBehaviour
         var p1Poke1 = board.Players[0].Creatures[0];
         p1Poke1Avatar.sprite = p1Poke1.Avatar;
         if (p1Poke1Avatar != null) p1Poke1Avatar.preserveAspect = true;
-        p1Poke1Name.text = (p1Poke1.IsEvolved ? "★ Evolved " : "") + p1Poke1.Name + " (" + GetCategoryName(p1Poke1.Type) + ")";
+        p1Poke1Name.text = (p1Poke1.IsEvolved ? "Evolved " : "") + p1Poke1.Name + " (" + GetCategoryName(p1Poke1.Type) + ")";
         p1Poke1EnergyText.text = "Gems: " + p1Poke1.CurrentEnergy + "/" + p1Poke1.MaxEnergy;
         if (p1Poke1EnergyBar != null && p1Poke1EnergyBar) p1Poke1EnergyBar.fillAmount = (float)p1Poke1.CurrentEnergy / p1Poke1.MaxEnergy;
         if (IsAlive(p1Poke1Stone))
@@ -1071,7 +1056,7 @@ public class BoardInputHandler : MonoBehaviour
         var p1Poke2 = board.Players[0].Creatures[1];
         p1Poke2Avatar.sprite = p1Poke2.Avatar;
         if (p1Poke2Avatar != null) p1Poke2Avatar.preserveAspect = true;
-        p1Poke2Name.text = (p1Poke2.IsEvolved ? "★ Evolved " : "") + p1Poke2.Name + " (" + GetCategoryName(p1Poke2.Type) + ")";
+        p1Poke2Name.text = (p1Poke2.IsEvolved ? "Evolved " : "") + p1Poke2.Name + " (" + GetCategoryName(p1Poke2.Type) + ")";
         p1Poke2EnergyText.text = "Gems: " + p1Poke2.CurrentEnergy + "/" + p1Poke2.MaxEnergy;
         if (p1Poke2EnergyBar != null && p1Poke2EnergyBar) p1Poke2EnergyBar.fillAmount = (float)p1Poke2.CurrentEnergy / p1Poke2.MaxEnergy;
         if (IsAlive(p1Poke2Stone))
@@ -1131,7 +1116,7 @@ public class BoardInputHandler : MonoBehaviour
         var p2Poke1 = board.Players[1].Creatures[0];
         p2Poke1Avatar.sprite = p2Poke1.Avatar;
         if (p2Poke1Avatar != null) p2Poke1Avatar.preserveAspect = true;
-        p2Poke1Name.text = (p2Poke1.IsEvolved ? "★ Evolved " : "") + p2Poke1.Name + " (" + GetCategoryName(p2Poke1.Type) + ")";
+        p2Poke1Name.text = (p2Poke1.IsEvolved ? "Evolved " : "") + p2Poke1.Name + " (" + GetCategoryName(p2Poke1.Type) + ")";
         p2Poke1EnergyText.text = "Gems: " + p2Poke1.CurrentEnergy + "/" + p2Poke1.MaxEnergy;
         if (p2Poke1EnergyBar != null && p2Poke1EnergyBar) p2Poke1EnergyBar.fillAmount = (float)p2Poke1.CurrentEnergy / p2Poke1.MaxEnergy;
         if (IsAlive(p2Poke1Stone))
@@ -1146,7 +1131,7 @@ public class BoardInputHandler : MonoBehaviour
         var p2Poke2 = board.Players[1].Creatures[1];
         p2Poke2Avatar.sprite = p2Poke2.Avatar;
         if (p2Poke2Avatar != null) p2Poke2Avatar.preserveAspect = true;
-        p2Poke2Name.text = (p2Poke2.IsEvolved ? "★ Evolved " : "") + p2Poke2.Name + " (" + GetCategoryName(p2Poke2.Type) + ")";
+        p2Poke2Name.text = (p2Poke2.IsEvolved ? "Evolved " : "") + p2Poke2.Name + " (" + GetCategoryName(p2Poke2.Type) + ")";
         p2Poke2EnergyText.text = "Gems: " + p2Poke2.CurrentEnergy + "/" + p2Poke2.MaxEnergy;
         if (p2Poke2EnergyBar != null && p2Poke2EnergyBar) p2Poke2EnergyBar.fillAmount = (float)p2Poke2.CurrentEnergy / p2Poke2.MaxEnergy;
         if (IsAlive(p2Poke2Stone))
@@ -1585,22 +1570,18 @@ public class BoardInputHandler : MonoBehaviour
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
-        modalImg.color = new Color(0.12f, 0.12f, 0.16f, 1f); // Slate dark background
-
-        // Add inner border
-        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        borderGo.transform.SetParent(modalWindow.transform, false);
-        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
-        borderRt.anchorMin = Vector2.zero;
-        borderRt.anchorMax = Vector2.one;
-        borderRt.offsetMin = new Vector2(4f, 4f);
-        borderRt.offsetMax = new Vector2(-4f, -4f);
-        Image borderImg = borderGo.GetComponent<Image>();
-        borderImg.color = new Color(0.18f, 0.18f, 0.24f, 1f); // Dark inner body
+        Sprite[] popupSprites = Resources.LoadAll<Sprite>("buttons/popup");
+        Sprite bgSprite = System.Array.Find(popupSprites, s => s.name == "popup_2");
+        if (bgSprite != null)
+        {
+            modalImg.sprite = bgSprite;
+            modalImg.type = Image.Type.Simple;
+        }
+        modalImg.color = Color.white;
 
         // 3. Create Title Text
         GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        titleGo.transform.SetParent(borderGo.transform, false);
+        titleGo.transform.SetParent(modalWindow.transform, false);
         RectTransform titleRt = titleGo.GetComponent<RectTransform>();
         titleRt.anchorMin = new Vector2(0f, 1f);
         titleRt.anchorMax = new Vector2(1f, 1f);
@@ -1613,12 +1594,12 @@ public class BoardInputHandler : MonoBehaviour
         titleTxt.fontSize = 32f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = new Color(1f, 0.3f, 0.3f, 1f); // Soft Red
+        titleTxt.color = Color.white;
         if (messageText != null) titleTxt.font = messageText.font;
 
         // 4. Create Message Text (Winner / Loser details)
         GameObject msgGo = new GameObject("MessageText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        msgGo.transform.SetParent(borderGo.transform, false);
+        msgGo.transform.SetParent(modalWindow.transform, false);
         RectTransform msgRt = msgGo.GetComponent<RectTransform>();
         msgRt.anchorMin = new Vector2(0f, 0.5f);
         msgRt.anchorMax = new Vector2(1f, 0.5f);
@@ -1637,15 +1618,15 @@ public class BoardInputHandler : MonoBehaviour
         TMPro.TextMeshProUGUI msgTxt = msgGo.GetComponent<TMPro.TextMeshProUGUI>();
         if (losingPlayerIdx == 1) // Player won
         {
-            msgTxt.text = $"<color=#00FF88>Victory!</color>\n\n<color=#FFE600>🪙 +{earnedCoins} Coins</color>\n<color=#00EAFF>✨ +{earnedXp} XP</color>";
+            msgTxt.text = $"<color=#00FF88>Victory!</color>\n\n<color=#FFE600>+{earnedCoins} Coins</color>\n<color=#00EAFF>+{earnedXp} XP</color>";
         }
         else if (losingPlayerIdx == 0) // Player lost
         {
-            msgTxt.text = $"<color=#FF4444>Defeat!</color>\n\n<color=#FFE600>🪙 +0 Coins</color>\n<color=#00EAFF>✨ +{earnedXp} XP</color>";
+            msgTxt.text = $"<color=#FF4444>Defeat!</color>\n\n<color=#FFE600>+0 Coins</color>\n<color=#00EAFF>+{earnedXp} XP</color>";
         }
         else
         {
-            msgTxt.text = $"<color=#FFCC00>Draw!</color>\n\n<color=#FFE600>🪙 +{earnedCoins} Coins</color>\n<color=#00EAFF>✨ +{earnedXp} XP</color>";
+            msgTxt.text = $"<color=#FFCC00>Draw!</color>\n\n<color=#FFE600>+{earnedCoins} Coins</color>\n<color=#00EAFF>+{earnedXp} XP</color>";
         }
 
         msgTxt.fontSize = 20f;
@@ -1656,7 +1637,7 @@ public class BoardInputHandler : MonoBehaviour
 
         // 5. Create Button ("Main Menu")
         GameObject menuBtnGo = new GameObject("MainMenuButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        menuBtnGo.transform.SetParent(borderGo.transform, false);
+        menuBtnGo.transform.SetParent(modalWindow.transform, false);
         RectTransform menuBtnRt = menuBtnGo.GetComponent<RectTransform>();
         menuBtnRt.anchorMin = new Vector2(0.5f, 0f);
         menuBtnRt.anchorMax = new Vector2(0.5f, 0f);
@@ -1665,7 +1646,13 @@ public class BoardInputHandler : MonoBehaviour
         menuBtnRt.anchoredPosition = new Vector2(-85f, 25f);
 
         Image menuBtnImg = menuBtnGo.GetComponent<Image>();
-        menuBtnImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Slate Grey
+        Sprite btnSprite = System.Array.Find(popupSprites, s => s.name == "popup_0");
+        if (btnSprite != null)
+        {
+            menuBtnImg.sprite = btnSprite;
+            menuBtnImg.type = Image.Type.Simple;
+        }
+        menuBtnImg.color = Color.white;
 
         GameObject menuBtnTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
         menuBtnTextGo.transform.SetParent(menuBtnGo.transform, false);
@@ -1693,7 +1680,7 @@ public class BoardInputHandler : MonoBehaviour
 
         // 6. Create Button ("Play Again")
         GameObject playBtnGo = new GameObject("PlayAgainButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        playBtnGo.transform.SetParent(borderGo.transform, false);
+        playBtnGo.transform.SetParent(modalWindow.transform, false);
         RectTransform playBtnRt = playBtnGo.GetComponent<RectTransform>();
         playBtnRt.anchorMin = new Vector2(0.5f, 0f);
         playBtnRt.anchorMax = new Vector2(0.5f, 0f);
@@ -1702,7 +1689,13 @@ public class BoardInputHandler : MonoBehaviour
         playBtnRt.anchoredPosition = new Vector2(85f, 25f);
 
         Image playBtnImg = playBtnGo.GetComponent<Image>();
-        playBtnImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // Nice Green
+        Sprite playBtnSprite = System.Array.Find(popupSprites, s => s.name == "popup_1");
+        if (playBtnSprite != null)
+        {
+            playBtnImg.sprite = playBtnSprite;
+            playBtnImg.type = Image.Type.Simple;
+        }
+        playBtnImg.color = Color.white;
 
         GameObject playBtnTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
         playBtnTextGo.transform.SetParent(playBtnGo.transform, false);
@@ -1814,22 +1807,18 @@ public class BoardInputHandler : MonoBehaviour
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
-        modalImg.color = new Color(0.1f, 0.1f, 0.15f, 1f); // Dark purple-grey
-
-        // Inner Border
-        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        borderGo.transform.SetParent(modalWindow.transform, false);
-        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
-        borderRt.anchorMin = Vector2.zero;
-        borderRt.anchorMax = Vector2.one;
-        borderRt.offsetMin = new Vector2(4f, 4f);
-        borderRt.offsetMax = new Vector2(-4f, -4f);
-        Image borderImg = borderGo.GetComponent<Image>();
-        borderImg.color = new Color(0.15f, 0.15f, 0.2f, 1f);
+        Sprite[] popupSprites = Resources.LoadAll<Sprite>("buttons/popup");
+        Sprite bgSprite = System.Array.Find(popupSprites, s => s.name == "popup_2");
+        if (bgSprite != null)
+        {
+            modalImg.sprite = bgSprite;
+            modalImg.type = Image.Type.Simple;
+        }
+        modalImg.color = Color.white;
 
         // 3. Title Text
         GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        titleGo.transform.SetParent(borderGo.transform, false);
+        titleGo.transform.SetParent(modalWindow.transform, false);
         RectTransform titleRt = titleGo.GetComponent<RectTransform>();
         titleRt.anchorMin = new Vector2(0f, 1f);
         titleRt.anchorMax = new Vector2(1f, 1f);
@@ -1842,7 +1831,7 @@ public class BoardInputHandler : MonoBehaviour
         titleTxt.fontSize = 24f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = new Color(1f, 0.8f, 0.2f, 1f); // Gold title
+        titleTxt.color = Color.white;
         if (messageText != null) titleTxt.font = messageText.font;
 
         // 4. Create columns for the two Creature
@@ -1856,7 +1845,7 @@ public class BoardInputHandler : MonoBehaviour
             
             // Create Column Panel (Button)
             GameObject cardGo = new GameObject($"PokeCard_{i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-            cardGo.transform.SetParent(borderGo.transform, false);
+            cardGo.transform.SetParent(modalWindow.transform, false);
             
             RectTransform cardRt = cardGo.GetComponent<RectTransform>();
             cardRt.anchorMin = new Vector2(0.5f, 0.5f);
@@ -1931,7 +1920,7 @@ public class BoardInputHandler : MonoBehaviour
             int nextVal = baseVal + 5;
 
             TMPro.TextMeshProUGUI statTxt = statGo.GetComponent<TMPro.TextMeshProUGUI>();
-            statTxt.text = $"{valUnit}: {baseVal} <color=#00FF88>➔ {nextVal}</color>\n(Limit: {poke.MaxEnergy})";
+            statTxt.text = $"{valUnit}: {baseVal} <color=#00FF88>-> {nextVal}</color>\n(Limit: {poke.MaxEnergy})";
             statTxt.fontSize = 13f;
             statTxt.alignment = TMPro.TextAlignmentOptions.Center;
             statTxt.color = GetGemColor(poke.Type) * 1.2f;
@@ -1971,7 +1960,7 @@ public class BoardInputHandler : MonoBehaviour
 
         // 5. Cancel Button
         GameObject cancelGo = new GameObject("CancelButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        cancelGo.transform.SetParent(borderGo.transform, false);
+        cancelGo.transform.SetParent(modalWindow.transform, false);
         
         RectTransform cancelRt = cancelGo.GetComponent<RectTransform>();
         cancelRt.anchorMin = new Vector2(0.5f, 0f);
@@ -1981,7 +1970,13 @@ public class BoardInputHandler : MonoBehaviour
         cancelRt.anchoredPosition = new Vector2(0f, 20f);
 
         Image cancelImg = cancelGo.GetComponent<Image>();
-        cancelImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Grey button background
+        Sprite cancelSprite = System.Array.Find(popupSprites, s => s.name == "popup_1");
+        if (cancelSprite != null)
+        {
+            cancelImg.sprite = cancelSprite;
+            cancelImg.type = Image.Type.Simple;
+        }
+        cancelImg.color = Color.white;
 
         // Button text
         GameObject cancelTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
@@ -2056,22 +2051,18 @@ public class BoardInputHandler : MonoBehaviour
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
-        modalImg.color = new Color(0.12f, 0.12f, 0.16f, 1f);
-
-        // Inner Border
-        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        borderGo.transform.SetParent(modalWindow.transform, false);
-        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
-        borderRt.anchorMin = Vector2.zero;
-        borderRt.anchorMax = Vector2.one;
-        borderRt.offsetMin = new Vector2(4f, 4f);
-        borderRt.offsetMax = new Vector2(-4f, -4f);
-        Image borderImg = borderGo.GetComponent<Image>();
-        borderImg.color = new Color(0.18f, 0.18f, 0.24f, 1f);
+        Sprite[] popupSprites = Resources.LoadAll<Sprite>("buttons/popup");
+        Sprite bgSprite = System.Array.Find(popupSprites, s => s.name == "popup_2");
+        if (bgSprite != null)
+        {
+            modalImg.sprite = bgSprite;
+            modalImg.type = Image.Type.Simple;
+        }
+        modalImg.color = Color.white;
 
         // 3. Title Text
         GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        titleGo.transform.SetParent(borderGo.transform, false);
+        titleGo.transform.SetParent(modalWindow.transform, false);
         RectTransform titleRt = titleGo.GetComponent<RectTransform>();
         titleRt.anchorMin = new Vector2(0f, 1f);
         titleRt.anchorMax = new Vector2(1f, 1f);
@@ -2084,12 +2075,12 @@ public class BoardInputHandler : MonoBehaviour
         titleTxt.fontSize = 26f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = new Color(0f, 1f, 0.6f, 1f); // Neon green
+        titleTxt.color = Color.white;
         if (messageText != null) titleTxt.font = messageText.font;
 
         // 4. Creature Avatar
         GameObject avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        avatarGo.transform.SetParent(borderGo.transform, false);
+        avatarGo.transform.SetParent(modalWindow.transform, false);
         RectTransform avatarRt = avatarGo.GetComponent<RectTransform>();
         avatarRt.anchorMin = new Vector2(0.5f, 0.5f);
         avatarRt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -2103,7 +2094,7 @@ public class BoardInputHandler : MonoBehaviour
 
         // 5. Stat change description
         GameObject statGo = new GameObject("StatText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        statGo.transform.SetParent(borderGo.transform, false);
+        statGo.transform.SetParent(modalWindow.transform, false);
         RectTransform statRt = statGo.GetComponent<RectTransform>();
         statRt.anchorMin = new Vector2(0f, 0f);
         statRt.anchorMax = new Vector2(1f, 0f);
@@ -2114,7 +2105,7 @@ public class BoardInputHandler : MonoBehaviour
         string valType = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "Healing" : "Damage";
 
         TMPro.TextMeshProUGUI statTxt = statGo.GetComponent<TMPro.TextMeshProUGUI>();
-        statTxt.text = $"{valType}: {oldVal} <color=#00FF88>➔ {newVal}</color>\n<color=#FFFF00>+5 Evolution Bonus!</color>";
+        statTxt.text = $"{valType}: {oldVal} <color=#00FF88>-> {newVal}</color>\n<color=#FFFF00>+5 Evolution Bonus!</color>";
         statTxt.fontSize = 18f;
         statTxt.alignment = TMPro.TextAlignmentOptions.Center;
         statTxt.color = Color.white;
@@ -2122,7 +2113,7 @@ public class BoardInputHandler : MonoBehaviour
 
         // 5b. Ability Description
         GameObject abilityGo = new GameObject("AbilityText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        abilityGo.transform.SetParent(borderGo.transform, false);
+        abilityGo.transform.SetParent(modalWindow.transform, false);
         RectTransform abilityRt = abilityGo.GetComponent<RectTransform>();
         abilityRt.anchorMin = new Vector2(0f, 0f);
         abilityRt.anchorMax = new Vector2(1f, 0f);
@@ -2142,7 +2133,7 @@ public class BoardInputHandler : MonoBehaviour
 
         // 6. Dismiss Button
         GameObject btnGo = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        btnGo.transform.SetParent(borderGo.transform, false);
+        btnGo.transform.SetParent(modalWindow.transform, false);
         RectTransform btnRt = btnGo.GetComponent<RectTransform>();
         btnRt.anchorMin = new Vector2(0.5f, 0f);
         btnRt.anchorMax = new Vector2(0.5f, 0f);
@@ -2151,7 +2142,13 @@ public class BoardInputHandler : MonoBehaviour
         btnRt.anchoredPosition = new Vector2(0f, 20f);
 
         Image btnImg = btnGo.GetComponent<Image>();
-        btnImg.color = new Color(0f, 1f, 0.6f, 1f); // Neon green button
+        Sprite btnSprite = System.Array.Find(popupSprites, s => s.name == "popup_0");
+        if (btnSprite != null)
+        {
+            btnImg.sprite = btnSprite;
+            btnImg.type = Image.Type.Simple;
+        }
+        btnImg.color = Color.white;
 
         // Button text
         GameObject btnTextGo = new GameObject("ButtonText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
@@ -2167,7 +2164,7 @@ public class BoardInputHandler : MonoBehaviour
         btnTxt.fontSize = 16f;
         btnTxt.fontStyle = TMPro.FontStyles.Bold;
         btnTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        btnTxt.color = new Color(0.05f, 0.05f, 0.08f, 1f); // dark text
+        btnTxt.color = Color.white;
         btnTxt.raycastTarget = false;
         if (messageText != null) btnTxt.font = messageText.font;
 
@@ -2255,22 +2252,18 @@ public class BoardInputHandler : MonoBehaviour
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
-        modalImg.color = new Color(0.12f, 0.12f, 0.16f, 1f);
-
-        // Inner Border
-        GameObject borderGo = new GameObject("Border", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        borderGo.transform.SetParent(modalWindow.transform, false);
-        RectTransform borderRt = borderGo.GetComponent<RectTransform>();
-        borderRt.anchorMin = Vector2.zero;
-        borderRt.anchorMax = Vector2.one;
-        borderRt.offsetMin = new Vector2(4f, 4f);
-        borderRt.offsetMax = new Vector2(-4f, -4f);
-        Image borderImg = borderGo.GetComponent<Image>();
-        borderImg.color = new Color(0.18f, 0.18f, 0.24f, 1f);
+        Sprite[] popupSprites = Resources.LoadAll<Sprite>("buttons/popup");
+        Sprite bgSprite = System.Array.Find(popupSprites, s => s.name == "popup_2");
+        if (bgSprite != null)
+        {
+            modalImg.sprite = bgSprite;
+            modalImg.type = Image.Type.Simple;
+        }
+        modalImg.color = Color.white;
 
         // 3. Title Text
         GameObject titleGo = new GameObject("TitleText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        titleGo.transform.SetParent(borderGo.transform, false);
+        titleGo.transform.SetParent(modalWindow.transform, false);
         RectTransform titleRt = titleGo.GetComponent<RectTransform>();
         titleRt.anchorMin = new Vector2(0f, 1f);
         titleRt.anchorMax = new Vector2(1f, 1f);
@@ -2283,12 +2276,12 @@ public class BoardInputHandler : MonoBehaviour
         titleTxt.fontSize = 22f;
         titleTxt.fontStyle = TMPro.FontStyles.Bold;
         titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = canEvolve ? new Color(0f, 1f, 0.6f, 1f) : new Color(0.9f, 0.3f, 0.3f, 1f);
+        titleTxt.color = Color.white;
         if (messageText != null) titleTxt.font = messageText.font;
 
         // 4. Description Text
         GameObject descGo = new GameObject("DescriptionText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        descGo.transform.SetParent(borderGo.transform, false);
+        descGo.transform.SetParent(modalWindow.transform, false);
         RectTransform descRt = descGo.GetComponent<RectTransform>();
         descRt.anchorMin = new Vector2(0f, 0f);
         descRt.anchorMax = new Vector2(1f, 1f);
@@ -2314,7 +2307,7 @@ public class BoardInputHandler : MonoBehaviour
         {
             // Evolve Button
             GameObject evolveGo = new GameObject("EvolveButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-            evolveGo.transform.SetParent(borderGo.transform, false);
+            evolveGo.transform.SetParent(modalWindow.transform, false);
             RectTransform evolveRt = evolveGo.GetComponent<RectTransform>();
             evolveRt.anchorMin = new Vector2(0.5f, 0f);
             evolveRt.anchorMax = new Vector2(0.5f, 0f);
@@ -2323,7 +2316,13 @@ public class BoardInputHandler : MonoBehaviour
             evolveRt.anchoredPosition = new Vector2(-75f, 20f);
 
             Image evolveImg = evolveGo.GetComponent<Image>();
-            evolveImg.color = new Color(0f, 1f, 0.6f, 1f); // Green
+            Sprite evolveSprite = System.Array.Find(popupSprites, s => s.name == "popup_0");
+            if (evolveSprite != null)
+            {
+                evolveImg.sprite = evolveSprite;
+                evolveImg.type = Image.Type.Simple;
+            }
+            evolveImg.color = Color.white;
 
             GameObject evolveTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
             evolveTextGo.transform.SetParent(evolveGo.transform, false);
@@ -2337,7 +2336,7 @@ public class BoardInputHandler : MonoBehaviour
             evolveTxt.fontSize = 16f;
             evolveTxt.fontStyle = TMPro.FontStyles.Bold;
             evolveTxt.alignment = TMPro.TextAlignmentOptions.Center;
-            evolveTxt.color = new Color(0.05f, 0.05f, 0.08f, 1f);
+            evolveTxt.color = Color.white;
             evolveTxt.raycastTarget = false;
             if (messageText != null) evolveTxt.font = messageText.font;
 
@@ -2350,7 +2349,7 @@ public class BoardInputHandler : MonoBehaviour
 
             // Cancel Button
             GameObject cancelGo = new GameObject("CancelButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-            cancelGo.transform.SetParent(borderGo.transform, false);
+            cancelGo.transform.SetParent(modalWindow.transform, false);
             RectTransform cancelRt = cancelGo.GetComponent<RectTransform>();
             cancelRt.anchorMin = new Vector2(0.5f, 0f);
             cancelRt.anchorMax = new Vector2(0.5f, 0f);
@@ -2359,7 +2358,13 @@ public class BoardInputHandler : MonoBehaviour
             cancelRt.anchoredPosition = new Vector2(75f, 20f);
 
             Image cancelImg = cancelGo.GetComponent<Image>();
-            cancelImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Grey
+            Sprite cancelSprite = System.Array.Find(popupSprites, s => s.name == "popup_1");
+            if (cancelSprite != null)
+            {
+                cancelImg.sprite = cancelSprite;
+                cancelImg.type = Image.Type.Simple;
+            }
+            cancelImg.color = Color.white;
 
             GameObject cancelTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
             cancelTextGo.transform.SetParent(cancelGo.transform, false);
@@ -2387,7 +2392,7 @@ public class BoardInputHandler : MonoBehaviour
         {
             // Close Button
             GameObject closeGo = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-            closeGo.transform.SetParent(borderGo.transform, false);
+            closeGo.transform.SetParent(modalWindow.transform, false);
             RectTransform closeRt = closeGo.GetComponent<RectTransform>();
             closeRt.anchorMin = new Vector2(0.5f, 0f);
             closeRt.anchorMax = new Vector2(0.5f, 0f);
@@ -2396,7 +2401,13 @@ public class BoardInputHandler : MonoBehaviour
             closeRt.anchoredPosition = new Vector2(0f, 20f);
 
             Image closeImg = closeGo.GetComponent<Image>();
-            closeImg.color = new Color(0.35f, 0.35f, 0.4f, 1f); // Grey
+            Sprite closeSprite = System.Array.Find(popupSprites, s => s.name == "popup_1");
+            if (closeSprite != null)
+            {
+                closeImg.sprite = closeSprite;
+                closeImg.type = Image.Type.Simple;
+            }
+            closeImg.color = Color.white;
 
             GameObject closeTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
             closeTextGo.transform.SetParent(closeGo.transform, false);

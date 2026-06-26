@@ -190,7 +190,7 @@ public class CreatureStoreController : MonoBehaviour
                 if (priceText != null)
                 {
                     priceText.gameObject.SetActive(true);
-                    priceText.text = entry.IsStarter ? "Free (Starter)" : "Owned ✓";
+                    priceText.text = entry.IsStarter ? "Free (Starter)" : "Owned";
                     var priceRt = priceText.GetComponent<RectTransform>();
                     if (priceRt != null)
                     {
@@ -228,7 +228,7 @@ public class CreatureStoreController : MonoBehaviour
                     if (btnLabel != null)
                     {
                         btnLabel.text = entry.Price > 0 
-                            ? (canAfford ? $"Buy <color=#FFD700>🪙</color> {entry.Price}" : $"Needed <color=#FFD700>🪙</color> {entry.Price}") 
+                            ? (canAfford ? $"Buy {entry.Price}" : $"Needed {entry.Price}") 
                             : "Free";
                     }
 
@@ -268,7 +268,7 @@ public class CreatureStoreController : MonoBehaviour
     {
         var profile = PlayerProfileManager.GetInstance();
         if (coinsText != null && profile != null)
-            coinsText.text = $"<color=#FFD700>🪙</color> {profile.Coins}";
+            coinsText.text = $"<color=#FFD700>{profile.Coins}</color>";
         RefreshCards();
     }
 
@@ -433,7 +433,7 @@ public class CreatureStoreController : MonoBehaviour
         _popupBuyBtn = buyGo.GetComponent<Button>();
         _popupBuyBtn.onClick.AddListener(OnConfirmPurchase);
 
-        _popupBuyBtnLabel = MakeTextChild(buyGo.transform, "🪙  PURCHASE", 20f, Color.white);
+        _popupBuyBtnLabel = MakeTextChild(buyGo.transform, "PURCHASE", 20f, Color.white);
         _popupBuyBtnLabel.alignment = TextAlignmentOptions.Center;
         _popupBuyBtnLabel.fontStyle = FontStyles.Bold;
 
@@ -546,15 +546,15 @@ public class CreatureStoreController : MonoBehaviour
         };
         string typeIcon = entry.Type switch
         {
-            GemType.Fire     => "🔥",
-            GemType.Water    => "💧",
-            GemType.Nature   => "🍃",
-            GemType.Electric => "⚡",
-            GemType.Psychic  => "🔮",
-            GemType.Healing  => "💖",
-            _                => "◆"
+            GemType.Fire     => "",
+            GemType.Water    => "",
+            GemType.Nature   => "",
+            GemType.Electric => "",
+            GemType.Psychic  => "",
+            GemType.Healing  => "",
+            _                => ""
         };
-        string powerIcon = isHeal ? "💊" : "⚔️";
+        string powerIcon = "";
 
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
@@ -563,7 +563,7 @@ public class CreatureStoreController : MonoBehaviour
         int abilityDamage = rule != null ? rule.Damage : 10;
         int stonesReq = rule != null ? rule.StonesRequired : 5;
 
-        string abilityPowerIcon = isHeal ? "💖" : "💥";
+        string abilityPowerIcon = "";
         string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
 
         // ── Stat rows (rich text: label dim, value bright) ───────────
@@ -581,15 +581,15 @@ public class CreatureStoreController : MonoBehaviour
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
-                $"💎  <color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
+                $"<color=#AAAACC>Gems Required:</color>   <b><color=#AAFFAA>{stonesReq}</color></b>";
 
         if (_popupSkillText != null)
             _popupSkillText.text =
-                $"⚡  <color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
+                $"<color=#AAAACC>Ability:</color>         <b><color=#FFAA22>{abilityName}</color></b>";
 
         if (_popupEffectText != null)
             _popupEffectText.text =
-                $"📖  <color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
+                $"<color=#AAAACC>Effect:</color>          <b><color=#DDDDFF>{abilityDesc}</color></b>";
 
         if (isOwned)
         {
@@ -608,7 +608,7 @@ public class CreatureStoreController : MonoBehaviour
 
             if (_popupBuyBtnLabel != null)
             {
-                _popupBuyBtnLabel.text  = "✅  ALREADY OWNED";
+                _popupBuyBtnLabel.text  = "ALREADY OWNED";
                 _popupBuyBtnLabel.color = new Color(0.45f, 0.95f, 0.55f, 1f);  // bright green
             }
         }
@@ -619,9 +619,9 @@ public class CreatureStoreController : MonoBehaviour
             {
                 _popupCostText.gameObject.SetActive(true);
                 string coinColor = canAfford ? "#FFD700" : "#FF6666";
-                string suffix    = canAfford ? "" : "  <color=#FF5555><size=14>(Not enough <color=#FFD700>🪙</color>)</size></color>";
+                string suffix    = canAfford ? "" : "  <color=#FF5555><size=14>(Not enough coins)</size></color>";
                 _popupCostText.text =
-                    $"<color=#FFD700>🪙</color>  <color=#AAAACC>Cost:</color>            <b><color={coinColor}>{entry.Price}</color></b>{suffix}";
+                    $"<color=#AAAACC>Cost:</color>            <b><color={coinColor}>{entry.Price}</color></b>{suffix}";
             }
 
             if (_popupBuyBtn != null)
@@ -637,7 +637,7 @@ public class CreatureStoreController : MonoBehaviour
             }
             if (_popupBuyBtnLabel != null)
             {
-                _popupBuyBtnLabel.text  = canAfford ? "<color=#FFD700>🪙</color>  PURCHASE" : "🔒  NOT ENOUGH COINS";
+                _popupBuyBtnLabel.text  = canAfford ? "PURCHASE" : "NOT ENOUGH COINS";
                 _popupBuyBtnLabel.color = canAfford ? Color.white : new Color(1f, 1f, 1f, 0.45f);
             }
         }
@@ -676,7 +676,7 @@ public class CreatureStoreController : MonoBehaviour
         bool success = profile.PurchaseCreature(creatureToBuy);
 
         string msg = success
-            ? $"{creatureToBuy} added to your collection! 🎉"
+            ? $"{creatureToBuy} added to your collection!"
             : "Purchase failed (not enough coins).";
 
         ShowResult(msg, success);

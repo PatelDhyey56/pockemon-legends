@@ -158,7 +158,7 @@ public class HomeMenuController : MonoBehaviour
         var p = PlayerProfileManager.GetInstance();
         if (p == null) return;
 
-        if (usernameText != null) usernameText.text = $"👤  {p.Username}";
+        if (usernameText != null) usernameText.text = $"{p.Username}";
         if (winsText     != null) winsText.gameObject.SetActive(false);
         if (lossesText   != null) lossesText.gameObject.SetActive(false);
     }
@@ -168,7 +168,7 @@ public class HomeMenuController : MonoBehaviour
         var p = PlayerProfileManager.GetInstance();
         if (p == null) return;
 
-        if (coinsText != null) coinsText.text = $"🪙  {p.Coins}";
+        if (coinsText != null) coinsText.text = $"{p.Coins}";
 
         // Pulse coins text when updated
         if (coinsText != null)
@@ -179,7 +179,7 @@ public class HomeMenuController : MonoBehaviour
         if (insufficientFundsText != null)
         {
             insufficientFundsText.gameObject.SetActive(!canAfford);
-            insufficientFundsText.text = $"Need 🪙 {p.SelectedBet} to play!";
+            insufficientFundsText.text = $"Need {p.SelectedBet} to play!";
         }
 
         RefreshBetSelectionUI();
@@ -199,7 +199,7 @@ public class HomeMenuController : MonoBehaviour
         if (xpText != null)
         {
             if (p.Level >= PlayerProfileManager.MAX_LEVEL && p.GetXPToNextLevel() <= 0)
-                xpText.text = "GAME COMPLETED 🏆";
+                xpText.text = "GAME COMPLETED";
             else
                 xpText.text = $"{p.XP} / {p.XP + p.GetXPToNextLevel()} XP";
         }
@@ -249,7 +249,7 @@ public class HomeMenuController : MonoBehaviour
 
         int needed = p != null ? p.SelectedBet : 250;
         if (noCoinsText != null)
-            noCoinsText.text = $"You need 🪙 {needed} coins to enter battle!\n\nYou have: 🪙 {p?.Coins ?? 0}\n\nVisit the Store or win battles to earn more coins.";
+            noCoinsText.text = $"You need {needed} coins to enter battle!\n\nYou have: {p?.Coins ?? 0}\n\nVisit the Store or win battles to earn more coins.";
 
         noCoinsPopup.SetActive(true);
         noCoinsPopup.transform.localScale = Vector3.zero;
