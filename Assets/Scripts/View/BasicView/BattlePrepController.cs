@@ -67,6 +67,9 @@ public class BattlePrepController : MonoBehaviour
     private TextMeshProUGUI startBattleButtonText;
     private Image           startBattleButtonImg;
 
+    private GameObject _modalPopupInstance;
+    private bool       _betConfirmedThisVisit;
+
     // Gem-type colours (shared palette)
     private static readonly Dictionary<GemType, Color> TypeColors = new Dictionary<GemType, Color>
     {
@@ -78,8 +81,35 @@ public class BattlePrepController : MonoBehaviour
         { GemType.Healing,  new Color(0.85f, 0.35f, 0.55f) },
     };
 
-    private static readonly Color PopupBtnGreen = new Color(0.08f, 0.68f, 0.30f, 1f);
-    private static readonly Color PopupBtnRed   = new Color(0.85f, 0.15f, 0.15f, 1f);
+    private static readonly Color PopupBtnGreen  = new Color(0.08f, 0.68f, 0.30f, 1f);
+    private static readonly Color PopupBtnRed    = new Color(0.85f, 0.15f, 0.15f, 1f);
+    private static readonly Color PopupTitleColor = new Color(0.745283f, 0.56290144f, 0.28475437f, 1f);
+    private static readonly Color PopupBodyColor  = new Color(1f, 0.7273872f, 0.5518868f, 1f);
+
+    private static readonly Vector2 InfoButtonSize = new Vector2(250f, 100f);
+
+    private static Sprite GetLoginLogoutSprite(string spriteName)
+    {
+        Sprite[] sprites = Resources.LoadAll<Sprite>("buttons/login-logout");
+        return Array.Find(sprites, s => s.name == spriteName);
+    }
+
+    private static void ApplyLoginLogoutButtonImage(Image img, Sprite sprite)
+    {
+        if (img == null) return;
+        if (sprite != null)
+        {
+            img.sprite         = sprite;
+            img.type           = Image.Type.Simple;
+            img.preserveAspect = true;
+        }
+        img.color = Color.white;
+    }
+
+    private static Sprite GetInfoOkButtonSprite()
+    {
+        return GetLoginLogoutSprite("login-logout_4");
+    }
 
     private readonly List<GameObject> _cards = new List<GameObject>();
 
@@ -116,6 +146,8 @@ public class BattlePrepController : MonoBehaviour
         if (battlesPlayedText != null) battlesPlayedText.gameObject.SetActive(false);
 
         SetupStartBattleButton();
+
+        _betConfirmedThisVisit = false;
 
         if (noCoinsOkBtn != null) noCoinsOkBtn.onClick.AddListener(HideNoCoinsPopup);
         if (noCoinsPopup != null)
@@ -171,6 +203,7 @@ public class BattlePrepController : MonoBehaviour
 
         startBattleButtonImg = startBattleButton.GetComponent<Image>();
         startBattleButtonText = startBattleButton.GetComponentInChildren<TextMeshProUGUI>();
+        startBattleButton.onClick.RemoveAllListeners();
         startBattleButton.onClick.AddListener(OnStartBattleClick);
     }
 
@@ -303,11 +336,20 @@ public class BattlePrepController : MonoBehaviour
 
         if (profile.Coins < amount)
         {
-            ShowNoCoinsPopup();
+            ShowNoCoinsPopup(amount);
             return;
         }
 
+        ShowBetConfirmPopup(amount);
+    }
+
+    private void ConfirmBetSelection(int amount)
+    {
+        var profile = PlayerProfileManager.GetInstance();
+        if (profile == null) return;
+
         profile.SetSelectedBet(amount);
+        _betConfirmedThisVisit = true;
         RefreshBetSelectionUI();
         RefreshBattleButtonState();
     }
@@ -813,11 +855,12 @@ public class BattlePrepController : MonoBehaviour
 
         bool hasTwo = profile.BattleTeam.Count == 2;
         bool canAfford = profile.CanAffordBattle;
+        bool ready = hasTwo && canAfford && _betConfirmedThisVisit;
 
         int betFee = profile.SelectedBet;
         startBattleButtonText.text = $"START BATTLE ({betFee})";
 
-        if (hasTwo && canAfford)
+        if (ready)
         {
             startBattleButton.interactable = true;
             startBattleButtonImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // ready green
@@ -838,17 +881,30 @@ public class BattlePrepController : MonoBehaviour
 
         if (profile.BattleTeam.Count != 2)
         {
-            MessageView.GetInstance()?.ShowMessageView("You must select exactly 2 Creature for battle!", "Ok");
+            ShowSelectCreaturesPopup();
+            return;
+        }
+
+        if (!_betConfirmedThisVisit)
+        {
+            ShowSelectBetPopup();
             return;
         }
 
         if (!profile.CanAffordBattle)
         {
-            ShowNoCoinsPopup();
+            ShowNoCoinsPopup(profile.SelectedBet);
             return;
         }
 
-        // Lock in bet and deduct coins
+        StartBattle();
+    }
+
+    private void StartBattle()
+    {
+        var profile = PlayerProfileManager.GetInstance();
+        if (profile == null) return;
+
         profile.SetActiveBet(profile.SelectedBet);
         profile.SpendCoinsForBattle(profile.SelectedBet);
 
@@ -872,6 +928,151 @@ public class BattlePrepController : MonoBehaviour
         btn.colors = cb;
     }
 
+    private void ShowBetConfirmPopup(int amount)
+    {
+        ShowStyledModal(
+            "CONFIRM BET",
+            $"Use {amount} coins for this battle?",
+            onOk: () => ConfirmBetSelection(amount));
+    }
+
+    private void ShowSelectCreaturesPopup()
+    {
+        ShowStyledModal(
+            "CHOSE CREATURES",
+            "Choose exactly 2 creatures from the collection area to form your battle squad.",
+            onOk: null);
+    }
+
+    private void ShowSelectBetPopup()
+    {
+        ShowStyledModal(
+            "CHOSE BET",
+            "Please chose a bet amount from the bet selection area before starting battle.",
+            onOk: null);
+    }
+
+    private void ShowStyledModal(string title, string body, Action onOk)
+    {
+        CloseModalPopup();
+
+        Canvas rootCanvas = FindFirstObjectByType<Canvas>();
+        if (rootCanvas == null) return;
+
+        if (_battleInfoPanel != null)
+            _battleInfoPanel.SetActive(false);
+
+        _modalPopupInstance = new GameObject("PrepModalPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        _modalPopupInstance.transform.SetParent(rootCanvas.transform, false);
+        _modalPopupInstance.transform.SetAsLastSibling();
+
+        RectTransform overlayRt = _modalPopupInstance.GetComponent<RectTransform>();
+        overlayRt.anchorMin = Vector2.zero;
+        overlayRt.anchorMax = Vector2.one;
+        overlayRt.offsetMin = Vector2.zero;
+        overlayRt.offsetMax = Vector2.zero;
+        var overlayImg = _modalPopupInstance.GetComponent<Image>();
+        overlayImg.color = new Color(0f, 0f, 0f, 0.8f);
+
+        var overlayBtn = _modalPopupInstance.AddComponent<Button>();
+        overlayBtn.onClick.AddListener(CloseModalPopup);
+
+        GameObject modalWindow = new GameObject("ModalWindow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        modalWindow.transform.SetParent(_modalPopupInstance.transform, false);
+
+        RectTransform modalRt = modalWindow.GetComponent<RectTransform>();
+        modalRt.anchorMin = new Vector2(0.5f, 0.5f);
+        modalRt.anchorMax = new Vector2(0.5f, 0.5f);
+        modalRt.pivot     = new Vector2(0.5f, 0.5f);
+        modalRt.sizeDelta = new Vector2(780f, 700f);
+
+        Image modalImg = modalWindow.GetComponent<Image>();
+        Sprite[] popupSprites = Resources.LoadAll<Sprite>("buttons/popup");
+        Sprite bgSprite = Array.Find(popupSprites, s => s.name == "popup_2");
+        if (bgSprite != null)
+        {
+            modalImg.sprite = bgSprite;
+            modalImg.type   = Image.Type.Simple;
+        }
+        modalImg.color = Color.white;
+
+        TextMeshProUGUI titleTxt = CreateModalText(modalWindow.transform, "TitleText",
+            new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+            new Vector2(0f, -150f), new Vector2(700f, 80f), title, 50f, FontStyles.Bold, PopupTitleColor);
+
+        TextMeshProUGUI descTxt = CreateModalText(modalWindow.transform, "DescriptionText",
+            new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            new Vector2(0f, 0f), new Vector2(680f, 200f), body, 36f, FontStyles.Normal, PopupBodyColor);
+        descTxt.enableWordWrapping = true;
+        descTxt.lineSpacing        = 0f;
+        descTxt.paragraphSpacing   = 0f;
+
+        Sprite okBtnSprite = GetInfoOkButtonSprite();
+
+        CreateModalButton(modalWindow.transform, "OkButton", okBtnSprite, new Vector2(0f, 65f), () =>
+        {
+            CloseModalPopup();
+            onOk?.Invoke();
+        });
+
+        modalWindow.transform.localScale = Vector3.zero;
+        modalWindow.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack).SetUpdate(true);
+    }
+
+    private static TextMeshProUGUI CreateModalText(Transform parent, string name,
+        Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot,
+        Vector2 anchoredPos, Vector2 sizeDelta,
+        string text, float fontSize, FontStyles style, Color color)
+    {
+        var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin        = anchorMin;
+        rt.anchorMax        = anchorMax;
+        rt.pivot            = pivot;
+        rt.anchoredPosition = anchoredPos;
+        rt.sizeDelta        = sizeDelta;
+
+        var tmp = go.GetComponent<TextMeshProUGUI>();
+        tmp.text      = text;
+        tmp.fontSize  = fontSize;
+        tmp.fontStyle = style;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color     = color;
+        return tmp;
+    }
+
+    private static void CreateModalButton(Transform parent, string name, Sprite sprite, Vector2 pos, Action onClick)
+    {
+        var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(0.5f, 0f);
+        rt.anchorMax        = new Vector2(0.5f, 0f);
+        rt.pivot            = new Vector2(0.5f, 0f);
+        rt.sizeDelta        = InfoButtonSize;
+        rt.anchoredPosition = pos;
+
+        ApplyLoginLogoutButtonImage(go.GetComponent<Image>(), sprite);
+
+        go.GetComponent<Button>().onClick.AddListener(() => onClick());
+    }
+
+    private void CloseModalPopup()
+    {
+        if (_modalPopupInstance != null)
+        {
+            Destroy(_modalPopupInstance);
+            _modalPopupInstance = null;
+        }
+
+        if (noCoinsPopup == null || !noCoinsPopup.activeSelf)
+        {
+            if (_battleInfoPanel != null)
+                _battleInfoPanel.SetActive(true);
+        }
+    }
+
     private void SetupNoCoinsPopupStyling()
     {
         if (noCoinsPopup == null) return;
@@ -881,8 +1082,8 @@ public class BattlePrepController : MonoBehaviour
             overlayImg.color = new Color(0f, 0f, 0f, 0.8f);
 
         Sprite[] popupSprites = Resources.LoadAll<Sprite>("buttons/popup");
-        Sprite bgSprite  = System.Array.Find(popupSprites, s => s.name == "popup_2");
-        Sprite okBtnSprite = System.Array.Find(popupSprites, s => s.name == "popup_0");
+        Sprite bgSprite = System.Array.Find(popupSprites, s => s.name == "popup_2");
+        Sprite okBtnSprite = GetInfoOkButtonSprite();
 
         RectTransform dialog = noCoinsDialogBox != null
             ? noCoinsDialogBox
@@ -903,11 +1104,11 @@ public class BattlePrepController : MonoBehaviour
         var titleRt = dialog.Find("Title") as RectTransform;
         if (titleRt != null)
         {
-            titleRt.anchorMin        = new Vector2(0.5f, 0.5f);
-            titleRt.anchorMax        = new Vector2(0.5f, 0.5f);
-            titleRt.pivot            = new Vector2(0.5f, 0.5f);
+            titleRt.anchorMin        = new Vector2(0.5f, 1f);
+            titleRt.anchorMax        = new Vector2(0.5f, 1f);
+            titleRt.pivot            = new Vector2(0.5f, 1f);
             titleRt.sizeDelta        = new Vector2(700f, 80f);
-            titleRt.anchoredPosition = new Vector2(0f, 150f);
+            titleRt.anchoredPosition = new Vector2(0f, -150f);
         }
 
         var titleText = dialog.Find("Title")?.GetComponent<TextMeshProUGUI>();
@@ -917,7 +1118,7 @@ public class BattlePrepController : MonoBehaviour
             titleText.fontSize  = 50f;
             titleText.fontStyle = FontStyles.Bold;
             titleText.alignment = TextAlignmentOptions.Center;
-            titleText.color     = Color.white;
+            titleText.color     = PopupTitleColor;
         }
 
         if (noCoinsText != null)
@@ -927,13 +1128,14 @@ public class BattlePrepController : MonoBehaviour
             bodyRt.anchorMax        = new Vector2(0.5f, 0.5f);
             bodyRt.pivot            = new Vector2(0.5f, 0.5f);
             bodyRt.sizeDelta        = new Vector2(680f, 200f);
-            bodyRt.anchoredPosition = new Vector2(0f, -30f);
+            bodyRt.anchoredPosition = new Vector2(0f, 0f);
 
             noCoinsText.fontSize           = 36f;
             noCoinsText.enableWordWrapping = true;
-            noCoinsText.lineSpacing        = 1.15f;
+            noCoinsText.lineSpacing        = 0f;
+            noCoinsText.paragraphSpacing   = 0f;
             noCoinsText.alignment          = TextAlignmentOptions.Center;
-            noCoinsText.color              = Color.white;
+            noCoinsText.color              = PopupBodyColor;
         }
 
         if (noCoinsOkBtn != null)
@@ -942,32 +1144,31 @@ public class BattlePrepController : MonoBehaviour
             okRt.anchorMin        = new Vector2(0.5f, 0f);
             okRt.anchorMax        = new Vector2(0.5f, 0f);
             okRt.pivot            = new Vector2(0.5f, 0f);
-            okRt.sizeDelta        = new Vector2(260f, 80f);
+            okRt.sizeDelta        = InfoButtonSize;
             okRt.anchoredPosition = new Vector2(0f, 65f);
 
-            var okImg = noCoinsOkBtn.GetComponent<Image>();
-            if (okImg != null && okBtnSprite != null)
-            {
-                okImg.sprite = okBtnSprite;
-                okImg.type   = Image.Type.Simple;
-                okImg.color  = Color.white;
-            }
+            ApplyLoginLogoutButtonImage(noCoinsOkBtn.GetComponent<Image>(), okBtnSprite);
 
             var label = okRt.Find("Label");
             if (label != null)
                 label.gameObject.SetActive(false);
         }
+
+        var cancelBtn = dialog.Find("CancelBtn");
+        if (cancelBtn != null)
+            cancelBtn.gameObject.SetActive(false);
     }
 
-    private void ShowNoCoinsPopup()
+    private void ShowNoCoinsPopup(int neededBet)
     {
         var p = PlayerProfileManager.GetInstance();
         if (noCoinsPopup == null) return;
 
-        int needed = p != null ? p.SelectedBet : 250;
+        CloseModalPopup();
+
         if (noCoinsText != null)
         {
-            noCoinsText.text = $"You need {needed} coins to enter battle!\n\nYou have: {p?.Coins ?? 0}\n\nVisit the Store to get more.";
+            noCoinsText.text = $"You need {neededBet} coins to enter battle!\nYou have: {p?.Coins ?? 0}\nVisit the Store to get more.";
         }
 
         if (_battleInfoPanel != null)
@@ -997,12 +1198,6 @@ public class BattlePrepController : MonoBehaviour
 
     public void OnBackButtonClick()
     {
-        var profile = PlayerProfileManager.GetInstance();
-        if (profile != null && profile.BattleTeam.Count != 2)
-        {
-            MessageView.GetInstance()?.ShowMessageView("You must select exactly 2 Creatures for battle!", "Ok");
-            return;
-        }
         SceneManager.LoadScene(Constants.SCENE_MENU);
     }
 

@@ -251,15 +251,15 @@ RectTransform:
   m_GameObject: {fileID: 100010}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 1.1, y: 1.1, z: 1.1}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 100001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 16, y: -300}
-  m_SizeDelta: {x: 830, y: 830}
+  m_SizeDelta: {x: 913, y: 913}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &200000
 GameObject:
@@ -326,6 +326,7 @@ MonoBehaviour:
   p1PanelBg: {fileID: 156648665}
   p2PanelBg: {fileID: 900007167}
   messageText: {fileID: 1040751192}
+  evolutionBadgeSprite: {fileID: 1744928342973977704, guid: 5c0180eb0da141cca9f324977e452d2b, type: 3}
   p1NameText: {fileID: 1292419609}
   p1MovesText: {fileID: 904156577}
   p1HpText: {fileID: 1943541639}

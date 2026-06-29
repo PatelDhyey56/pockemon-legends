@@ -74,6 +74,7 @@ public class BoardInputHandler : MonoBehaviour
     [SerializeField] private RectTransform playerUIPanel;
     [SerializeField] private Image p1PanelBg, p2PanelBg;
     [SerializeField] private TMPro.TextMeshProUGUI messageText;
+    [SerializeField] private Sprite evolutionBadgeSprite;
 
     [Header("P1 Info")]
     [SerializeField] private TMPro.TextMeshProUGUI p1NameText;
@@ -143,10 +144,19 @@ public class BoardInputHandler : MonoBehaviour
     private int _creatureRowIndex; // incremented inside CreateCreatureRow
 
     private Vector3 _originalMessagePos;
+    private float _messageTextBaseFontSize = 30f;
+    private const float MessageTextMinFontSize = 16f;
+    private const int MessageTextMaxLines = 2;
     private float _displayedP1HP = -1f;
     private float _displayedP2HP = -1f;
     private int _displayedP1EvolutionStones = -1;
     private int _displayedP2EvolutionStones = -1;
+    private bool _creatureEvoBadgesReady;
+    private readonly Image[] _creatureEvoBadges = new Image[4];
+    private readonly Vector2[] _creatureNameDefaultOffsetMin = new Vector2[4];
+    private readonly bool[] _creatureNameOffsetCached = new bool[4];
+    private static Sprite _cachedEvolutionBadgeSprite;
+    private const float CreatureEvoBadgeSize = 20f;
 
     private const float CharryUIGroupPosX = 15f;
     private const float CharryUIGroupPosY = -60f;
@@ -155,8 +165,8 @@ public class BoardInputHandler : MonoBehaviour
     private GameObject _evoSelectionPopupInstance;
     private GameObject _evoSuccessPopupInstance;
 
-    private const float BattleModalW           = 780f;
-    private const float BattleModalH           = 900f;
+    private const float BattleModalW           = 858f;
+    private const float BattleModalH           = 1100f;
     private const float BattleModalTitleFont   = 46f;
     private const float BattleModalBodyFont    = 28f;
     private const float BattleModalStatFont    = 24f;
@@ -164,9 +174,17 @@ public class BoardInputHandler : MonoBehaviour
     private const float BattleModalAvatarSize  = 180f;
     private const float BattleModalBtnW        = 200f;
     private const float BattleModalBtnH        = 70f;
-    private const float BattleModalBtnBottomY  = 65f;
-    private const float ManualEvoAvatarSize    = 350f;
+    private const float BattleModalBtnBottomY  = 100f;
+    private const float BattleModalOkBtnW      = 250f;
+    private const float BattleModalOkBtnH      = 100f;
+    private const float BattleModalTitleY      = -150f;
+    private const float ManualEvoAvatarSize    = 260f;
     private const float GameOverPopupFont      = 45f;
+
+    private static readonly Color BattlePopupTitleColor = new Color(0.745283f, 0.56290144f, 0.28475437f, 1f);
+    private static readonly Color BattlePopupBodyColor  = new Color(1f, 0.7273872f, 0.5518868f, 1f);
+    private const string BattleHighlightGold = "#FFD700";
+    private const string BattleHighlightGreen = "#7CFC9A";
 
     private const string ThemeVictoryGreen = "#00FF88";
     private const string ThemeDefeatRed    = "#FF4444";
@@ -184,8 +202,12 @@ public class BoardInputHandler : MonoBehaviour
         if (messageText != null)
         {
             _originalMessagePos = messageText.transform.localPosition;
+            _messageTextBaseFontSize = messageText.fontSize;
             messageText.alpha = 0f;
         }
+
+        evolutionBadgeSprite = GetEvolutionBadgeSprite();
+        EnsureCreatureEvoBadges();
 
         // Allow sprites to be assigned in the inspector. If any slots are empty,
         // attempt to fill them from Resources/Gems/element_block_1..6.
@@ -1215,7 +1237,7 @@ public class BoardInputHandler : MonoBehaviour
         var p1Poke1 = board.Players[0].Creatures[0];
         p1Poke1Avatar.sprite = p1Poke1.Avatar;
         if (p1Poke1Avatar != null) p1Poke1Avatar.preserveAspect = true;
-        p1Poke1Name.text = (p1Poke1.IsEvolved ? "Evolved " : "") + p1Poke1.Name + " (" + GetCategoryName(p1Poke1.Type) + ")";
+        UpdateCreatureNameRow(0, p1Poke1Name, p1Poke1);
         p1Poke1EnergyText.text = "Gems: " + p1Poke1.CurrentEnergy + "/" + p1Poke1.MaxEnergy;
         if (p1Poke1EnergyBar != null && p1Poke1EnergyBar) p1Poke1EnergyBar.fillAmount = (float)p1Poke1.CurrentEnergy / p1Poke1.MaxEnergy;
         if (IsAlive(p1Poke1Stone))
@@ -1230,7 +1252,7 @@ public class BoardInputHandler : MonoBehaviour
         var p1Poke2 = board.Players[0].Creatures[1];
         p1Poke2Avatar.sprite = p1Poke2.Avatar;
         if (p1Poke2Avatar != null) p1Poke2Avatar.preserveAspect = true;
-        p1Poke2Name.text = (p1Poke2.IsEvolved ? "Evolved " : "") + p1Poke2.Name + " (" + GetCategoryName(p1Poke2.Type) + ")";
+        UpdateCreatureNameRow(1, p1Poke2Name, p1Poke2);
         p1Poke2EnergyText.text = "Gems: " + p1Poke2.CurrentEnergy + "/" + p1Poke2.MaxEnergy;
         if (p1Poke2EnergyBar != null && p1Poke2EnergyBar) p1Poke2EnergyBar.fillAmount = (float)p1Poke2.CurrentEnergy / p1Poke2.MaxEnergy;
         if (IsAlive(p1Poke2Stone))
@@ -1290,7 +1312,7 @@ public class BoardInputHandler : MonoBehaviour
         var p2Poke1 = board.Players[1].Creatures[0];
         p2Poke1Avatar.sprite = p2Poke1.Avatar;
         if (p2Poke1Avatar != null) p2Poke1Avatar.preserveAspect = true;
-        p2Poke1Name.text = (p2Poke1.IsEvolved ? "Evolved " : "") + p2Poke1.Name + " (" + GetCategoryName(p2Poke1.Type) + ")";
+        UpdateCreatureNameRow(2, p2Poke1Name, p2Poke1);
         p2Poke1EnergyText.text = "Gems: " + p2Poke1.CurrentEnergy + "/" + p2Poke1.MaxEnergy;
         if (p2Poke1EnergyBar != null && p2Poke1EnergyBar) p2Poke1EnergyBar.fillAmount = (float)p2Poke1.CurrentEnergy / p2Poke1.MaxEnergy;
         if (IsAlive(p2Poke1Stone))
@@ -1305,7 +1327,7 @@ public class BoardInputHandler : MonoBehaviour
         var p2Poke2 = board.Players[1].Creatures[1];
         p2Poke2Avatar.sprite = p2Poke2.Avatar;
         if (p2Poke2Avatar != null) p2Poke2Avatar.preserveAspect = true;
-        p2Poke2Name.text = (p2Poke2.IsEvolved ? "Evolved " : "") + p2Poke2.Name + " (" + GetCategoryName(p2Poke2.Type) + ")";
+        UpdateCreatureNameRow(3, p2Poke2Name, p2Poke2);
         p2Poke2EnergyText.text = "Gems: " + p2Poke2.CurrentEnergy + "/" + p2Poke2.MaxEnergy;
         if (p2Poke2EnergyBar != null && p2Poke2EnergyBar) p2Poke2EnergyBar.fillAmount = (float)p2Poke2.CurrentEnergy / p2Poke2.MaxEnergy;
         if (IsAlive(p2Poke2Stone))
@@ -1509,6 +1531,21 @@ public class BoardInputHandler : MonoBehaviour
         return new string('●', count);
     }
 
+    private void FitMessageTextToTwoLines(string message)
+    {
+        messageText.enableAutoSizing = false;
+        messageText.text = message;
+        messageText.fontSize = _messageTextBaseFontSize;
+        messageText.ForceMeshUpdate();
+
+        while (messageText.textInfo.lineCount > MessageTextMaxLines
+               && messageText.fontSize > MessageTextMinFontSize)
+        {
+            messageText.fontSize -= 1f;
+            messageText.ForceMeshUpdate();
+        }
+    }
+
     private void ShowMessage(string message)
     {
         // messageText is a child of MessageBanner; bail if destroyed.
@@ -1520,7 +1557,7 @@ public class BoardInputHandler : MonoBehaviour
         // Keep messageText perfectly centered inside the banner
         messageText.transform.localPosition = Vector3.zero;
         
-        messageText.text = message;
+        FitMessageTextToTwoLines(message);
         messageText.alpha = 0f;
         messageText.transform.localScale = Vector3.one * 1.5f;
 
@@ -1672,15 +1709,12 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.anchorMin = new Vector2(0.5f, 1f);
         titleRt.anchorMax = new Vector2(0.5f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
-        titleRt.sizeDelta = new Vector2(700f, 100f);
-        titleRt.anchoredPosition = new Vector2(0f, -55f);
+        titleRt.sizeDelta = new Vector2(700f, 80f);
+        titleRt.anchoredPosition = new Vector2(0f, BattleModalTitleY);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
         titleTxt.text = "GAME OVER";
-        titleTxt.fontSize = GameOverPopupFont;
-        titleTxt.fontStyle = TMPro.FontStyles.Bold;
-        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = messageText != null ? messageText.color : new Color(0.868f, 0.747f, 0.708f);
+        StyleBattlePopupTitle(titleTxt);
         if (messageText != null) titleTxt.font = messageText.font;
 
         // 4. Create Message Text (Winner / Loser details)
@@ -1711,12 +1745,13 @@ public class BoardInputHandler : MonoBehaviour
             msgTxt.text = $"<color={ThemeDrawGold}>Draw!</color>\n\n<color={ThemeCoinGold}>+{earnedCoins} Coins</color>\n<color={ThemeXpCyan}>+{earnedXp} XP</color>";
         }
 
-        msgTxt.fontSize = GameOverPopupFont;
-        msgTxt.lineSpacing = 1.15f;
+        msgTxt.fontSize = 36f;
+        msgTxt.lineSpacing = 0f;
+        msgTxt.paragraphSpacing = 0f;
         msgTxt.enableWordWrapping = true;
         msgTxt.alignment = TMPro.TextAlignmentOptions.Center;
         msgTxt.verticalAlignment = TMPro.VerticalAlignmentOptions.Middle;
-        msgTxt.color = messageText != null ? messageText.color : new Color(0.868f, 0.747f, 0.708f);
+        msgTxt.color = BattlePopupBodyColor;
         if (messageText != null) msgTxt.font = messageText.font;
 
         Sprite[] newButtonSprites = Resources.LoadAll<Sprite>("buttons/new-buttons");
@@ -1888,19 +1923,16 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.anchorMax = new Vector2(0.5f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
         titleRt.sizeDelta = new Vector2(700f, 80f);
-        titleRt.anchoredPosition = new Vector2(0f, -55f);
+        titleRt.anchoredPosition = new Vector2(0f, BattleModalTitleY);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
         titleTxt.text = "CHOOSE CREATURE TO EVOLVE";
-        titleTxt.fontSize = BattleModalTitleFont;
-        titleTxt.fontStyle = TMPro.FontStyles.Bold;
-        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = Color.white;
+        StyleBattlePopupTitle(titleTxt);
         if (messageText != null) titleTxt.font = messageText.font;
 
         // 4. Create columns for the two creatures
         const float cardWidth = 320f;
-        const float cardHeight = 540f;
+        const float cardHeight = 640f;
         const float cardSpacing = 36f;
         const float avatarSize = BattleModalAvatarSize;
 
@@ -1922,7 +1954,7 @@ public class BoardInputHandler : MonoBehaviour
             cardRt.anchoredPosition = new Vector2(xOffset, 35f);
 
             Image cardImg = cardGo.GetComponent<Image>();
-            cardImg.color = new Color(0.2f, 0.2f, 0.28f, 1f); // Dark card body
+            cardImg.color = new Color(1f, 1f, 1f, 0.12f);
 
             // Outer outline for the creature card
             GameObject cardOutlineGo = new GameObject("Outline", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -1933,7 +1965,7 @@ public class BoardInputHandler : MonoBehaviour
             outlineRt.offsetMin = new Vector2(2f, 2f);
             outlineRt.offsetMax = new Vector2(-2f, -2f);
             Image outlineImg = cardOutlineGo.GetComponent<Image>();
-            outlineImg.color = new Color(0.12f, 0.12f, 0.18f, 1f);
+            outlineImg.color = new Color(0.45f, 0.35f, 0.22f, 0.35f);
             outlineImg.raycastTarget = false;
 
             // Creature Avatar/Sprite
@@ -1962,11 +1994,11 @@ public class BoardInputHandler : MonoBehaviour
             nameRt.offsetMax = new Vector2(-8f, 415f);
 
             TMPro.TextMeshProUGUI nameTxt = nameGo.GetComponent<TMPro.TextMeshProUGUI>();
-            nameTxt.text = poke.Name;
-            nameTxt.fontSize = 28f;
+            nameTxt.text = poke.Name.ToUpper();
+            nameTxt.fontSize = 26f;
             nameTxt.fontStyle = TMPro.FontStyles.Bold;
             nameTxt.alignment = TMPro.TextAlignmentOptions.Center;
-            nameTxt.color = Color.white;
+            nameTxt.color = BattlePopupTitleColor;
             nameTxt.raycastTarget = false;
             if (messageText != null) nameTxt.font = messageText.font;
 
@@ -1977,44 +2009,16 @@ public class BoardInputHandler : MonoBehaviour
             statRt.anchorMin = new Vector2(0f, 0f);
             statRt.anchorMax = new Vector2(1f, 0f);
             statRt.pivot = new Vector2(0.5f, 0f);
-            statRt.offsetMin = new Vector2(8f, 255f);
+            statRt.offsetMin = new Vector2(8f, 18f);
             statRt.offsetMax = new Vector2(-8f, 360f);
 
-            string valUnit = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "Heal" : "Dmg";
-            int baseVal = poke.BaseValue + poke.EvolutionDamageBonus;
-            int nextVal = baseVal + 5;
-
             TMPro.TextMeshProUGUI statTxt = statGo.GetComponent<TMPro.TextMeshProUGUI>();
-            statTxt.text = $"{valUnit}: {baseVal} <color=#00FF88>-> {nextVal}</color>\n(Limit: {poke.MaxEnergy})";
-            statTxt.fontSize = 24f;
-            statTxt.lineSpacing = 1.15f;
-            statTxt.alignment = TMPro.TextAlignmentOptions.Center;
-            statTxt.color = GetGemColor(poke.Type) * 1.2f;
+            statTxt.text = BuildCreatureDetailBody(poke);
+            StyleBattlePopupBody(statTxt, 20f);
+            statTxt.paragraphSpacing = 10f;
+            statTxt.verticalAlignment = TMPro.VerticalAlignmentOptions.Top;
             statTxt.raycastTarget = false;
             if (messageText != null) statTxt.font = messageText.font;
-
-            // Creature Ability Text
-            GameObject abilityGo = new GameObject("AbilityText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-            abilityGo.transform.SetParent(cardOutlineGo.transform, false);
-            RectTransform abilityRt = abilityGo.GetComponent<RectTransform>();
-            abilityRt.anchorMin = new Vector2(0f, 0f);
-            abilityRt.anchorMax = new Vector2(1f, 0f);
-            abilityRt.pivot = new Vector2(0.5f, 0f);
-            abilityRt.offsetMin = new Vector2(10f, 18f);
-            abilityRt.offsetMax = new Vector2(-10f, 245f);
-
-            TMPro.TextMeshProUGUI abilityTxt = abilityGo.GetComponent<TMPro.TextMeshProUGUI>();
-            AttackRule attackRule = BoardManager.GetInstance().GetAttackRule(poke.Type);
-            string abilityName = attackRule != null ? attackRule.AttackName : "Ability";
-            string abilityDesc = attackRule != null ? attackRule.EffectDescription : "";
-            abilityTxt.text = $"<color=#FFFF00>{abilityName}</color>\n{abilityDesc}";
-            abilityTxt.fontSize = 22f;
-            abilityTxt.enableWordWrapping = true;
-            abilityTxt.lineSpacing = 1.1f;
-            abilityTxt.alignment = TMPro.TextAlignmentOptions.Center;
-            abilityTxt.color = Color.white;
-            abilityTxt.raycastTarget = false;
-            if (messageText != null) abilityTxt.font = messageText.font;
 
             // Set up click action
             UnityEngine.UI.Button button = cardGo.GetComponent<UnityEngine.UI.Button>();
@@ -2026,34 +2030,11 @@ public class BoardInputHandler : MonoBehaviour
             });
         }
 
-        // 5. Cancel Button
-        GameObject cancelGo = new GameObject("CancelButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        cancelGo.transform.SetParent(modalWindow.transform, false);
-        
-        RectTransform cancelRt = cancelGo.GetComponent<RectTransform>();
-        cancelRt.anchorMin = new Vector2(0.5f, 0f);
-        cancelRt.anchorMax = new Vector2(0.5f, 0f);
-        cancelRt.pivot = new Vector2(0.5f, 0f);
-        cancelRt.sizeDelta = new Vector2(BattleModalBtnW, BattleModalBtnH);
-        cancelRt.anchoredPosition = new Vector2(0f, BattleModalBtnBottomY);
-
-        Image cancelImg = cancelGo.GetComponent<Image>();
-        Sprite cancelSprite = System.Array.Find(popupSprites, s => s.name == "popup_1");
-        if (cancelSprite == null)
-            cancelSprite = System.Array.Find(Resources.LoadAll<Sprite>("buttons/new-buttons"), s => s.name == "new-buttons_9");
-        if (cancelSprite != null)
-        {
-            cancelImg.sprite = cancelSprite;
-            cancelImg.type = Image.Type.Simple;
-        }
-        cancelImg.color = Color.white;
-
-        // Set up click action
-        UnityEngine.UI.Button cancelButton = cancelGo.GetComponent<UnityEngine.UI.Button>();
-        cancelButton.onClick.AddListener(() =>
+        // 5. Close Button
+        CreateBattleOkButton(modalWindow.transform, new Vector2(0f, BattleModalBtnBottomY), () =>
         {
             Destroy(_evoSelectionPopupInstance);
-            onSelected?.Invoke(null); // Pass null to indicate cancel
+            onSelected?.Invoke(null);
         });
 
         modalWindow.transform.localScale = Vector3.zero;
@@ -2120,14 +2101,11 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.anchorMax = new Vector2(0.5f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
         titleRt.sizeDelta = new Vector2(700f, 80f);
-        titleRt.anchoredPosition = new Vector2(0f, -55f);
+        titleRt.anchoredPosition = new Vector2(0f, BattleModalTitleY);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
         titleTxt.text = $"{poke.Name.ToUpper()} EVOLVED!";
-        titleTxt.fontSize = BattleModalTitleFont;
-        titleTxt.fontStyle = TMPro.FontStyles.Bold;
-        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = Color.white;
+        StyleBattlePopupTitle(titleTxt);
         if (messageText != null) titleTxt.font = messageText.font;
 
         // 4. Creature Avatar
@@ -2138,78 +2116,34 @@ public class BoardInputHandler : MonoBehaviour
         avatarRt.anchorMax = new Vector2(0.5f, 0.5f);
         avatarRt.pivot = new Vector2(0.5f, 0.5f);
         avatarRt.sizeDelta = new Vector2(BattleModalAvatarSize, BattleModalAvatarSize);
-        avatarRt.anchoredPosition = new Vector2(0f, 100f);
+        avatarRt.anchoredPosition = new Vector2(0f, 120f);
 
         Image avatarImg = avatarGo.GetComponent<Image>();
         avatarImg.sprite = poke.Avatar;
         avatarImg.preserveAspect = true;
 
-        // 5. Stat change description
+        // 5. Stat change + creature details
         GameObject statGo = new GameObject("StatText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
         statGo.transform.SetParent(modalWindow.transform, false);
         RectTransform statRt = statGo.GetComponent<RectTransform>();
         statRt.anchorMin = new Vector2(0.5f, 0.5f);
         statRt.anchorMax = new Vector2(0.5f, 0.5f);
         statRt.pivot = new Vector2(0.5f, 0.5f);
-        statRt.sizeDelta = new Vector2(680f, 90f);
-        statRt.anchoredPosition = new Vector2(0f, -70f);
+        statRt.sizeDelta = new Vector2(680f, 360f);
+        statRt.anchoredPosition = new Vector2(0f, -100f);
 
-        string valType = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "Healing" : "Damage";
+        string valType = (poke.Type == GemType.Nature || poke.Type == GemType.Healing) ? "healing" : "damage";
 
         TMPro.TextMeshProUGUI statTxt = statGo.GetComponent<TMPro.TextMeshProUGUI>();
-        statTxt.text = $"{valType}: {oldVal} <color=#00FF88>-> {newVal}</color>\n<color=#FFFF00>+5 Evolution Bonus!</color>";
-        statTxt.fontSize = BattleModalStatFont;
-        statTxt.lineSpacing = 1.15f;
-        statTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        statTxt.color = Color.white;
+        statTxt.text =
+            $"<b>{poke.Name}</b> has evolved and now brings <color={BattleHighlightGreen}><b>{newVal}</b></color> {valType} power, rising from <color={BattleHighlightGold}><b>{oldVal}</b></color> with a <color={BattleHighlightGold}><b>+5</b></color> evolution bonus.\n\n" +
+            BuildCreatureDetailBody(poke);
+        StyleBattlePopupBody(statTxt, 28f);
+        statTxt.paragraphSpacing = 10f;
         if (messageText != null) statTxt.font = messageText.font;
 
-        // 5b. Ability Description
-        GameObject abilityGo = new GameObject("AbilityText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        abilityGo.transform.SetParent(modalWindow.transform, false);
-        RectTransform abilityRt = abilityGo.GetComponent<RectTransform>();
-        abilityRt.anchorMin = new Vector2(0.5f, 0.5f);
-        abilityRt.anchorMax = new Vector2(0.5f, 0.5f);
-        abilityRt.pivot = new Vector2(0.5f, 0.5f);
-        abilityRt.sizeDelta = new Vector2(680f, 180f);
-        abilityRt.anchoredPosition = new Vector2(0f, -200f);
-
-        TMPro.TextMeshProUGUI abilityTxt = abilityGo.GetComponent<TMPro.TextMeshProUGUI>();
-        AttackRule attackRule = BoardManager.GetInstance().GetAttackRule(poke.Type);
-        string abilityName = attackRule != null ? attackRule.AttackName : "Ability";
-        string abilityDesc = attackRule != null ? attackRule.EffectDescription : "";
-        abilityTxt.text = $"<color=#FFFF00>{abilityName}</color>\n{abilityDesc}";
-        abilityTxt.fontSize = BattleModalAbilityFont;
-        abilityTxt.enableWordWrapping = true;
-        abilityTxt.lineSpacing = 1.1f;
-        abilityTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        abilityTxt.color = Color.white;
-        if (messageText != null) abilityTxt.font = messageText.font;
-
         // 6. Dismiss Button
-        GameObject btnGo = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-        btnGo.transform.SetParent(modalWindow.transform, false);
-        RectTransform btnRt = btnGo.GetComponent<RectTransform>();
-        btnRt.anchorMin = new Vector2(0.5f, 0f);
-        btnRt.anchorMax = new Vector2(0.5f, 0f);
-        btnRt.pivot = new Vector2(0.5f, 0f);
-        btnRt.sizeDelta = new Vector2(BattleModalBtnW, BattleModalBtnH);
-        btnRt.anchoredPosition = new Vector2(0f, BattleModalBtnBottomY);
-
-        Image btnImg = btnGo.GetComponent<Image>();
-        Sprite btnSprite = System.Array.Find(popupSprites, s => s.name == "popup_0");
-        if (btnSprite == null)
-            btnSprite = System.Array.Find(Resources.LoadAll<Sprite>("buttons/new-buttons"), s => s.name == "new-buttons_8");
-        if (btnSprite != null)
-        {
-            btnImg.sprite = btnSprite;
-            btnImg.type = Image.Type.Simple;
-        }
-        btnImg.color = Color.white;
-
-        // Set up click action
-        UnityEngine.UI.Button button = btnGo.GetComponent<UnityEngine.UI.Button>();
-        button.onClick.AddListener(() =>
+        CreateBattleOkButton(modalWindow.transform, new Vector2(0f, BattleModalBtnBottomY), () =>
         {
             if (_evoSuccessPopupInstance != null)
             {
@@ -2308,17 +2242,14 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.anchorMax = new Vector2(0.5f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
         titleRt.sizeDelta = new Vector2(700f, 80f);
-        titleRt.anchoredPosition = new Vector2(0f, -200f);
+        titleRt.anchoredPosition = new Vector2(0f, BattleModalTitleY);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
-        titleTxt.text = canEvolve ? "ASCENSION AVAILABLE" : "ASCENSION LOCKED";
-        titleTxt.fontSize = BattleModalTitleFont;
-        titleTxt.fontStyle = TMPro.FontStyles.Bold;
-        titleTxt.alignment = TMPro.TextAlignmentOptions.Center;
-        titleTxt.color = Color.white;
+        titleTxt.text = canEvolve ? "EVOLUTION AVAILABLE" : "EVOLUTION LOCKED";
+        StyleBattlePopupTitle(titleTxt);
         if (messageText != null) titleTxt.font = messageText.font;
 
-        // 4. Creature Avatar (350x350, below title)
+        // 4. Creature Avatar
         GameObject avatarGo = new GameObject("Avatar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         avatarGo.transform.SetParent(modalWindow.transform, false);
         RectTransform avatarRt = avatarGo.GetComponent<RectTransform>();
@@ -2326,44 +2257,37 @@ public class BoardInputHandler : MonoBehaviour
         avatarRt.anchorMax = new Vector2(0.5f, 1f);
         avatarRt.pivot = new Vector2(0.5f, 1f);
         avatarRt.sizeDelta = new Vector2(ManualEvoAvatarSize, ManualEvoAvatarSize);
-        avatarRt.anchoredPosition = new Vector2(0f, -275f);
+        avatarRt.anchoredPosition = new Vector2(0f, -240f);
 
         Image avatarImg = avatarGo.GetComponent<Image>();
         avatarImg.sprite = poke.Avatar;
         avatarImg.preserveAspect = true;
         avatarImg.raycastTarget = false;
 
-        // 5. Description Text (centered below avatar, above buttons)
+        // 5. Creature stats + evolve prompt
         GameObject descGo = new GameObject("DescriptionText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
         descGo.transform.SetParent(modalWindow.transform, false);
         RectTransform descRt = descGo.GetComponent<RectTransform>();
-        descRt.anchorMin = new Vector2(0.5f, 1f);
-        descRt.anchorMax = new Vector2(0.5f, 1f);
-        descRt.pivot = new Vector2(0.5f, 1f);
-        descRt.sizeDelta = new Vector2(700f, 170f);
-        descRt.anchoredPosition = new Vector2(0f, -515f);
+        descRt.anchorMin = new Vector2(0.5f, 0.5f);
+        descRt.anchorMax = new Vector2(0.5f, 0.5f);
+        descRt.pivot = new Vector2(0.5f, 0.5f);
+        descRt.sizeDelta = new Vector2(700f, 380f);
+        descRt.anchoredPosition = new Vector2(0f, -100f);
 
         TMPro.TextMeshProUGUI descTxt = descGo.GetComponent<TMPro.TextMeshProUGUI>();
+        string detailBody = BuildCreatureDetailBody(poke);
         if (canEvolve)
-        {
-            descTxt.text = $"Do you want to evolve {poke.Name}?\n<color=#FFFF00>(Costs 1 Move & resets Charry Gems)</color>";
-        }
+            descTxt.text = $"{detailBody}\n\nDo you want to evolve <b>{poke.Name}</b>?\n(Costs 1 Move and resets Charry Gems)";
         else
-        {
-            descTxt.text = $"{poke.Name} requires {PlayerState.EvolutionRequired} Charry gems to evolve. You currently have {player.EvolutionStones}/{PlayerState.EvolutionRequired}.";
-        }
-        descTxt.fontSize = BattleModalBodyFont;
-        descTxt.enableWordWrapping = true;
-        descTxt.lineSpacing = 1.15f;
-        descTxt.alignment = TMPro.TextAlignmentOptions.Center;
+            descTxt.text = $"{detailBody}\n\nRequires <color={BattleHighlightGold}><b>{PlayerState.EvolutionRequired}</b></color> Charry gems to evolve.\nYou have <color={BattleHighlightGold}><b>{player.EvolutionStones}/{PlayerState.EvolutionRequired}</b></color>.";
+        StyleBattlePopupBody(descTxt, 28f);
+        descTxt.paragraphSpacing = 10f;
         descTxt.verticalAlignment = TMPro.VerticalAlignmentOptions.Middle;
-        descTxt.color = Color.white;
         if (messageText != null) descTxt.font = messageText.font;
 
-        // 5. Buttons Container
+        // 6. Action buttons
         if (canEvolve)
         {
-            // Evolve Button
             GameObject evolveGo = new GameObject("EvolveButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
             evolveGo.transform.SetParent(modalWindow.transform, false);
             RectTransform evolveRt = evolveGo.GetComponent<RectTransform>();
@@ -2371,12 +2295,10 @@ public class BoardInputHandler : MonoBehaviour
             evolveRt.anchorMax = new Vector2(0.5f, 0f);
             evolveRt.pivot = new Vector2(0.5f, 0f);
             evolveRt.sizeDelta = new Vector2(BattleModalBtnW, BattleModalBtnH);
-            evolveRt.anchoredPosition = new Vector2(-110f, BattleModalBtnBottomY);
+            evolveRt.anchoredPosition = new Vector2(-130f, BattleModalBtnBottomY);
 
             Image evolveImg = evolveGo.GetComponent<Image>();
             Sprite evolveSprite = System.Array.Find(popupSprites, s => s.name == "popup_0");
-            if (evolveSprite == null)
-                evolveSprite = System.Array.Find(Resources.LoadAll<Sprite>("buttons/new-buttons"), s => s.name == "new-buttons_8");
             if (evolveSprite != null)
             {
                 evolveImg.sprite = evolveSprite;
@@ -2384,65 +2306,20 @@ public class BoardInputHandler : MonoBehaviour
             }
             evolveImg.color = Color.white;
 
-            UnityEngine.UI.Button evolveBtn = evolveGo.GetComponent<UnityEngine.UI.Button>();
-            evolveBtn.onClick.AddListener(() =>
+            evolveGo.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(() =>
             {
                 Destroy(_manualEvoPopupInstance);
                 BoardManager.GetInstance().TryManualEvolve(playerIdx, poke);
             });
 
-            // Cancel Button
-            GameObject cancelGo = new GameObject("CancelButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-            cancelGo.transform.SetParent(modalWindow.transform, false);
-            RectTransform cancelRt = cancelGo.GetComponent<RectTransform>();
-            cancelRt.anchorMin = new Vector2(0.5f, 0f);
-            cancelRt.anchorMax = new Vector2(0.5f, 0f);
-            cancelRt.pivot = new Vector2(0.5f, 0f);
-            cancelRt.sizeDelta = new Vector2(BattleModalBtnW, BattleModalBtnH);
-            cancelRt.anchoredPosition = new Vector2(110f, BattleModalBtnBottomY);
-
-            Image cancelImg = cancelGo.GetComponent<Image>();
-            Sprite cancelSprite = System.Array.Find(popupSprites, s => s.name == "popup_1");
-            if (cancelSprite == null)
-                cancelSprite = System.Array.Find(Resources.LoadAll<Sprite>("buttons/new-buttons"), s => s.name == "new-buttons_9");
-            if (cancelSprite != null)
-            {
-                cancelImg.sprite = cancelSprite;
-                cancelImg.type = Image.Type.Simple;
-            }
-            cancelImg.color = Color.white;
-
-            UnityEngine.UI.Button cancelBtn = cancelGo.GetComponent<UnityEngine.UI.Button>();
-            cancelBtn.onClick.AddListener(() =>
+            CreateBattleOkButton(modalWindow.transform, new Vector2(130f, BattleModalBtnBottomY), () =>
             {
                 Destroy(_manualEvoPopupInstance);
             });
         }
         else
         {
-            // Close Button
-            GameObject closeGo = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
-            closeGo.transform.SetParent(modalWindow.transform, false);
-            RectTransform closeRt = closeGo.GetComponent<RectTransform>();
-            closeRt.anchorMin = new Vector2(0.5f, 0f);
-            closeRt.anchorMax = new Vector2(0.5f, 0f);
-            closeRt.pivot = new Vector2(0.5f, 0f);
-            closeRt.sizeDelta = new Vector2(BattleModalBtnW, BattleModalBtnH);
-            closeRt.anchoredPosition = new Vector2(0f, BattleModalBtnBottomY);
-
-            Image closeImg = closeGo.GetComponent<Image>();
-            Sprite closeSprite = System.Array.Find(popupSprites, s => s.name == "popup_1");
-            if (closeSprite == null)
-                closeSprite = System.Array.Find(Resources.LoadAll<Sprite>("buttons/new-buttons"), s => s.name == "new-buttons_9");
-            if (closeSprite != null)
-            {
-                closeImg.sprite = closeSprite;
-                closeImg.type = Image.Type.Simple;
-            }
-            closeImg.color = Color.white;
-
-            UnityEngine.UI.Button closeBtn = closeGo.GetComponent<UnityEngine.UI.Button>();
-            closeBtn.onClick.AddListener(() =>
+            CreateBattleOkButton(modalWindow.transform, new Vector2(0f, BattleModalBtnBottomY), () =>
             {
                 Destroy(_manualEvoPopupInstance);
             });
@@ -2462,6 +2339,115 @@ public class BoardInputHandler : MonoBehaviour
         }
     }
 
+    private string GetCreatureDisplayName(CreatureState poke)
+    {
+        return poke.Name + " (" + GetCategoryName(poke.Type) + ")";
+    }
+
+    private Sprite GetEvolutionBadgeSprite()
+    {
+        if (evolutionBadgeSprite != null) return evolutionBadgeSprite;
+        if (_cachedEvolutionBadgeSprite != null) return _cachedEvolutionBadgeSprite;
+
+        Sprite[] sprites = Resources.LoadAll<Sprite>("UI/UI-pack_Sprite_1");
+        if (sprites != null)
+        {
+            for (int i = 0; i < sprites.Length; i++)
+            {
+                if (sprites[i].name == "UI-pack_Sprite_1_5")
+                {
+                    _cachedEvolutionBadgeSprite = sprites[i];
+                    evolutionBadgeSprite = _cachedEvolutionBadgeSprite;
+                    return _cachedEvolutionBadgeSprite;
+                }
+            }
+        }
+
+        UnityEngine.Debug.LogWarning("[BoardInputHandler] Evolution badge sprite UI-pack_Sprite_1_5 not found.");
+        return null;
+    }
+
+    private static void ApplyEvoBadgeLayout(RectTransform badgeRt)
+    {
+        const float size = 20f;
+        badgeRt.anchorMin = new Vector2(0f, 0.5f);
+        badgeRt.anchorMax = new Vector2(0f, 0.5f);
+        badgeRt.pivot = new Vector2(0f, 0.5f);
+        badgeRt.sizeDelta = new Vector2(size, size);
+        badgeRt.anchoredPosition = Vector2.zero;
+    }
+
+    private void UpdateCreatureNameRow(int badgeIndex, TMPro.TextMeshProUGUI nameLabel, CreatureState poke)
+    {
+        if (nameLabel == null) return;
+
+        nameLabel.text = GetCreatureDisplayName(poke);
+
+        RectTransform nameRt = nameLabel.rectTransform;
+        if (!_creatureNameOffsetCached[badgeIndex])
+        {
+            _creatureNameDefaultOffsetMin[badgeIndex] = nameRt.offsetMin;
+            _creatureNameOffsetCached[badgeIndex] = true;
+        }
+
+        Vector2 baseOffset = _creatureNameDefaultOffsetMin[badgeIndex];
+        nameRt.offsetMin = poke.IsEvolved
+            ? new Vector2(baseOffset.x + CreatureEvoBadgeSize + 2f, baseOffset.y)
+            : baseOffset;
+
+        SetCreatureEvoBadgeVisible(badgeIndex, poke.IsEvolved);
+    }
+
+    private void EnsureCreatureEvoBadges()
+    {
+        Sprite badgeSprite = GetEvolutionBadgeSprite();
+        if (badgeSprite == null) return;
+
+        TMPro.TextMeshProUGUI[] nameLabels = { p1Poke1Name, p1Poke2Name, p2Poke1Name, p2Poke2Name };
+        for (int i = 0; i < nameLabels.Length; i++)
+        {
+            TMPro.TextMeshProUGUI nameLabel = nameLabels[i];
+            if (nameLabel == null) continue;
+
+            Transform existing = nameLabel.transform.Find("EvoBadge");
+            Image badgeImg;
+            if (existing != null)
+            {
+                badgeImg = existing.GetComponent<Image>();
+                ApplyEvoBadgeLayout(existing.GetComponent<RectTransform>());
+            }
+            else
+            {
+                GameObject badgeGo = new GameObject("EvoBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                badgeGo.transform.SetParent(nameLabel.transform, false);
+                badgeGo.transform.SetAsFirstSibling();
+
+                RectTransform badgeRt = badgeGo.GetComponent<RectTransform>();
+                ApplyEvoBadgeLayout(badgeRt);
+
+                badgeImg = badgeGo.GetComponent<Image>();
+                badgeImg.sprite = badgeSprite;
+                badgeImg.preserveAspect = true;
+                badgeImg.color = Color.white;
+                badgeImg.raycastTarget = false;
+                badgeGo.SetActive(false);
+            }
+
+            _creatureEvoBadges[i] = badgeImg;
+        }
+
+        _creatureEvoBadgesReady = true;
+    }
+
+    private void SetCreatureEvoBadgeVisible(int badgeIndex, bool visible)
+    {
+        EnsureCreatureEvoBadges();
+        if (badgeIndex < 0 || badgeIndex >= _creatureEvoBadges.Length) return;
+        Image badge = _creatureEvoBadges[badgeIndex];
+        if (badge != null)
+            badge.gameObject.SetActive(visible);
+    }
+
     private string GetCategoryName(GemType type)
     {
         return type switch
@@ -2474,5 +2460,106 @@ public class BoardInputHandler : MonoBehaviour
             GemType.Healing => "Light Category",
             _ => type.ToString()
         };
+    }
+
+    private static string GetGemTypeHexColor(GemType type)
+    {
+        return type switch
+        {
+            GemType.Fire     => "#FF5522",
+            GemType.Water    => "#22AAFF",
+            GemType.Nature   => "#33DD33",
+            GemType.Electric => "#FFCC00",
+            GemType.Psychic  => "#CC44FF",
+            GemType.Healing  => "#FF88BB",
+            _                => "#FFFFFF"
+        };
+    }
+
+    private static void StyleBattlePopupTitle(TMPro.TextMeshProUGUI txt)
+    {
+        if (txt == null) return;
+        txt.fontSize = 50f;
+        txt.fontStyle = TMPro.FontStyles.Bold;
+        txt.alignment = TMPro.TextAlignmentOptions.Center;
+        txt.color = BattlePopupTitleColor;
+    }
+
+    private static void StyleBattlePopupBody(TMPro.TextMeshProUGUI txt, float fontSize = 36f)
+    {
+        if (txt == null) return;
+        txt.fontSize = fontSize;
+        txt.alignment = TMPro.TextAlignmentOptions.Center;
+        txt.enableWordWrapping = true;
+        txt.lineSpacing = 0f;
+        txt.paragraphSpacing = 0f;
+        txt.color = BattlePopupBodyColor;
+    }
+
+    private static Sprite GetBattleOkButtonSprite()
+    {
+        Sprite[] sprites = Resources.LoadAll<Sprite>("buttons/login-logout");
+        return System.Array.Find(sprites, s => s.name == "login-logout_4");
+    }
+
+    private static void ApplyBattleOkButtonImage(Image img)
+    {
+        if (img == null) return;
+        Sprite sprite = GetBattleOkButtonSprite();
+        if (sprite != null)
+        {
+            img.sprite = sprite;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = true;
+        }
+        img.color = Color.white;
+    }
+
+    private static UnityEngine.UI.Button CreateBattleOkButton(Transform parent, Vector2 anchoredPos, Action onClick)
+    {
+        var go = new GameObject("CloseButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(UnityEngine.UI.Button));
+        go.transform.SetParent(parent, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0f);
+        rt.anchorMax = new Vector2(0.5f, 0f);
+        rt.pivot = new Vector2(0.5f, 0f);
+        rt.sizeDelta = new Vector2(BattleModalOkBtnW, BattleModalOkBtnH);
+        rt.anchoredPosition = anchoredPos;
+
+        ApplyBattleOkButtonImage(go.GetComponent<Image>());
+        var btn = go.GetComponent<UnityEngine.UI.Button>();
+        btn.onClick.AddListener(() => onClick?.Invoke());
+        return btn;
+    }
+
+    private string BuildCreatureDetailBody(CreatureState poke)
+    {
+        bool isHeal = poke.Type == GemType.Nature || poke.Type == GemType.Healing;
+        string typeColor = GetGemTypeHexColor(poke.Type);
+        string category = GetCategoryName(poke.Type);
+        int normalPower = poke.BaseValue + poke.EvolutionDamageBonus;
+        int afterEvolution = poke.IsEvolved ? normalPower : normalPower + 5;
+        string powerNoun = isHeal ? "healing power" : "attack power";
+        string powerWord = isHeal ? "healing" : "attack";
+
+        var board = BoardManager.GetInstance();
+        AttackRule rule = board != null ? board.GetAttackRule(poke.Type) : null;
+        string abilityName = rule != null ? rule.AttackName : "Ability";
+        string abilityDesc = rule != null ? rule.EffectDescription : "No special effect recorded.";
+        int abilityDamage = rule != null ? rule.Damage : 0;
+        int stonesRequired = rule != null ? rule.StonesRequired : 0;
+
+        string creatureInfo =
+            $"<b>{poke.Name}</b> is a <color={typeColor}><b>{category}</b></color> creature who fights with matching element stones and currently brings <color={BattleHighlightGold}><b>{normalPower}</b></color> {powerNoun} into every clash.";
+
+        string evolutionInfo = poke.IsEvolved
+            ? $"This unit has already evolved, reaching <color={BattleHighlightGreen}><b>{afterEvolution}</b></color> {powerWord} strength, and can carry up to <color={BattleHighlightGold}><b>{poke.MaxEnergy}</b></color> energy gems before unleashing its full potential."
+            : $"Should this creature evolve, its {powerWord} strength would rise to <color={BattleHighlightGreen}><b>{afterEvolution}</b></color>, and it can hold up to <color={BattleHighlightGold}><b>{poke.MaxEnergy}</b></color> energy gems while building power across the board.";
+
+        string abilityAction = isHeal ? "restores" : "deals";
+        string extraDetails =
+            $"In battle it relies on <color={BattleHighlightGold}><b>{abilityName}</b></color>, which {abilityAction} <color={BattleHighlightGold}><b>{abilityDamage}</b></color> after <color={BattleHighlightGold}><b>{stonesRequired}</b></color> linked gems are gathered, <color={BattleHighlightGold}><b>{abilityDesc}</b></color>.";
+
+        return $"{creatureInfo}\n\n{evolutionInfo}\n\n{extraDetails}";
     }
 }

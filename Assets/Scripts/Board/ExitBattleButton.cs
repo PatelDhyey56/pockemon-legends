@@ -44,7 +44,7 @@ public class ExitBattleButton : MonoBehaviour
         modalRt.anchorMin = new Vector2(0.5f, 0.5f);
         modalRt.anchorMax = new Vector2(0.5f, 0.5f);
         modalRt.pivot = new Vector2(0.5f, 0.5f);
-        modalRt.sizeDelta = new Vector2(780f, 900f);
+        modalRt.sizeDelta = new Vector2(780f, 700f);
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
@@ -65,14 +65,14 @@ public class ExitBattleButton : MonoBehaviour
         titleRt.anchorMax = new Vector2(0.5f, 1f);
         titleRt.pivot = new Vector2(0.5f, 1f);
         titleRt.sizeDelta = new Vector2(700f, 80f);
-        titleRt.anchoredPosition = new Vector2(0f, -55f);
+        titleRt.anchoredPosition = new Vector2(0f, -200f);
 
         TextMeshProUGUI titleTxt = titleGo.GetComponent<TextMeshProUGUI>();
         titleTxt.text = "EXIT BATTLE";
-        titleTxt.fontSize = 46f;
+        titleTxt.fontSize = 50f;
         titleTxt.fontStyle = FontStyles.Bold;
         titleTxt.alignment = TextAlignmentOptions.Center;
-        titleTxt.color = Color.white;
+        titleTxt.color = new Color(0.745283f, 0.56290144f, 0.28475437f, 1f);
 
         // 4. Description Text
         GameObject descGo = new GameObject("DescriptionText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
@@ -82,15 +82,15 @@ public class ExitBattleButton : MonoBehaviour
         descRt.anchorMax = new Vector2(0.5f, 0.5f);
         descRt.pivot = new Vector2(0.5f, 0.5f);
         descRt.sizeDelta = new Vector2(680f, 200f);
-        descRt.anchoredPosition = new Vector2(0f, 20f);
+        descRt.anchoredPosition = new Vector2(0f, 0f);
 
         TextMeshProUGUI descTxt = descGo.GetComponent<TextMeshProUGUI>();
         descTxt.text = "Are you sure you want to quit the battle?";
-        descTxt.fontSize = 28f;
+        descTxt.fontSize = 36f;
         descTxt.enableWordWrapping = true;
         descTxt.lineSpacing = 1.15f;
         descTxt.alignment = TextAlignmentOptions.Center;
-        descTxt.color = Color.white;
+        descTxt.color = new Color(1f, 0.7273872f, 0.5518868f, 1f);
 
         // 5. Load button sprites
         Sprite[] popupBtnSprites = Resources.LoadAll<Sprite>("buttons/popup");
