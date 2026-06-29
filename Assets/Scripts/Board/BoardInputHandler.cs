@@ -165,8 +165,8 @@ public class BoardInputHandler : MonoBehaviour
     private GameObject _evoSelectionPopupInstance;
     private GameObject _evoSuccessPopupInstance;
 
-    private const float BattleModalW           = 858f;
-    private const float BattleModalH           = 1100f;
+    private const float BattleModalW           = 900f;
+    private const float BattleModalH           = 1500f;
     private const float BattleModalTitleFont   = 46f;
     private const float BattleModalBodyFont    = 28f;
     private const float BattleModalStatFont    = 24f;
@@ -177,8 +177,8 @@ public class BoardInputHandler : MonoBehaviour
     private const float BattleModalBtnBottomY  = 100f;
     private const float BattleModalOkBtnW      = 250f;
     private const float BattleModalOkBtnH      = 100f;
-    private const float BattleModalTitleY      = -150f;
-    private const float ManualEvoAvatarSize    = 260f;
+    private const float BattleModalTitleY      = -250f;
+    private const float ManualEvoAvatarSize    = 300f;
     private const float GameOverPopupFont      = 45f;
 
     private static readonly Color BattlePopupTitleColor = new Color(0.745283f, 0.56290144f, 0.28475437f, 1f);
@@ -274,10 +274,7 @@ public class BoardInputHandler : MonoBehaviour
     /// <summary>Resolves the cell size to use for the current device screen.</summary>
     private float ResolveCellSize()
     {
-        // If AspectRatio has run, use its dynamically computed max board cell size.
-        // Otherwise fall back to the inspector value.
-        float dynamic = AspectRatio.MaxBoardCellSize;
-        return (dynamic > 0f) ? dynamic : cellSize;
+        return 90f;
     }
 
     private void Update()
@@ -445,9 +442,9 @@ public class BoardInputHandler : MonoBehaviour
         float totalH = GridModel.ROWS * cs + (GridModel.ROWS - 1) * spacing;
 
         boardRect = boardParent.GetComponent<RectTransform>();
-        boardRect.sizeDelta = new Vector2(1025f, totalH);
+        boardRect.sizeDelta = new Vector2(1065f, 835f);
 
-        boardRect.anchoredPosition = new Vector2(16f, -300f);
+        boardRect.anchoredPosition = new Vector2(57f, -340f);
 
         for (int r = 0; r < GridModel.ROWS; r++)
         {
@@ -1023,7 +1020,21 @@ public class BoardInputHandler : MonoBehaviour
         EnforceFilledImage(p2Poke1EnergyBar);
         EnforceFilledImage(p2Poke2EnergyBar);
 
-        // Creature click listeners are now statically wired in the scene
+        // Configure click listeners for opponent creatures programmatically
+        if (p2Poke1Avatar != null)
+        {
+            var btn = p2Poke1Avatar.GetComponent<UnityEngine.UI.Button>();
+            if (btn == null) btn = p2Poke1Avatar.gameObject.AddComponent<UnityEngine.UI.Button>();
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(OnP2Poke1AvatarClicked);
+        }
+        if (p2Poke2Avatar != null)
+        {
+            var btn = p2Poke2Avatar.GetComponent<UnityEngine.UI.Button>();
+            if (btn == null) btn = p2Poke2Avatar.gameObject.AddComponent<UnityEngine.UI.Button>();
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(OnP2Poke2AvatarClicked);
+        }
 
         EnsureEvolutionUI(0);
         EnsureEvolutionUI(1);
@@ -1032,20 +1043,7 @@ public class BoardInputHandler : MonoBehaviour
 
     private void EnsureEvolutionUI(int playerIndex)
     {
-        if (!IsAlive(playerIndex == 0 ? p1EvoStoneIcon : p2EvoStoneIcon) ||
-            !IsAlive(playerIndex == 0 ? p1EvoStoneText : p2EvoStoneText))
-        {
-            TryWireEvolutionUIFromScene(playerIndex);
-        }
-
         Image panelBg = playerIndex == 0 ? p1PanelBg : p2PanelBg;
-        if (panelBg != null &&
-            (!IsAlive(playerIndex == 0 ? p1EvoStoneIcon : p2EvoStoneIcon) ||
-             !IsAlive(playerIndex == 0 ? p1EvoStoneText : p2EvoStoneText)))
-        {
-            CreateEvolutionUIFallback(playerIndex, panelBg.transform);
-        }
-
         Transform group = panelBg != null ? panelBg.transform.Find("CharryUI_Group") : null;
         if (group != null)
             group.gameObject.SetActive(true);
@@ -1062,88 +1060,6 @@ public class BoardInputHandler : MonoBehaviour
         }
         if (IsAlive(text))
             text.gameObject.SetActive(true);
-    }
-
-    private void TryWireEvolutionUIFromScene(int playerIndex)
-    {
-        Image panelBg = playerIndex == 0 ? p1PanelBg : p2PanelBg;
-        if (panelBg == null) return;
-
-        Transform group = panelBg.transform.Find("CharryUI_Group");
-        if (group == null) return;
-
-        Image icon = group.Find("CharryIcon")?.GetComponent<Image>();
-        TMPro.TextMeshProUGUI text = group.Find("CharryText")?.GetComponent<TMPro.TextMeshProUGUI>();
-
-        if (playerIndex == 0)
-        {
-            if (icon != null) p1EvoStoneIcon = icon;
-            if (text != null) p1EvoStoneText = text;
-        }
-        else
-        {
-            if (icon != null) p2EvoStoneIcon = icon;
-            if (text != null) p2EvoStoneText = text;
-        }
-    }
-
-    private void CreateEvolutionUIFallback(int playerIndex, Transform cardTransform)
-    {
-        Transform existing = cardTransform.Find("CharryUI_Group");
-        if (existing != null)
-        {
-            TryWireEvolutionUIFromScene(playerIndex);
-            return;
-        }
-
-        GameObject container = new GameObject("CharryUI_Group", typeof(RectTransform));
-        container.transform.SetParent(cardTransform, false);
-
-        RectTransform containerRt = container.GetComponent<RectTransform>();
-        containerRt.anchorMin = new Vector2(0.5f, 0.5f);
-        containerRt.anchorMax = new Vector2(0.5f, 0.5f);
-        containerRt.pivot = new Vector2(0.5f, 0.5f);
-        containerRt.sizeDelta = new Vector2(140f, 44f);
-        containerRt.anchoredPosition = new Vector2(CharryUIGroupPosX, CharryUIGroupPosY);
-
-        GameObject iconGo = new GameObject("CharryIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        iconGo.transform.SetParent(container.transform, false);
-        RectTransform iconRt = iconGo.GetComponent<RectTransform>();
-        iconRt.anchorMin = new Vector2(0f, 0.5f);
-        iconRt.anchorMax = new Vector2(0f, 0.5f);
-        iconRt.pivot = new Vector2(0f, 0.5f);
-        iconRt.sizeDelta = new Vector2(36f, 36f);
-        iconRt.anchoredPosition = new Vector2(5f, 0f);
-
-        Image iconImg = iconGo.GetComponent<Image>();
-        iconImg.preserveAspect = true;
-
-        GameObject textGo = new GameObject("CharryText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TMPro.TextMeshProUGUI));
-        textGo.transform.SetParent(container.transform, false);
-        RectTransform textRt = textGo.GetComponent<RectTransform>();
-        textRt.anchorMin = new Vector2(0f, 0.5f);
-        textRt.anchorMax = new Vector2(1f, 0.5f);
-        textRt.pivot = new Vector2(0f, 0.5f);
-        textRt.offsetMin = new Vector2(46f, -18f);
-        textRt.offsetMax = new Vector2(0f, 18f);
-
-        TMPro.TextMeshProUGUI tmpText = textGo.GetComponent<TMPro.TextMeshProUGUI>();
-        tmpText.fontSize = 24f;
-        tmpText.fontStyle = TMPro.FontStyles.Bold;
-        tmpText.alignment = TMPro.TextAlignmentOptions.Left;
-        tmpText.font = messageText != null ? messageText.font : tmpText.font;
-        tmpText.color = Color.white;
-
-        if (playerIndex == 0)
-        {
-            p1EvoStoneIcon = iconImg;
-            p1EvoStoneText = tmpText;
-        }
-        else
-        {
-            p2EvoStoneIcon = iconImg;
-            p2EvoStoneText = tmpText;
-        }
     }
 
     private void UpdateEvolutionStoneDisplay(BoardManager board)
@@ -2172,21 +2088,33 @@ public class BoardInputHandler : MonoBehaviour
         OnCreatureAvatarClicked(0, 1);
     }
 
+    public void OnP2Poke1AvatarClicked()
+    {
+        OnCreatureAvatarClicked(1, 0);
+    }
+
+    public void OnP2Poke2AvatarClicked()
+    {
+        OnCreatureAvatarClicked(1, 1);
+    }
+
     private void OnCreatureAvatarClicked(int playerIdx, int creatureIdx)
     {
         BoardManager board = BoardManager.GetInstance();
         if (board == null || board.Players == null) return;
-        if (board.ActivePlayerIndex != playerIdx) return; // only on own turn
         if (board.IsProcessing || board.IsWaitingForEvolutionSelection) return;
-        if (board.Players[playerIdx].MovesRemaining <= 0) return; // needs at least 1 move
 
         PlayerState player = board.Players[playerIdx];
+        if (player.Creatures == null || creatureIdx >= player.Creatures.Count) return;
         CreatureState poke = player.Creatures[creatureIdx];
 
-        ShowManualEvolutionPopup(playerIdx, poke);
+        // Only allow actual evolution if it's the player's own turn and they have moves remaining
+        bool evolutionAllowed = (playerIdx == 0) && (board.ActivePlayerIndex == 0) && (board.Players[0].MovesRemaining > 0);
+
+        ShowManualEvolutionPopup(playerIdx, poke, evolutionAllowed);
     }
 
-    private void ShowManualEvolutionPopup(int playerIdx, CreatureState poke)
+    private void ShowManualEvolutionPopup(int playerIdx, CreatureState poke, bool evolutionAllowed = true)
     {
         if (_manualEvoPopupInstance != null)
         {
@@ -2198,7 +2126,7 @@ public class BoardInputHandler : MonoBehaviour
         if (rootCanvas == null) return;
 
         PlayerState player = BoardManager.GetInstance().Players[playerIdx];
-        bool canEvolve = player.EvolutionStones >= PlayerState.EvolutionRequired;
+        bool canEvolve = evolutionAllowed && (player.EvolutionStones >= PlayerState.EvolutionRequired);
 
         // 1. Blocker Overlay
         _manualEvoPopupInstance = new GameObject("ManualEvoPopup", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -2245,8 +2173,16 @@ public class BoardInputHandler : MonoBehaviour
         titleRt.anchoredPosition = new Vector2(0f, BattleModalTitleY);
 
         TMPro.TextMeshProUGUI titleTxt = titleGo.GetComponent<TMPro.TextMeshProUGUI>();
-        titleTxt.text = canEvolve ? "EVOLUTION AVAILABLE" : "EVOLUTION LOCKED";
+        if (playerIdx != 0)
+        {
+            titleTxt.text = "OPPONENT CREATURE";
+        }
+        else
+        {
+            titleTxt.text = canEvolve ? "EVOLUTION AVAILABLE" : "EVOLUTION LOCKED";
+        }
         StyleBattlePopupTitle(titleTxt);
+        titleTxt.fontSize = 52f;
         if (messageText != null) titleTxt.font = messageText.font;
 
         // 4. Creature Avatar
@@ -2257,7 +2193,7 @@ public class BoardInputHandler : MonoBehaviour
         avatarRt.anchorMax = new Vector2(0.5f, 1f);
         avatarRt.pivot = new Vector2(0.5f, 1f);
         avatarRt.sizeDelta = new Vector2(ManualEvoAvatarSize, ManualEvoAvatarSize);
-        avatarRt.anchoredPosition = new Vector2(0f, -240f);
+        avatarRt.anchoredPosition = new Vector2(0f, -325f);
 
         Image avatarImg = avatarGo.GetComponent<Image>();
         avatarImg.sprite = poke.Avatar;
@@ -2272,15 +2208,22 @@ public class BoardInputHandler : MonoBehaviour
         descRt.anchorMax = new Vector2(0.5f, 0.5f);
         descRt.pivot = new Vector2(0.5f, 0.5f);
         descRt.sizeDelta = new Vector2(700f, 380f);
-        descRt.anchoredPosition = new Vector2(0f, -100f);
+        descRt.anchoredPosition = new Vector2(0f, -175f);
 
         TMPro.TextMeshProUGUI descTxt = descGo.GetComponent<TMPro.TextMeshProUGUI>();
         string detailBody = BuildCreatureDetailBody(poke);
-        if (canEvolve)
-            descTxt.text = $"{detailBody}\n\nDo you want to evolve <b>{poke.Name}</b>?\n(Costs 1 Move and resets Charry Gems)";
+        if (playerIdx != 0)
+        {
+            descTxt.text = $"{detailBody}\n\nRequires <color={BattleHighlightGold}><b>{PlayerState.EvolutionRequired}</b></color> Charry gems to evolve.\nOpponent has <color={BattleHighlightGold}><b>{player.EvolutionStones}/{PlayerState.EvolutionRequired}</b></color> gems.";
+        }
         else
-            descTxt.text = $"{detailBody}\n\nRequires <color={BattleHighlightGold}><b>{PlayerState.EvolutionRequired}</b></color> Charry gems to evolve.\nYou have <color={BattleHighlightGold}><b>{player.EvolutionStones}/{PlayerState.EvolutionRequired}</b></color>.";
-        StyleBattlePopupBody(descTxt, 28f);
+        {
+            if (canEvolve)
+                descTxt.text = $"{detailBody}\n\nDo you want to evolve <b>{poke.Name}</b>?\n(Costs 1 Move and resets Charry Gems)";
+            else
+                descTxt.text = $"{detailBody}\n\nRequires <color={BattleHighlightGold}><b>{PlayerState.EvolutionRequired}</b></color> Charry gems to evolve.\nYou have <color={BattleHighlightGold}><b>{player.EvolutionStones}/{PlayerState.EvolutionRequired}</b></color>.";
+        }
+        StyleBattlePopupBody(descTxt, 32f);
         descTxt.paragraphSpacing = 10f;
         descTxt.verticalAlignment = TMPro.VerticalAlignmentOptions.Middle;
         if (messageText != null) descTxt.font = messageText.font;
@@ -2312,17 +2255,23 @@ public class BoardInputHandler : MonoBehaviour
                 BoardManager.GetInstance().TryManualEvolve(playerIdx, poke);
             });
 
-            CreateBattleOkButton(modalWindow.transform, new Vector2(130f, BattleModalBtnBottomY), () =>
+            var closeBtn = CreateBattleOkButton(modalWindow.transform, new Vector2(130f, 150f), () =>
             {
                 Destroy(_manualEvoPopupInstance);
             });
+            var closeRt = closeBtn.GetComponent<RectTransform>();
+            closeRt.sizeDelta = new Vector2(300f, 200f);
+            closeRt.anchoredPosition = new Vector2(130f, 150f);
         }
         else
         {
-            CreateBattleOkButton(modalWindow.transform, new Vector2(0f, BattleModalBtnBottomY), () =>
+            var closeBtn = CreateBattleOkButton(modalWindow.transform, new Vector2(0f, 150f), () =>
             {
                 Destroy(_manualEvoPopupInstance);
             });
+            var closeRt = closeBtn.GetComponent<RectTransform>();
+            closeRt.sizeDelta = new Vector2(300f, 200f);
+            closeRt.anchoredPosition = new Vector2(0f, 150f);
         }
 
         modalWindow.transform.localScale = Vector3.zero;
