@@ -54,8 +54,15 @@ public class BattlePrepController : MonoBehaviour
     [Header("Static UI References")]
     [SerializeField] private Button          startBattleButton;
     [SerializeField] private GameObject      noCoinsPopup;
+    [SerializeField] private RectTransform   noCoinsDialogBox;
     [SerializeField] private TextMeshProUGUI noCoinsText;
     [SerializeField] private Button          noCoinsOkBtn;
+
+    // ─── Battle Info Panel — runtime only (no Inspector assignment needed) ────
+    private GameObject      _battleInfoPanel;
+    private TextMeshProUGUI _insufficientFundsText;
+    private Button[]        _betButtons  = new Button[3];
+    private Image[]         _betBtnImgs  = new Image[3];
 
     private TextMeshProUGUI startBattleButtonText;
     private Image           startBattleButtonImg;
@@ -70,6 +77,9 @@ public class BattlePrepController : MonoBehaviour
         { GemType.Psychic,  new Color(0.70f, 0.15f, 0.95f) },
         { GemType.Healing,  new Color(0.85f, 0.35f, 0.55f) },
     };
+
+    private static readonly Color PopupBtnGreen = new Color(0.08f, 0.68f, 0.30f, 1f);
+    private static readonly Color PopupBtnRed   = new Color(0.85f, 0.15f, 0.15f, 1f);
 
     private readonly List<GameObject> _cards = new List<GameObject>();
 
@@ -106,9 +116,20 @@ public class BattlePrepController : MonoBehaviour
         if (battlesPlayedText != null) battlesPlayedText.gameObject.SetActive(false);
 
         SetupStartBattleButton();
-        
-        if (noCoinsOkBtn != null) noCoinsOkBtn.onClick.AddListener(() => { if (noCoinsPopup != null) noCoinsPopup.SetActive(false); });
-        if (noCoinsPopup != null) noCoinsPopup.SetActive(false);
+
+        if (noCoinsOkBtn != null) noCoinsOkBtn.onClick.AddListener(HideNoCoinsPopup);
+        if (noCoinsPopup != null)
+        {
+            SetupNoCoinsPopupStyling();
+            noCoinsPopup.SetActive(false);
+        }
+
+        // Setup static BattleInfoPanel
+        SetupStaticBattleInfoPanel();
+
+        // Verify affordability
+        var p2 = PlayerProfileManager.GetInstance();
+        if (p2 != null) p2.VerifySelectedBetAffordability();
 
         // Subscribe to live updates
         PlayerProfileManager.OnProfileChanged += RefreshAll;
@@ -127,6 +148,19 @@ public class BattlePrepController : MonoBehaviour
                 scrollRect.decelerationRate  = 0.99f;
                 scrollRect.vertical          = true;
                 scrollRect.horizontal        = false;
+
+                // Adjust ScrollView top offset to 250 (offsetMax.y = -250f) and bottom offset to 550 (offsetMin.y = 550f)
+                var rt = scrollRect.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    Vector2 offsetMax = rt.offsetMax;
+                    offsetMax.y = -250f;
+                    rt.offsetMax = offsetMax;
+
+                    Vector2 offsetMin = rt.offsetMin;
+                    offsetMin.y = 550f;
+                    rt.offsetMin = offsetMin;
+                }
             }
         }
     }
@@ -139,6 +173,42 @@ public class BattlePrepController : MonoBehaviour
         startBattleButtonText = startBattleButton.GetComponentInChildren<TextMeshProUGUI>();
         startBattleButton.onClick.AddListener(OnStartBattleClick);
     }
+
+    // ─── Setup Static Battle Info Panel ───────────────────────────────
+
+    private void SetupStaticBattleInfoPanel()
+    {
+        _battleInfoPanel = GameObject.Find("BattleInfoPanel");
+        if (_battleInfoPanel != null)
+        {
+            var titleTrans = _battleInfoPanel.transform.Find("BetSelectorContainer/Title");
+            if (titleTrans != null)
+            {
+                _insufficientFundsText = titleTrans.GetComponent<TextMeshProUGUI>();
+            }
+
+            int[] betAmounts = { 250, 500, 1000 };
+            for (int i = 0; i < 3; i++)
+            {
+                var btnTrans = _battleInfoPanel.transform.Find($"BetSelectorContainer/BetBtn_{betAmounts[i]}");
+                if (btnTrans != null)
+                {
+                    var btn = btnTrans.GetComponent<Button>();
+                    _betButtons[i] = btn;
+                    _betBtnImgs[i] = btnTrans.GetComponent<Image>();
+
+                    int amount = betAmounts[i];
+                    if (btn != null)
+                    {
+                        btn.onClick.RemoveAllListeners();
+                        btn.onClick.AddListener(() => SelectBet(amount));
+                    }
+                }
+            }
+        }
+    }
+
+
 
     private void OnDestroy()
     {
@@ -159,8 +229,8 @@ public class BattlePrepController : MonoBehaviour
         var p = PlayerProfileManager.GetInstance();
         if (p == null) return;
 
-        if (usernameText != null) usernameText.text = "BATTLE PREPARATION";
-        if (levelText != null) levelText.text = "Prepare your team of 2 Creature for combat";
+        if (usernameText != null) usernameText.text = p.Username;
+        if (levelText    != null) levelText.text    = $"Lv. {p.Level}";
 
         // Display user's initial icon
         if (avatarInitialText != null)
@@ -175,10 +245,33 @@ public class BattlePrepController : MonoBehaviour
             avatarBg.DOColor(bg, 0.4f).SetUpdate(true);
         }
 
-        // Hide XP bar & details as they aren't relevant for battle prep
-        if (xpBar != null) xpBar.gameObject.SetActive(false);
-        if (xpProgressText != null) xpProgressText.gameObject.SetActive(false);
-        if (xpToNextText != null) xpToNextText.gameObject.SetActive(false);
+        // Display XP bar & details dynamically
+        float progress = p.GetLevelProgress();
+        if (xpBar != null)
+        {
+            xpBar.gameObject.SetActive(true);
+            xpBar.DOFillAmount(progress, 0.6f).SetEase(Ease.OutCubic).SetUpdate(true);
+        }
+
+        if (xpProgressText != null)
+        {
+            xpProgressText.gameObject.SetActive(true);
+            if (p.Level >= PlayerProfileManager.MAX_LEVEL && p.GetXPToNextLevel() <= 0)
+                xpProgressText.text = "GAME COMPLETED";
+            else
+                xpProgressText.text = $"{p.XP} / {p.XP + p.GetXPToNextLevel()} XP";
+        }
+
+        if (xpToNextText != null)
+        {
+            xpToNextText.gameObject.SetActive(true);
+            if (p.Level >= PlayerProfileManager.MAX_LEVEL && p.GetXPToNextLevel() <= 0)
+                xpToNextText.text = "Congratulations!";
+            else if (p.Level >= PlayerProfileManager.MAX_LEVEL)
+                xpToNextText.text = $"{p.GetXPToNextLevel()} XP to complete the game!";
+            else
+                xpToNextText.text = $"{p.GetXPToNextLevel()} XP to next level";
+        }
     }
 
     private void RefreshCoins()
@@ -187,7 +280,35 @@ public class BattlePrepController : MonoBehaviour
         if (p != null && coinsValueText != null)
         {
             coinsValueText.text = $"<color=#FFD700>{p.Coins}</color>";
+
+            // Pulse coins text when updated
+            coinsValueText.transform.DOPunchScale(Vector3.one * 0.15f, 0.3f, 5, 0.5f).SetUpdate(true);
         }
+        RefreshBattleButtonState();
+        RefreshBetSelectionUI();
+    }
+
+    // ─── Bet Selector ─────────────────────────────────────────────────
+
+    private void RefreshBetSelectionUI()
+    {
+        // Runtime value and state modifications removed as requested.
+    }
+
+
+    public void SelectBet(int amount)
+    {
+        var profile = PlayerProfileManager.GetInstance();
+        if (profile == null) return;
+
+        if (profile.Coins < amount)
+        {
+            ShowNoCoinsPopup();
+            return;
+        }
+
+        profile.SetSelectedBet(amount);
+        RefreshBetSelectionUI();
         RefreshBattleButtonState();
     }
 
@@ -248,6 +369,10 @@ public class BattlePrepController : MonoBehaviour
             {
                 nameText.text  = entry.Name;
                 nameText.color = new Color(1f, 0.97f, 0.88f, 1f);
+                nameText.enableAutoSizing = true;
+                nameText.fontSizeMin = 10f;
+                nameText.fontSizeMax = 28f;
+                nameText.enableWordWrapping = false;
             }
 
             TextMeshProUGUI typeText = card.transform.Find("TypeText")?.GetComponent<TextMeshProUGUI>();
@@ -256,6 +381,10 @@ public class BattlePrepController : MonoBehaviour
                 typeText.text = GetCategoryName(entry.Type);
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
                     typeText.color = tc;
+                typeText.enableAutoSizing = true;
+                typeText.fontSizeMin = 8f;
+                typeText.fontSizeMax = 22f;
+                typeText.enableWordWrapping = false;
             }
 
             TextMeshProUGUI statsText = card.transform.Find("StatsText")?.GetComponent<TextMeshProUGUI>();
@@ -264,7 +393,9 @@ public class BattlePrepController : MonoBehaviour
                 int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
                 int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
                 statsText.text = $"ATK {dmg}  EN {energy}";
-                statsText.fontSize = 20f;
+                statsText.enableAutoSizing = true;
+                statsText.fontSizeMin = 8f;
+                statsText.fontSizeMax = 20f;
                 statsText.enableWordWrapping = false;
                 statsText.color = new Color(0.8f, 0.8f, 0.8f);
             }
@@ -472,9 +603,9 @@ public class BattlePrepController : MonoBehaviour
         _popupBasePowerText   = MakePrepStatRow(box.transform, "BasePowRow",    rowY); rowY -= rowStep;
         _popupEvoledPowerText = MakePrepStatRow(box.transform, "EvoPowRow",     rowY); rowY -= rowStep;
         _popupSkillText       = MakePrepStatRow(box.transform, "SkillRow",      rowY); rowY -= rowStep;
-        _popupEffectText      = MakePrepStatRow(box.transform, "EffectRow",     rowY);
+        _popupEffectText      = MakePrepStatRow(box.transform, "EffectRow",     -300f);
 
-        MakePrepSeparator(box.transform, -315f);
+        MakePrepSeparator(box.transform, -350f);
 
         var battleGo = new GameObject("BattleBtn", typeof(RectTransform), typeof(Image), typeof(Button));
         battleGo.transform.SetParent(box.transform, false);
@@ -485,8 +616,8 @@ public class BattlePrepController : MonoBehaviour
         battleRect.anchoredPosition = new Vector2(0f, -415f);
         battleRect.sizeDelta        = new Vector2(360f, 65f);
         _popupBattleBtnImg = battleGo.GetComponent<Image>();
-        _popupBattleBtnImg.color = new Color(0.12f, 0.72f, 0.35f, 1f);
         _popupBattleBtn = battleGo.GetComponent<Button>();
+        ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnGreen);
 
         var battleTextGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         battleTextGo.transform.SetParent(battleGo.transform, false);
@@ -575,17 +706,6 @@ public class BattlePrepController : MonoBehaviour
             GemType.Healing  => "#FF88BB",
             _                => "#FFFFFF"
         };
-        string typeIcon = entry.Type switch
-        {
-            GemType.Fire     => "",
-            GemType.Water    => "",
-            GemType.Nature   => "",
-            GemType.Electric => "",
-            GemType.Psychic  => "",
-            GemType.Healing  => "",
-            _                => ""
-        };
-        string powerIcon = "";
 
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
@@ -594,20 +714,19 @@ public class BattlePrepController : MonoBehaviour
         int abilityDamage = rule != null ? rule.Damage : 10;
         int stonesReq = rule != null ? rule.StonesRequired : 5;
 
-        string abilityPowerIcon = "";
         string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
 
         if (_popupStoneTypeText != null)
             _popupStoneTypeText.text =
-                $"{typeIcon} <color=#333333>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
+                $"<color=#333333>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
 
         if (_popupStoneCapText != null)
             _popupStoneCapText.text =
-                $"{powerIcon} <color=#333333>Power:</color> <b><color=#AA7700>{basePower}</color></b>";
+                $"<color=#333333>Power:</color> <b><color=#AA7700>{basePower}</color></b>";
 
         if (_popupBasePowerText != null)
             _popupBasePowerText.text =
-                $"{abilityPowerIcon} <color=#333333>{abilityPowerLabel}</color> <b><color=#006699>{abilityDamage}</color></b>";
+                $"<color=#333333>{abilityPowerLabel}</color> <b><color=#006699>{abilityDamage}</color></b>";
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
@@ -629,12 +748,12 @@ public class BattlePrepController : MonoBehaviour
             if (inTeam)
             {
                 _popupBattleBtnText.text = "DECOMMISSION UNIT";
-                _popupBattleBtnImg.color = new Color(0.10f, 0.55f, 0.20f, 0.30f);
+                ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnRed);
             }
             else
             {
                 _popupBattleBtnText.text = "DEPLOY UNIT TO SQUAD";
-                _popupBattleBtnImg.color = new Color(0.08f, 0.68f, 0.30f, 1.0f);
+                ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnGreen);
             }
 
             _popupBattleBtn.onClick.RemoveAllListeners();
@@ -647,12 +766,12 @@ public class BattlePrepController : MonoBehaviour
                     if (nowInTeam)
                     {
                         _popupBattleBtnText.text = "DECOMMISSION UNIT";
-                        _popupBattleBtnImg.color = new Color(0.10f, 0.55f, 0.20f, 0.30f);
+                        ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnRed);
                     }
                     else
                     {
                         _popupBattleBtnText.text = "DEPLOY UNIT TO SQUAD";
-                        _popupBattleBtnImg.color = new Color(0.08f, 0.68f, 0.30f, 1.0f);
+                        ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnGreen);
                     }
                     BuildCreatureGrid();
                     RefreshBattleButtonState();
@@ -739,6 +858,107 @@ public class BattlePrepController : MonoBehaviour
         SceneManager.LoadScene(Constants.SCENE_CREATURE);
     }
 
+    private static void ApplyPopupButtonTheme(Button btn, Image img, Color color)
+    {
+        if (img != null) img.color = color;
+        if (btn == null) return;
+
+        ColorBlock cb = btn.colors;
+        cb.normalColor      = color;
+        cb.highlightedColor = color;
+        cb.pressedColor     = color * 0.9f;
+        cb.selectedColor    = color;
+        cb.disabledColor    = color;
+        btn.colors = cb;
+    }
+
+    private void SetupNoCoinsPopupStyling()
+    {
+        if (noCoinsPopup == null) return;
+
+        var overlayImg = noCoinsPopup.GetComponent<Image>();
+        if (overlayImg != null)
+            overlayImg.color = new Color(0f, 0f, 0f, 0.8f);
+
+        Sprite[] popupSprites = Resources.LoadAll<Sprite>("buttons/popup");
+        Sprite bgSprite  = System.Array.Find(popupSprites, s => s.name == "popup_2");
+        Sprite okBtnSprite = System.Array.Find(popupSprites, s => s.name == "popup_0");
+
+        RectTransform dialog = noCoinsDialogBox != null
+            ? noCoinsDialogBox
+            : noCoinsPopup.transform.Find("DialogBox") as RectTransform;
+
+        if (dialog == null) return;
+
+        dialog.sizeDelta = new Vector2(780f, 700f);
+
+        var boxImg = dialog.GetComponent<Image>();
+        if (boxImg != null && bgSprite != null)
+        {
+            boxImg.sprite = bgSprite;
+            boxImg.type   = Image.Type.Simple;
+            boxImg.color  = Color.white;
+        }
+
+        var titleRt = dialog.Find("Title") as RectTransform;
+        if (titleRt != null)
+        {
+            titleRt.anchorMin        = new Vector2(0.5f, 0.5f);
+            titleRt.anchorMax        = new Vector2(0.5f, 0.5f);
+            titleRt.pivot            = new Vector2(0.5f, 0.5f);
+            titleRt.sizeDelta        = new Vector2(700f, 80f);
+            titleRt.anchoredPosition = new Vector2(0f, 150f);
+        }
+
+        var titleText = dialog.Find("Title")?.GetComponent<TextMeshProUGUI>();
+        if (titleText != null)
+        {
+            titleText.text      = "INSUFFICIENT COINS";
+            titleText.fontSize  = 50f;
+            titleText.fontStyle = FontStyles.Bold;
+            titleText.alignment = TextAlignmentOptions.Center;
+            titleText.color     = Color.white;
+        }
+
+        if (noCoinsText != null)
+        {
+            var bodyRt = noCoinsText.rectTransform;
+            bodyRt.anchorMin        = new Vector2(0.5f, 0.5f);
+            bodyRt.anchorMax        = new Vector2(0.5f, 0.5f);
+            bodyRt.pivot            = new Vector2(0.5f, 0.5f);
+            bodyRt.sizeDelta        = new Vector2(680f, 200f);
+            bodyRt.anchoredPosition = new Vector2(0f, -30f);
+
+            noCoinsText.fontSize           = 36f;
+            noCoinsText.enableWordWrapping = true;
+            noCoinsText.lineSpacing        = 1.15f;
+            noCoinsText.alignment          = TextAlignmentOptions.Center;
+            noCoinsText.color              = Color.white;
+        }
+
+        if (noCoinsOkBtn != null)
+        {
+            var okRt = noCoinsOkBtn.GetComponent<RectTransform>();
+            okRt.anchorMin        = new Vector2(0.5f, 0f);
+            okRt.anchorMax        = new Vector2(0.5f, 0f);
+            okRt.pivot            = new Vector2(0.5f, 0f);
+            okRt.sizeDelta        = new Vector2(260f, 80f);
+            okRt.anchoredPosition = new Vector2(0f, 65f);
+
+            var okImg = noCoinsOkBtn.GetComponent<Image>();
+            if (okImg != null && okBtnSprite != null)
+            {
+                okImg.sprite = okBtnSprite;
+                okImg.type   = Image.Type.Simple;
+                okImg.color  = Color.white;
+            }
+
+            var label = okRt.Find("Label");
+            if (label != null)
+                label.gameObject.SetActive(false);
+        }
+    }
+
     private void ShowNoCoinsPopup()
     {
         var p = PlayerProfileManager.GetInstance();
@@ -750,9 +970,29 @@ public class BattlePrepController : MonoBehaviour
             noCoinsText.text = $"You need {needed} coins to enter battle!\n\nYou have: {p?.Coins ?? 0}\n\nVisit the Store to get more.";
         }
 
+        if (_battleInfoPanel != null)
+            _battleInfoPanel.SetActive(false);
+
         noCoinsPopup.SetActive(true);
-        noCoinsPopup.transform.localScale = Vector3.zero;
-        noCoinsPopup.transform.DOScale(1f, 0.25f).SetEase(Ease.OutBack);
+        noCoinsPopup.transform.SetAsLastSibling();
+
+        RectTransform dialog = noCoinsDialogBox != null
+            ? noCoinsDialogBox
+            : noCoinsPopup.transform.Find("DialogBox") as RectTransform;
+
+        if (dialog == null) return;
+
+        dialog.localScale = Vector3.zero;
+        dialog.DOScale(1f, 0.4f).SetEase(Ease.OutBack).SetUpdate(true);
+    }
+
+    private void HideNoCoinsPopup()
+    {
+        if (noCoinsPopup != null)
+            noCoinsPopup.SetActive(false);
+
+        if (_battleInfoPanel != null)
+            _battleInfoPanel.SetActive(true);
     }
 
     public void OnBackButtonClick()

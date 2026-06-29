@@ -52,7 +52,11 @@ public class CreatureStoreController : MonoBehaviour
     private TextMeshProUGUI _popupEffectText;
     private Button          _popupBuyBtn;
     private TextMeshProUGUI _popupBuyBtnLabel;
+    private TextMeshProUGUI _popupBuyBtnCoinText;
     private Image           _popupBuyBtnImg;
+
+    private static readonly Color PopupBtnGreen = new Color(0.08f, 0.68f, 0.30f, 1f);
+    private static readonly Color PopupBtnRed   = new Color(0.85f, 0.15f, 0.15f, 1f);
 
     private string                 _pendingPurchaseName;
     private List<GameObject>       _cards = new List<GameObject>();
@@ -182,6 +186,10 @@ public class CreatureStoreController : MonoBehaviour
             {
                 nameText.text  = entry.Name;
                 nameText.color = new Color(1f, 0.97f, 0.88f, 1f); // warm cream — readable on dark olive bg
+                nameText.enableAutoSizing = true;
+                nameText.fontSizeMin = 10f;
+                nameText.fontSizeMax = 28f;
+                nameText.enableWordWrapping = false;
             }
 
             // Type label
@@ -191,6 +199,10 @@ public class CreatureStoreController : MonoBehaviour
                 typeText.text = GetCategoryName(entry.Type);
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
                     typeText.color = tc;
+                typeText.enableAutoSizing = true;
+                typeText.fontSizeMin = 8f;
+                typeText.fontSizeMax = 22f;
+                typeText.enableWordWrapping = false;
             }
 
             // Price / Owned
@@ -235,15 +247,28 @@ public class CreatureStoreController : MonoBehaviour
                     }
                     var buyImg = buyBtn.GetComponent<Image>();
                     if (buyImg != null)
-                        buyImg.color = canAfford
-                            ? new Color(0.10f, 0.65f, 0.28f, 1f)   // vivid green button
-                            : new Color(0.50f, 0.45f, 0.35f, 0.60f); // muted brown-grey when can't afford
+                    {
+                        Color targetColor = canAfford
+                            ? new Color(0.08f, 0.68f, 0.30f, 1.0f)   // store green design
+                            : new Color(13f / 255f, 13f / 255f, 13f / 255f, 78f / 255f); // dark semi-transparent when can't afford
+
+                        buyImg.color = targetColor;
+
+                        // Apply to the ColorBlock to override disabled and normal states
+                        ColorBlock cb = buyBtn.colors;
+                        cb.normalColor = targetColor;
+                        cb.highlightedColor = targetColor;
+                        cb.pressedColor = targetColor * 0.9f;
+                        cb.selectedColor = targetColor;
+                        cb.disabledColor = targetColor;
+                        buyBtn.colors = cb;
+                    }
 
                     TextMeshProUGUI btnLabel = buyBtn.GetComponentInChildren<TextMeshProUGUI>();
                     if (btnLabel != null)
                     {
                         btnLabel.text  = entry.Price > 0
-                            ? (canAfford ? $"Buy {entry.Price}" : $"Needed {entry.Price}")
+                            ? (canAfford ? $"Buy {entry.Price} Coins" : $"Need {entry.Price} Coins")
                             : "Free";
                         btnLabel.color = Color.white; // always white on coloured button
                     }
@@ -298,20 +323,6 @@ public class CreatureStoreController : MonoBehaviour
 
     // ─── Runtime-built Purchase Popup ────────────────────────────────
 
-    /// <summary>
-    /// Builds a fully polished purchase confirmation popup at runtime.
-    /// Layout (top → bottom, all centered):
-    ///   [✕ Close]  (top-right corner)
-    ///   [Avatar  120×120]
-    ///   [Creature Name]
-    ///   [── separator ──]
-    ///   🔥 Stone Type:     Fire
-    ///   💎 Stone Capacity: 5 Stones
-    ///   ⚔️  Base Power:    20
-    ///   ✨ Evolved Power:  25
-    ///   [── separator ──]
-    ///   [ 🪙 Price ]  ← purchase button shows coin cost
-    /// </summary>
     private void BuildPurchasePopup()
     {
         if (_purchasePopup != null) return;
@@ -447,13 +458,12 @@ public class CreatureStoreController : MonoBehaviour
         _popupSkillText = skillRow;
         rowY -= rowStep;
 
-        // Row: Effect
-        var effectRow = MakeStatRow(box.transform, "EffectRow", rowY);
+        var effectRow = MakeStatRow(box.transform, "EffectRow", -300f);
         _popupEffectText = effectRow;
         rowY -= rowStep;
 
         // ── Bottom separator ──────────────────────────────────────────
-        MakeSeparator(box.transform, -315f); // shifted up from rows
+        MakeSeparator(box.transform, -350f); // shifted up from rows
 
         // ── PURCHASE button ───────────────────────────────────────────
         var buyGo = new GameObject("PurchaseBtn", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -466,14 +476,30 @@ public class CreatureStoreController : MonoBehaviour
         buyRect.sizeDelta        = new Vector2(360f, 65f);
 
         _popupBuyBtnImg       = buyGo.GetComponent<Image>();
-        _popupBuyBtnImg.color = new Color(0.12f, 0.72f, 0.35f); // green
-
         _popupBuyBtn = buyGo.GetComponent<Button>();
+        ApplyPopupButtonTheme(_popupBuyBtn, _popupBuyBtnImg, PopupBtnGreen);
+
         _popupBuyBtn.onClick.AddListener(OnConfirmPurchase);
 
-        _popupBuyBtnLabel = MakeTextChild(buyGo.transform, "PURCHASE", 20f, Color.white);
-        _popupBuyBtnLabel.alignment = TextAlignmentOptions.Center;
+        _popupBuyBtnLabel = MakeTextChild(buyGo.transform, "", 20f, Color.white);
+        _popupBuyBtnLabel.alignment = TextAlignmentOptions.MidlineRight;
         _popupBuyBtnLabel.fontStyle = FontStyles.Bold;
+        var amountRt = _popupBuyBtnLabel.rectTransform;
+        amountRt.anchorMin        = new Vector2(0.5f, 0.5f);
+        amountRt.anchorMax        = new Vector2(0.5f, 0.5f);
+        amountRt.pivot            = new Vector2(1f, 0.5f);
+        amountRt.anchoredPosition = new Vector2(-4f, 0f);
+        amountRt.sizeDelta        = new Vector2(160f, 65f);
+
+        _popupBuyBtnCoinText = MakeTextChild(buyGo.transform, " Coins", 20f, Color.white);
+        _popupBuyBtnCoinText.alignment = TextAlignmentOptions.MidlineLeft;
+        _popupBuyBtnCoinText.fontStyle = FontStyles.Bold;
+        var coinRt = _popupBuyBtnCoinText.rectTransform;
+        coinRt.anchorMin        = new Vector2(0.5f, 0.5f);
+        coinRt.anchorMax        = new Vector2(0.5f, 0.5f);
+        coinRt.pivot            = new Vector2(0f, 0.5f);
+        coinRt.anchoredPosition = new Vector2(-4f, 0f);
+        coinRt.sizeDelta        = new Vector2(120f, 65f);
 
         _purchasePopup.SetActive(false);
     }
@@ -583,17 +609,6 @@ public class CreatureStoreController : MonoBehaviour
             GemType.Healing  => "#FF88BB",
             _                => "#FFFFFF"
         };
-        string typeIcon = entry.Type switch
-        {
-            GemType.Fire     => "",
-            GemType.Water    => "",
-            GemType.Nature   => "",
-            GemType.Electric => "",
-            GemType.Psychic  => "",
-            GemType.Healing  => "",
-            _                => ""
-        };
-        string powerIcon = "";
 
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
@@ -602,21 +617,20 @@ public class CreatureStoreController : MonoBehaviour
         int abilityDamage = rule != null ? rule.Damage : 10;
         int stonesReq = rule != null ? rule.StonesRequired : 5;
 
-        string abilityPowerIcon = "";
         string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
 
         // ── Stat rows (rich text: label dark, value coloured) ────────
         if (_popupStoneTypeText != null)
             _popupStoneTypeText.text =
-                $"{typeIcon} <color=#333333>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
+                $"<color=#333333>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
 
         if (_popupStoneCapText != null)
             _popupStoneCapText.text =
-                $"{powerIcon} <color=#333333>Power:</color> <b><color=#AA7700>{basePower}</color></b>";
+                $"<color=#333333>Power:</color> <b><color=#AA7700>{basePower}</color></b>";
 
         if (_popupBasePowerText != null)
             _popupBasePowerText.text =
-                $"{abilityPowerIcon} <color=#333333>{abilityPowerLabel}</color> <b><color=#006699>{abilityDamage}</color></b>";
+                $"<color=#333333>{abilityPowerLabel}</color> <b><color=#006699>{abilityDamage}</color></b>";
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
@@ -637,34 +651,37 @@ public class CreatureStoreController : MonoBehaviour
                 _popupBuyBtn.gameObject.SetActive(true);
                 _popupBuyBtn.interactable = false;
             }
-            if (_popupBuyBtnImg != null)
-                _popupBuyBtnImg.color = new Color(0.10f, 0.55f, 0.20f, 0.30f);
+            ApplyPopupButtonTheme(_popupBuyBtn, _popupBuyBtnImg, PopupBtnGreen);
 
             if (_popupBuyBtnLabel != null)
             {
-                _popupBuyBtnLabel.text  = "ALREADY OWNED";
-                _popupBuyBtnLabel.color = new Color(0.45f, 0.95f, 0.55f, 1f);
+                SetPurchaseBtnFullLabel("ALREADY OWNED");
+                _popupBuyBtnLabel.color = Color.white;
             }
         }
         else
         {
-            string priceLabel = entry.Price > 0 ? $"{entry.Price}" : "FREE";
-
             if (_popupBuyBtn != null)
             {
                 _popupBuyBtn.gameObject.SetActive(true);
                 _popupBuyBtn.interactable = canAfford;
             }
-            if (_popupBuyBtnImg != null)
-            {
-                _popupBuyBtnImg.color = canAfford
-                    ? new Color(0.08f, 0.68f, 0.30f, 1.0f)
-                    : new Color(0.55f, 0.55f, 0.55f, 0.38f);
-            }
+            ApplyPopupButtonTheme(
+                _popupBuyBtn,
+                _popupBuyBtnImg,
+                canAfford ? PopupBtnGreen : PopupBtnRed);
             if (_popupBuyBtnLabel != null)
             {
-                _popupBuyBtnLabel.text  = priceLabel;
-                _popupBuyBtnLabel.color = canAfford ? Color.white : new Color(1f, 1f, 1f, 0.55f);
+                if (entry.Price > 0)
+                {
+                    SetPurchaseBtnPriceLabel(entry.Price);
+                    _popupBuyBtnLabel.color = Color.white;
+                }
+                else
+                {
+                    SetPurchaseBtnFullLabel("FREE");
+                    _popupBuyBtnLabel.color = Color.white;
+                }
             }
         }
 
@@ -758,4 +775,52 @@ public class CreatureStoreController : MonoBehaviour
             // or nested button graphics (like BuyButton) to receive and process pointer clicks.
         }
     }
+
+    private static void ApplyPopupButtonTheme(Button btn, Image img, Color color)
+    {
+        if (img != null) img.color = color;
+        if (btn == null) return;
+
+        ColorBlock cb = btn.colors;
+        cb.normalColor      = color;
+        cb.highlightedColor = color;
+        cb.pressedColor     = color * 0.9f;
+        cb.selectedColor    = color;
+        cb.disabledColor    = color;
+        btn.colors = cb;
+    }
+
+    private void SetPurchaseBtnFullLabel(string text)
+    {
+        if (_popupBuyBtnCoinText != null)
+            _popupBuyBtnCoinText.gameObject.SetActive(false);
+
+        if (_popupBuyBtnLabel == null) return;
+
+        var r = _popupBuyBtnLabel.rectTransform;
+        r.anchorMin = Vector2.zero;
+        r.anchorMax = Vector2.one;
+        r.offsetMin = Vector2.zero;
+        r.offsetMax = Vector2.zero;
+        _popupBuyBtnLabel.alignment = TextAlignmentOptions.Center;
+        _popupBuyBtnLabel.text = text;
+    }
+
+    private void SetPurchaseBtnPriceLabel(int price)
+    {
+        if (_popupBuyBtnCoinText != null)
+            _popupBuyBtnCoinText.gameObject.SetActive(true);
+
+        if (_popupBuyBtnLabel == null) return;
+
+        var r = _popupBuyBtnLabel.rectTransform;
+        r.anchorMin        = new Vector2(0.5f, 0.5f);
+        r.anchorMax        = new Vector2(0.5f, 0.5f);
+        r.pivot            = new Vector2(1f, 0.5f);
+        r.anchoredPosition = new Vector2(-4f, 0f);
+        r.sizeDelta        = new Vector2(160f, 65f);
+        _popupBuyBtnLabel.alignment = TextAlignmentOptions.MidlineRight;
+        _popupBuyBtnLabel.text = price.ToString();
+    }
 }
+

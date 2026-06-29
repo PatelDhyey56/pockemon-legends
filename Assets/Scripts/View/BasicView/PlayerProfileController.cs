@@ -81,6 +81,9 @@ public class PlayerProfileController : MonoBehaviour
     private TextMeshProUGUI _popupBattleBtnText;
     private Image           _popupBattleBtnImg;
 
+    private static readonly Color PopupBtnGreen = new Color(0.08f, 0.68f, 0.30f, 1f);
+    private static readonly Color PopupBtnRed   = new Color(0.85f, 0.15f, 0.15f, 1f);
+
     private void Start()
     {
         Time.timeScale = 1f; // Ensure timeScale is active on entering profile scene
@@ -268,6 +271,10 @@ public class PlayerProfileController : MonoBehaviour
             {
                 nameText.text  = entry.Name;
                 nameText.color = new Color(1f, 0.97f, 0.88f, 1f);
+                nameText.enableAutoSizing = true;
+                nameText.fontSizeMin = 10f;
+                nameText.fontSizeMax = 28f;
+                nameText.enableWordWrapping = false;
             }
 
             // — Type label
@@ -277,6 +284,10 @@ public class PlayerProfileController : MonoBehaviour
                 typeText.text = GetCategoryName(entry.Type);
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
                     typeText.color = tc;
+                typeText.enableAutoSizing = true;
+                typeText.fontSizeMin = 8f;
+                typeText.fontSizeMax = 22f;
+                typeText.enableWordWrapping = false;
             }
 
             // — Stats (ATK / Energy stones)
@@ -287,7 +298,9 @@ public class PlayerProfileController : MonoBehaviour
                 int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
                 
                 statsText.text = $"ATK {dmg}  EN {energy}";
-                statsText.fontSize = 20f;
+                statsText.enableAutoSizing = true;
+                statsText.fontSizeMin = 8f;
+                statsText.fontSizeMax = 20f;
                 statsText.enableWordWrapping = false;
                 statsText.color = isOwned ? new Color(0.8f, 0.8f, 0.8f) : new Color(0.5f, 0.5f, 0.5f, 0.5f);
             }
@@ -487,10 +500,10 @@ public class PlayerProfileController : MonoBehaviour
         _popupBasePowerText   = MakeProfileStatRow(box.transform, "BasePowRow",    rowY); rowY -= rowStep;
         _popupEvoledPowerText = MakeProfileStatRow(box.transform, "EvoPowRow",     rowY); rowY -= rowStep;
         _popupSkillText       = MakeProfileStatRow(box.transform, "SkillRow",      rowY); rowY -= rowStep;
-        _popupEffectText      = MakeProfileStatRow(box.transform, "EffectRow",     rowY);
+        _popupEffectText      = MakeProfileStatRow(box.transform, "EffectRow",     -300f);
 
         // ── Bottom separator ─────────────────────────────────────────
-        MakeProfileSeparator(box.transform, -315f);
+        MakeProfileSeparator(box.transform, -350f);
 
         // ── Battle / squad button (store-style bottom action button) ─
         var battleGo = new GameObject("BattleBtn", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -502,8 +515,8 @@ public class PlayerProfileController : MonoBehaviour
         battleRect.anchoredPosition = new Vector2(0f, -415f);
         battleRect.sizeDelta        = new Vector2(360f, 65f);
         _popupBattleBtnImg = battleGo.GetComponent<Image>();
-        _popupBattleBtnImg.color = new Color(0.12f, 0.72f, 0.35f, 1f);
         _popupBattleBtn = battleGo.GetComponent<Button>();
+        ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnGreen);
         var battleTextGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         battleTextGo.transform.SetParent(battleGo.transform, false);
         var btRect = battleTextGo.GetComponent<RectTransform>();
@@ -593,17 +606,6 @@ public class PlayerProfileController : MonoBehaviour
             GemType.Healing  => "#FF88BB",
             _                => "#FFFFFF"
         };
-        string typeIcon = entry.Type switch
-        {
-            GemType.Fire     => "",
-            GemType.Water    => "",
-            GemType.Nature   => "",
-            GemType.Electric => "",
-            GemType.Psychic  => "",
-            GemType.Healing  => "",
-            _                => ""
-        };
-        string powerIcon = "";
 
         var attackConfig = CreatureAttackConfig.Load();
         var rule = attackConfig != null ? attackConfig.GetRule(entry.Type) : null;
@@ -612,20 +614,19 @@ public class PlayerProfileController : MonoBehaviour
         int abilityDamage = rule != null ? rule.Damage : 10;
         int stonesReq = rule != null ? rule.StonesRequired : 5;
 
-        string abilityPowerIcon = "";
         string abilityPowerLabel = isHeal ? "Ability Heal:" : "Ability Damage:";
 
         if (_popupStoneTypeText != null)
             _popupStoneTypeText.text =
-                $"{typeIcon} <color=#333333>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
+                $"<color=#333333>Elemental Class:</color> <b><color={typeColor}>{GetCategoryName(entry.Type)}</color></b>";
 
         if (_popupStoneCapText != null)
             _popupStoneCapText.text =
-                $"{powerIcon} <color=#333333>Power:</color> <b><color=#AA7700>{basePower}</color></b>";
+                $"<color=#333333>Power:</color> <b><color=#AA7700>{basePower}</color></b>";
 
         if (_popupBasePowerText != null)
             _popupBasePowerText.text =
-                $"{abilityPowerIcon} <color=#333333>{abilityPowerLabel}</color> <b><color=#006699>{abilityDamage}</color></b>";
+                $"<color=#333333>{abilityPowerLabel}</color> <b><color=#006699>{abilityDamage}</color></b>";
 
         if (_popupEvoledPowerText != null)
             _popupEvoledPowerText.text =
@@ -650,12 +651,12 @@ public class PlayerProfileController : MonoBehaviour
                 if (inTeam)
                 {
                     _popupBattleBtnText.text = "DECOMMISSION UNIT";
-                    _popupBattleBtnImg.color = new Color(0.10f, 0.55f, 0.20f, 0.30f);
+                    ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnRed);
                 }
                 else
                 {
                     _popupBattleBtnText.text = "DEPLOY UNIT TO SQUAD";
-                    _popupBattleBtnImg.color = new Color(0.08f, 0.68f, 0.30f, 1.0f);
+                    ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnGreen);
                 }
 
                 _popupBattleBtn.onClick.RemoveAllListeners();
@@ -668,12 +669,12 @@ public class PlayerProfileController : MonoBehaviour
                         if (nowInTeam)
                         {
                             _popupBattleBtnText.text = "DECOMMISSION UNIT";
-                            _popupBattleBtnImg.color = new Color(0.10f, 0.55f, 0.20f, 0.30f);
+                            ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnRed);
                         }
                         else
                         {
                             _popupBattleBtnText.text = "DEPLOY UNIT TO SQUAD";
-                            _popupBattleBtnImg.color = new Color(0.08f, 0.68f, 0.30f, 1.0f);
+                            ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnGreen);
                         }
                         BuildCreatureGrid();
                     }
@@ -742,5 +743,19 @@ public class PlayerProfileController : MonoBehaviour
             foreach (var txt in texts)
                 txt.raycastTarget = false;
         }
+    }
+
+    private static void ApplyPopupButtonTheme(Button btn, Image img, Color color)
+    {
+        if (img != null) img.color = color;
+        if (btn == null) return;
+
+        ColorBlock cb = btn.colors;
+        cb.normalColor      = color;
+        cb.highlightedColor = color;
+        cb.pressedColor     = color * 0.9f;
+        cb.selectedColor    = color;
+        cb.disabledColor    = color;
+        btn.colors = cb;
     }
 }
