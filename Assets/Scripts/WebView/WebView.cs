@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 #if UNITY_2018_4_OR_NEWER
 using UnityEngine.Networking;
@@ -37,7 +37,7 @@ public class WebView : MonoBehaviour
         }
         else
         {
-            Url = licensePath;
+            Url = "data:text/html;charset=utf-8," + System.Uri.EscapeDataString(Constants.LICENSE_HTML);
         }
         StartCoroutine(InitWebviewCoroutine());
     }
@@ -181,9 +181,8 @@ public class WebView : MonoBehaviour
         webViewObject.SetVisibility(true);
 
 #if !UNITY_WEBPLAYER && !UNITY_WEBGL
-        if (Url.StartsWith("http"))
+        if (Url.StartsWith("http") || Url.StartsWith("data:"))
         {
-            //  webViewObject.LoadURL(Url.Replace(" ", "%20"));
             webViewObject.LoadURL(Url);
         }
         else
@@ -225,8 +224,8 @@ public class WebView : MonoBehaviour
             }
         }
 #else
-        if (Url.StartsWith("http")) {
-            webViewObject.enableWKWebView(Url.Replace(" ", "%20"));
+        if (Url.StartsWith("http") || Url.StartsWith("data:")) {
+            webViewObject.LoadURL(Url.Replace(" ", "%20"));
         } else {
             webViewObject.LoadURL("StreamingAssets/" + Url.Replace(" ", "%20"));
         }

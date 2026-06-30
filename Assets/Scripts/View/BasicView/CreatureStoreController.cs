@@ -178,6 +178,12 @@ public class CreatureStoreController : MonoBehaviour
             {
                 avatarImg.sprite = AvatarGenerator.CreateCreatureSprite(entry.Name);
                 avatarImg.preserveAspect = true;
+                var avatarRt = avatarImg.GetComponent<RectTransform>();
+                if (avatarRt != null)
+                {
+                    avatarRt.anchoredPosition = new Vector2(0f, 125f);
+                    avatarRt.sizeDelta = new Vector2(350f, 350f);
+                }
             }
 
             // Name
@@ -186,10 +192,12 @@ public class CreatureStoreController : MonoBehaviour
             {
                 nameText.text  = entry.Name;
                 nameText.color = new Color(1f, 0.97f, 0.88f, 1f); // warm cream — readable on dark olive bg
-                nameText.enableAutoSizing = true;
-                nameText.fontSizeMin = 10f;
-                nameText.fontSizeMax = 28f;
                 nameText.enableWordWrapping = false;
+                var nameRt = nameText.GetComponent<RectTransform>();
+                if (nameRt != null)
+                {
+                    nameRt.anchoredPosition = new Vector2(0f, -100f);
+                }
             }
 
             // Type label
@@ -199,10 +207,28 @@ public class CreatureStoreController : MonoBehaviour
                 typeText.text = GetCategoryName(entry.Type);
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
                     typeText.color = tc;
-                typeText.enableAutoSizing = true;
-                typeText.fontSizeMin = 8f;
-                typeText.fontSizeMax = 22f;
                 typeText.enableWordWrapping = false;
+                var typeRt = typeText.GetComponent<RectTransform>();
+                if (typeRt != null)
+                {
+                    typeRt.anchoredPosition = new Vector2(0f, -150f);
+                }
+            }
+
+            // Stats
+            TextMeshProUGUI statsText = card.transform.Find("StatsText")?.GetComponent<TextMeshProUGUI>();
+            if (statsText != null)
+            {
+                int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
+                int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
+                statsText.text = $"ATK {dmg}  STN {energy}";
+                statsText.enableWordWrapping = false;
+                statsText.color = new Color(0.8f, 0.8f, 0.8f);
+                var statsRt = statsText.GetComponent<RectTransform>();
+                if (statsRt != null)
+                {
+                    statsRt.anchoredPosition = new Vector2(0f, -200f);
+                }
             }
 
             // Price / Owned
@@ -219,7 +245,7 @@ public class CreatureStoreController : MonoBehaviour
                     var priceRt = priceText.GetComponent<RectTransform>();
                     if (priceRt != null)
                     {
-                        priceRt.anchoredPosition = new Vector2(0f, -249f);
+                        priceRt.anchoredPosition = new Vector2(0f, -265f);
                         priceRt.sizeDelta = new Vector2(420f, 60f);
                     }
                     priceText.alignment = TextAlignmentOptions.Center;
@@ -242,7 +268,7 @@ public class CreatureStoreController : MonoBehaviour
                     var buyRt = buyBtn.GetComponent<RectTransform>();
                     if (buyRt != null)
                     {
-                        buyRt.anchoredPosition = new Vector2(0f, -249f);
+                        buyRt.anchoredPosition = new Vector2(0f, -265f);
                         buyRt.sizeDelta = new Vector2(320f, 60f);
                     }
                     var buyImg = buyBtn.GetComponent<Image>();
@@ -473,7 +499,7 @@ public class CreatureStoreController : MonoBehaviour
         buyRect.anchorMax        = new Vector2(0.5f, 0.5f);
         buyRect.pivot            = new Vector2(0.5f, 0.5f);
         buyRect.anchoredPosition = new Vector2(0f, -415f); // well above box bottom
-        buyRect.sizeDelta        = new Vector2(360f, 65f);
+        buyRect.sizeDelta        = new Vector2(500f, 75f);
 
         _popupBuyBtnImg       = buyGo.GetComponent<Image>();
         _popupBuyBtn = buyGo.GetComponent<Button>();
@@ -481,7 +507,7 @@ public class CreatureStoreController : MonoBehaviour
 
         _popupBuyBtn.onClick.AddListener(OnConfirmPurchase);
 
-        _popupBuyBtnLabel = MakeTextChild(buyGo.transform, "", 20f, Color.white);
+        _popupBuyBtnLabel = MakeTextChild(buyGo.transform, "", 30f, Color.white);
         _popupBuyBtnLabel.alignment = TextAlignmentOptions.MidlineRight;
         _popupBuyBtnLabel.fontStyle = FontStyles.Bold;
         var amountRt = _popupBuyBtnLabel.rectTransform;
@@ -491,7 +517,7 @@ public class CreatureStoreController : MonoBehaviour
         amountRt.anchoredPosition = new Vector2(-4f, 0f);
         amountRt.sizeDelta        = new Vector2(160f, 65f);
 
-        _popupBuyBtnCoinText = MakeTextChild(buyGo.transform, " Coins", 20f, Color.white);
+        _popupBuyBtnCoinText = MakeTextChild(buyGo.transform, " Coins", 30f, Color.white);
         _popupBuyBtnCoinText.alignment = TextAlignmentOptions.MidlineLeft;
         _popupBuyBtnCoinText.fontStyle = FontStyles.Bold;
         var coinRt = _popupBuyBtnCoinText.rectTransform;
@@ -538,7 +564,7 @@ public class CreatureStoreController : MonoBehaviour
         r.anchoredPosition = new Vector2(0f, anchoredY);
         r.sizeDelta        = new Vector2(750f, 44f);
         var tmp = go.GetComponent<TextMeshProUGUI>();
-        tmp.fontSize             = 30f;
+        tmp.fontSize             = 34f;
         tmp.alignment            = TextAlignmentOptions.Left;
         tmp.color                = Color.black;
         tmp.textWrappingMode     = TextWrappingModes.Normal;

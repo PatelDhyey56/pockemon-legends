@@ -8,6 +8,7 @@ using Utils;
 using System;
 using AdsManager;
 using IAPPurchasing;
+using TMPro;
 
 public class SettingView : View
 {
@@ -18,11 +19,56 @@ public class SettingView : View
     private string _shareMessage;
     public GameSettings gameSettings;
 
+    private bool _isWebViewOpen = false;
+    private TMP_Text _settingTitleText;
+    private GameObject _contentPanel;
+    private WebViewObject webViewObject;
+    private GameObject _soundOnBtn;
+    private GameObject _soundOffBtn;
+
     public override void Awake()
     {
         base.Awake();
         _instance = this;
         SetShareMessage();
+
+        if (canvasGameObject != null)
+        {
+            Transform viewContent = canvasGameObject.transform.Find("ViewContent");
+            if (viewContent != null)
+            {
+                Transform topUI = viewContent.Find("TopUI");
+                if (topUI != null)
+                {
+                    Transform titleTrans = topUI.Find("SettingTitle");
+                    if (titleTrans != null)
+                    {
+                        _settingTitleText = titleTrans.GetComponent<TMP_Text>();
+                    }
+                }
+                Transform contentTrans = viewContent.Find("Content");
+                if (contentTrans != null)
+                {
+                    _contentPanel = contentTrans.gameObject;
+                    
+                    Transform soundOnTrans = contentTrans.Find("SoundOnBtn");
+                    if (soundOnTrans != null)
+                    {
+                        _soundOnBtn = soundOnTrans.gameObject;
+                        Button btn = _soundOnBtn.GetComponent<Button>();
+                        if (btn != null) btn.onClick.AddListener(OnSoundOnButtonClick);
+                    }
+
+                    Transform soundOffTrans = contentTrans.Find("SoundOffBtn");
+                    if (soundOffTrans != null)
+                    {
+                        _soundOffBtn = soundOffTrans.gameObject;
+                        Button btn = _soundOffBtn.GetComponent<Button>();
+                        if (btn != null) btn.onClick.AddListener(OnSoundOffButtonClick);
+                    }
+                }
+            }
+        }
     }
 
     public static SettingView GetInstance()
@@ -42,6 +88,8 @@ public class SettingView : View
 
         if (PreferenceHelper.IsAdRemoved())
             HideConsentAndBuyAdsButtons();
+            
+        UpdateSoundButtons();
     }
 
     private void OnEnable()
@@ -64,7 +112,19 @@ public class SettingView : View
 
     protected override void OnViewShow()
     {
+        base.OnViewShow();
         PreferenceHelper.SetIsWebViewOpen(false);
+        _isWebViewOpen = false;
+        if (_contentPanel != null)
+        {
+            _contentPanel.SetActive(true);
+        }
+    }
+
+    protected override void OnViewHide()
+    {
+        base.OnViewHide();
+        DestroyWebView();
     }
 
     private void ActiveRestoreButton()
@@ -83,6 +143,26 @@ public class SettingView : View
         restoreButton.SetActive(false);
     }
 
+    private void OnSoundOnButtonClick()
+    {
+        PreferenceHelper.SetSoundOn(false);
+        UpdateSoundButtons();
+    }
+
+    private void OnSoundOffButtonClick()
+    {
+        PreferenceHelper.SetSoundOn(true);
+        UpdateSoundButtons();
+    }
+
+    private void UpdateSoundButtons()
+    {
+        bool isSoundOn = PreferenceHelper.IsSoundOn();
+        if (_soundOnBtn != null) _soundOnBtn.SetActive(isSoundOn);
+        if (_soundOffBtn != null) _soundOffBtn.SetActive(!isSoundOn);
+        AudioListener.volume = isSoundOn ? 1f : 0f;
+    }
+
     private void SetShareMessage()
     {
 #if UNITY_ANDROID
@@ -94,14 +174,31 @@ public class SettingView : View
 
     public override void OnBackeyPressed()
     {
-        OnCloseButtonClick();
+        if (_isWebViewOpen)
+        {
+            CloseWebView();
+        }
+        else
+        {
+            OnCloseButtonClick();
+        }
     }
 
     public void OnCloseButtonClick()
     {
-        Hide();
-        MenuView.GetInstance().Show();
-        AdMobManager.GetInstance().ShowInterstitial();
+        if (_isWebViewOpen)
+        {
+            CloseWebView();
+        }
+        else
+        {
+            Hide();
+            MenuView.GetInstance().Show();
+            if (AdMobManager.GetInstance() != null)
+            {
+                AdMobManager.GetInstance().ShowInterstitial();
+            }
+        }
     }
 
     public void OnPrivacyPolicyButtonClick()
@@ -113,14 +210,140 @@ public class SettingView : View
         else
         {
             PreferenceHelper.SetWebViewTittle(Constants.PRIVACY_TITTLE);
-            SceneManager.LoadScene(Constants.SCENE_WEB);
+            OpenWebView(Constants.PRIVACY_URL);
         }
     }
 
     public void OnLicenceButtonClick()
     {
         PreferenceHelper.SetWebViewTittle(Constants.LICENCE_TITTLE);
-        SceneManager.LoadScene(Constants.SCENE_WEB);
+        OpenWebView("data:text/html;charset=utf-8," + System.Uri.EscapeDataString(Constants.LICENSE_HTML));
+    }
+
+    private void OpenWebView(string url)
+    {
+        _isWebViewOpen = true;
+        PreferenceHelper.SetIsWebViewOpen(true);
+
+        if (_contentPanel != null)
+        {
+            _contentPanel.SetActive(false);
+        }
+
+        StartCoroutine(InitWebviewCoroutine(url));
+    }
+
+    private void CloseWebView()
+    {
+        DestroyWebView();
+        _isWebViewOpen = false;
+
+        if (_contentPanel != null)
+        {
+            _contentPanel.SetActive(true);
+        }
+        PreferenceHelper.SetIsWebViewOpen(false);
+    }
+
+    private void DestroyWebView()
+    {
+        if (webViewObject != null)
+        {
+            Destroy(webViewObject.gameObject);
+            webViewObject = null;
+        }
+    }
+
+    private IEnumerator InitWebviewCoroutine(string url)
+    {
+        webViewObject = (new GameObject("WebViewObject")).AddComponent<WebViewObject>();
+        webViewObject.Init(
+            cb: (msg) =>
+            {
+                Debug.Log(string.Format("CallFromJS[{0}]", msg));
+            },
+            err: (msg) =>
+            {
+                Debug.Log(string.Format("CallOnError[{0}]", msg));
+            },
+            httpErr: (msg) =>
+            {
+                Debug.Log(string.Format("CallOnHttpError[{0}]", msg));
+            },
+            started: (msg) =>
+            {
+                Debug.Log(string.Format("CallOnStarted[{0}]", msg));
+            },
+            hooked: (msg) =>
+            {
+                Debug.Log(string.Format("CallOnHooked[{0}]", msg));
+            },
+            ld: (msg) =>
+            {
+                Debug.Log(string.Format("CallOnLoaded[{0}]", msg));
+#if UNITY_EDITOR_OSX || (!UNITY_ANDROID && !UNITY_WEBPLAYER && !UNITY_WEBGL)
+                webViewObject.EvaluateJS(@"
+                  if (window && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.unityControl) {
+                    window.Unity = {
+                      call: function(msg) {
+                        window.webkit.messageHandlers.unityControl.postMessage(msg);
+                      }
+                    }
+                  } else {
+                    window.Unity = {
+                      call: function(msg) {
+                        window.location = 'unity:' + msg;
+                      }
+                    }
+                  }
+                ");
+#elif UNITY_WEBPLAYER || UNITY_WEBGL
+                webViewObject.EvaluateJS(
+                    "window.Unity = {" +
+                    "   call:function(msg) {" +
+                    "       parent.unityWebView.sendMessage('WebViewObject', msg)" +
+                    "   }" +
+                    "};");
+#endif
+                webViewObject.EvaluateJS(@"Unity.call('ua=' + navigator.userAgent)");
+            },
+            enableWKWebView: true
+        );
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+        webViewObject.bitmapRefreshCycle = 1;
+#endif
+
+        if (Extensions.ScreenRatio())
+        {
+#if UNITY_ANDROID
+            webViewObject.SetMargins(0, 120 * Screen.height / 960, 0, 0);
+#elif UNITY_IOS
+            webViewObject.SetMargins(0, 120 * Screen.height / 960, 0, 0);
+#endif
+        }
+        else
+        {
+#if UNITY_ANDROID
+            webViewObject.SetMargins(0, 150 * Screen.height / 960, 0, 0);
+#elif UNITY_IOS
+            webViewObject.SetMargins(0, 150 * Screen.height / 960, 0, 0);
+#endif
+        }
+
+        webViewObject.SetTextZoom(100);
+        webViewObject.SetVisibility(true);
+
+#if !UNITY_WEBPLAYER && !UNITY_WEBGL
+        if (url.StartsWith("http") || url.StartsWith("data:"))
+        {
+            webViewObject.LoadURL(url);
+        }
+#else
+        if (url.StartsWith("http") || url.StartsWith("data:")) {
+            webViewObject.LoadURL(url.Replace(" ", "%20"));
+        }
+#endif
+        yield break;
     }
 
     public void OnBuyAdFreeButtonClick()

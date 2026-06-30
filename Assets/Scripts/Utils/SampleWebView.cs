@@ -47,7 +47,7 @@ public class SampleWebView : MonoBehaviour
 
     public void InitWebViewLicense()
     {
-        Url = licensePath;
+        Url = "data:text/html;charset=utf-8," + System.Uri.EscapeDataString(Constants.LICENSE_HTML);
         StartCoroutine(InitWebviewCoroutine());
     }
 
@@ -175,7 +175,7 @@ public class SampleWebView : MonoBehaviour
         webViewObject.SetVisibility(true);
 
 #if !UNITY_WEBPLAYER && !UNITY_WEBGL
-        if (Url.StartsWith("http")) {
+        if (Url.StartsWith("http") || Url.StartsWith("data:")) {
             //  webViewObject.LoadURL(Url.Replace(" ", "%20"));
             webViewObject.LoadURL(Url);
         } else {
@@ -211,7 +211,7 @@ public class SampleWebView : MonoBehaviour
             }
         }
 #else
-        if (Url.StartsWith("http")) {
+        if (Url.StartsWith("http") || Url.StartsWith("data:")) {
             webViewObject.LoadURL(Url.Replace(" ", "%20"));
         } else {
             webViewObject.LoadURL("StreamingAssets/" + Url.Replace(" ", "%20"));

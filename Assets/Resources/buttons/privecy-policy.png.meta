@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 96ef90967331aa4a395384e2fdc6bd56
+guid: c256ba55a6549c7dfae098a70d06d159
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -110,13 +110,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: profile_0
+      name: privecy-policy_0
       rect:
         serializedVersion: 2
-        x: 60
-        y: 69
-        width: 1752
-        height: 437
+        x: 76
+        y: 734
+        width: 585
+        height: 241
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -125,8 +125,118 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 0818a838cc30ca65f9fa679f2a115ed2
-      internalID: 2063996997
+      spriteID: 6a62326112ef885249e809ace3c97338
+      internalID: 1645327509
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: privecy-policy_1
+      rect:
+        serializedVersion: 2
+        x: 722
+        y: 733
+        width: 636
+        height: 246
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8ec8e2c8ab2153ee687cd90a7c9647f9
+      internalID: -1689100773
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: privecy-policy_2
+      rect:
+        serializedVersion: 2
+        x: 71
+        y: 437
+        width: 588
+        height: 243
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d0ff5c76d8193212893cccf67b5aac35
+      internalID: -766006549
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: privecy-policy_3
+      rect:
+        serializedVersion: 2
+        x: 730
+        y: 427
+        width: 626
+        height: 238
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4550fbb17505d26298586ff2d1a77192
+      internalID: 924032251
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: privecy-policy_4
+      rect:
+        serializedVersion: 2
+        x: 70
+        y: 125
+        width: 589
+        height: 243
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ecf416acd31128689a015cd1e56409f8
+      internalID: 688858608
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: privecy-policy_5
+      rect:
+        serializedVersion: 2
+        x: 718
+        y: 123
+        width: 636
+        height: 244
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d577f4f407c82d9dbb981ace7008e01e
+      internalID: 1740696881
       vertices: []
       indices: 
       edges: []
@@ -135,7 +245,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: a24200fc66fce92b2bd5bd90b1c168bf
     internalID: 0
     vertices: []
     indices: 
@@ -145,7 +255,12 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      profile_0: 2063996997
+      privecy-policy_0: 1645327509
+      privecy-policy_1: -1689100773
+      privecy-policy_2: -766006549
+      privecy-policy_3: 924032251
+      privecy-policy_4: 688858608
+      privecy-policy_5: 1740696881
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

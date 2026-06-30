@@ -411,9 +411,6 @@ public class BattlePrepController : MonoBehaviour
             {
                 nameText.text  = entry.Name;
                 nameText.color = new Color(1f, 0.97f, 0.88f, 1f);
-                nameText.enableAutoSizing = true;
-                nameText.fontSizeMin = 10f;
-                nameText.fontSizeMax = 28f;
                 nameText.enableWordWrapping = false;
             }
 
@@ -423,9 +420,6 @@ public class BattlePrepController : MonoBehaviour
                 typeText.text = GetCategoryName(entry.Type);
                 if (TypeColors.TryGetValue(entry.Type, out Color tc))
                     typeText.color = tc;
-                typeText.enableAutoSizing = true;
-                typeText.fontSizeMin = 8f;
-                typeText.fontSizeMax = 22f;
                 typeText.enableWordWrapping = false;
             }
 
@@ -434,10 +428,7 @@ public class BattlePrepController : MonoBehaviour
             {
                 int dmg    = BoardManager.GetBaseValueForCreature(entry.Name);
                 int energy = BoardManager.GetMaxEnergyForCreature(entry.Name);
-                statsText.text = $"ATK {dmg}  EN {energy}";
-                statsText.enableAutoSizing = true;
-                statsText.fontSizeMin = 8f;
-                statsText.fontSizeMax = 20f;
+                statsText.text = $"ATK {dmg}  STN {energy}";
                 statsText.enableWordWrapping = false;
                 statsText.color = new Color(0.8f, 0.8f, 0.8f);
             }
@@ -656,7 +647,7 @@ public class BattlePrepController : MonoBehaviour
         battleRect.anchorMax        = new Vector2(0.5f, 0.5f);
         battleRect.pivot            = new Vector2(0.5f, 0.5f);
         battleRect.anchoredPosition = new Vector2(0f, -415f);
-        battleRect.sizeDelta        = new Vector2(360f, 65f);
+        battleRect.sizeDelta        = new Vector2(500f, 75f);
         _popupBattleBtnImg = battleGo.GetComponent<Image>();
         _popupBattleBtn = battleGo.GetComponent<Button>();
         ApplyPopupButtonTheme(_popupBattleBtn, _popupBattleBtnImg, PopupBtnGreen);
@@ -667,7 +658,7 @@ public class BattlePrepController : MonoBehaviour
         btRect.anchorMin = Vector2.zero; btRect.anchorMax = Vector2.one;
         btRect.offsetMin = Vector2.zero; btRect.offsetMax = Vector2.zero;
         _popupBattleBtnText = battleTextGo.GetComponent<TextMeshProUGUI>();
-        _popupBattleBtnText.fontSize = 20f;
+        _popupBattleBtnText.fontSize = 30f;
         _popupBattleBtnText.fontStyle = FontStyles.Bold;
         _popupBattleBtnText.alignment = TextAlignmentOptions.Center;
         _popupBattleBtnText.color = Color.white;
@@ -709,7 +700,7 @@ public class BattlePrepController : MonoBehaviour
         r.anchoredPosition = new Vector2(0f, anchoredY);
         r.sizeDelta        = new Vector2(750f, 55f);
         var tmp = go.GetComponent<TextMeshProUGUI>();
-        tmp.fontSize         = 30f;
+        tmp.fontSize         = 34f;
         tmp.alignment        = TextAlignmentOptions.Left;
         tmp.color            = Color.black;
         tmp.textWrappingMode = TextWrappingModes.Normal;

@@ -11,12 +11,23 @@ namespace Utils
         //add all preference key here with PREF keyword for exaple PREF_MY_CUSTOM KEY
         private const string PREF_AD_REMOVED = "wpk1u25xwt";
         private const string PREF_WEB_TITTLE = "wt";
+        private const string PREF_SOUND = "ps_snd";
         private static bool _isPremiumUser = false;
         private static bool _isUserRateThisApp = false;
 
         public static bool IsAdRemoved()
         {
             return GamePlayerPrefs.GetBool(PREF_AD_REMOVED, false);
+        }
+
+        public static bool IsSoundOn()
+        {
+            return GamePlayerPrefs.GetBool(PREF_SOUND, true);
+        }
+
+        public static void SetSoundOn(bool value)
+        {
+            GamePlayerPrefs.SetBool(PREF_SOUND, value);
         }
 
         public static void RemoveAd()
