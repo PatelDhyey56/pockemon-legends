@@ -126,12 +126,53 @@ public class HomeMenuController : MonoBehaviour
         if (PreferenceHelper.IsAdRemoved() && noAdsButton != null)
             noAdsButton.SetActive(false);
 
-        // Ads banner
         if (AdMobManager.GetInstance() != null)
         {
             yield return new WaitUntil(() => AdMobManager.GetInstance().IsSdkInitialized);
             AdMobManager.GetInstance().RequestBanner(BannerAdPosition.Bottom, AdStatusDelegate: OnAdStatus);
         }
+
+        // Add pop animation to navigation buttons
+        Button[] navButtons = { playButton, profileButton, storeButton, settingsButton, logoutButton };
+        foreach (var btn in navButtons)
+        {
+            if (btn != null) AddPopAnimation(btn);
+        }
+        if (noAdsButton != null)
+        {
+            Button noAdsBtn = noAdsButton.GetComponent<Button>();
+            if (noAdsBtn != null) AddPopAnimation(noAdsBtn);
+        }
+    }
+
+    private void AddPopAnimation(Button btn)
+    {
+        var trigger = btn.gameObject.GetComponent<UnityEngine.EventSystems.EventTrigger>();
+        if (trigger == null) trigger = btn.gameObject.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+
+        var entryDown = new UnityEngine.EventSystems.EventTrigger.Entry();
+        entryDown.eventID = UnityEngine.EventSystems.EventTriggerType.PointerDown;
+        entryDown.callback.AddListener((data) => {
+            btn.transform.DOKill();
+            btn.transform.DOScale(1.1f, 0.1f).SetUpdate(true);
+        });
+        trigger.triggers.Add(entryDown);
+
+        var entryUp = new UnityEngine.EventSystems.EventTrigger.Entry();
+        entryUp.eventID = UnityEngine.EventSystems.EventTriggerType.PointerUp;
+        entryUp.callback.AddListener((data) => {
+            btn.transform.DOKill();
+            btn.transform.DOScale(1.0f, 0.1f).SetUpdate(true);
+        });
+        trigger.triggers.Add(entryUp);
+
+        var entryExit = new UnityEngine.EventSystems.EventTrigger.Entry();
+        entryExit.eventID = UnityEngine.EventSystems.EventTriggerType.PointerExit;
+        entryExit.callback.AddListener((data) => {
+            btn.transform.DOKill();
+            btn.transform.DOScale(1.0f, 0.1f).SetUpdate(true);
+        });
+        trigger.triggers.Add(entryExit);
     }
 
     private void OnDestroy()
@@ -250,7 +291,7 @@ public class HomeMenuController : MonoBehaviour
 
         int needed = p != null ? p.SelectedBet : 250;
         if (noCoinsText != null)
-            noCoinsText.text = $"You need {needed} coins to enter battle!\n\nYou have: {p?.Coins ?? 0}\n\nVisit the Store or win battles to earn more coins.";
+            noCoinsText.text = $"You need {needed} coins to enter battle!\n\nYou have: {p?.Coins ?? 0}\n\nAdd Coins using Add Coins Button";
 
         noCoinsPopup.SetActive(true);
         noCoinsPopup.transform.localScale = Vector3.zero;
@@ -276,10 +317,40 @@ public class HomeMenuController : MonoBehaviour
                 ? logoutPopup.transform.GetChild(0) as RectTransform
                 : logoutPopup.transform as RectTransform;
 
-        if (dialog == null) return;
+        if (dialog != null)
+        {
+            dialog.sizeDelta = new Vector2(700f, 550f);
 
-        dialog.localScale = Vector3.zero;
-        dialog.DOScale(1f, 0.25f).SetEase(Ease.OutBack).SetUpdate(true);
+            var titleTrans = dialog.Find("Title") as RectTransform;
+            if (titleTrans != null)
+            {
+                titleTrans.anchoredPosition = new Vector2(0f, -130f);
+                var titleText = titleTrans.GetComponent<TextMeshProUGUI>();
+                if (titleText != null) titleText.fontSize = 60f;
+            }
+
+            var msgTrans = dialog.Find("Message") as RectTransform ?? dialog.Find("Text") as RectTransform;
+            if (msgTrans != null)
+            {
+                msgTrans.anchoredPosition = new Vector2(0f, -20f);
+                var msgText = msgTrans.GetComponent<TextMeshProUGUI>();
+                if (msgText != null) msgText.fontSize = 28f;
+            }
+
+            if (logoutYesBtn != null)
+            {
+                var yesRt = logoutYesBtn.GetComponent<RectTransform>();
+                if (yesRt != null) yesRt.anchoredPosition = new Vector2(yesRt.anchoredPosition.x, 90f);
+            }
+            if (logoutNoBtn != null)
+            {
+                var noRt = logoutNoBtn.GetComponent<RectTransform>();
+                if (noRt != null) noRt.anchoredPosition = new Vector2(noRt.anchoredPosition.x, 90f);
+            }
+
+            dialog.localScale = Vector3.zero;
+            dialog.DOScale(1f, 0.25f).SetEase(Ease.OutBack).SetUpdate(true);
+        }
     }
 
     public void OnLogoutConfirm()

@@ -255,7 +255,7 @@ public class BoardUIGenerator : EditorWindow
         nameGo.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, 70f);
         TextMeshProUGUI nameTxt = nameGo.GetComponent<TextMeshProUGUI>();
         nameTxt.alignment = TextAlignmentOptions.Center;
-        nameTxt.fontSize = 9f;
+        nameTxt.fontSize = 24f;
         nameTxt.fontStyle = FontStyles.Bold;
         so.FindProperty(pfx + "Name").objectReferenceValue = nameTxt;
 

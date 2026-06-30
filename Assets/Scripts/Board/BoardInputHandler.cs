@@ -153,10 +153,8 @@ public class BoardInputHandler : MonoBehaviour
     private int _displayedP2EvolutionStones = -1;
     private bool _creatureEvoBadgesReady;
     private readonly Image[] _creatureEvoBadges = new Image[4];
-    private readonly Vector2[] _creatureNameDefaultOffsetMin = new Vector2[4];
-    private readonly bool[] _creatureNameOffsetCached = new bool[4];
     private static Sprite _cachedEvolutionBadgeSprite;
-    private const float CreatureEvoBadgeSize = 20f;
+    private const float CreatureNameFontSize = 24f;
 
     private const float CharryUIGroupPosX = 15f;
     private const float CharryUIGroupPosY = -60f;
@@ -208,6 +206,7 @@ public class BoardInputHandler : MonoBehaviour
 
         evolutionBadgeSprite = GetEvolutionBadgeSprite();
         EnsureCreatureEvoBadges();
+        ConfigureCreatureNameLabels();
 
         // Allow sprites to be assigned in the inspector. If any slots are empty,
         // attempt to fill them from Resources/Gems/element_block_1..6.
@@ -1036,9 +1035,29 @@ public class BoardInputHandler : MonoBehaviour
             btn.onClick.AddListener(OnP2Poke2AvatarClicked);
         }
 
+        ConfigureCreatureNameLabels();
+
         EnsureEvolutionUI(0);
         EnsureEvolutionUI(1);
         UpdatePlayerUI();
+    }
+
+    private void ConfigureCreatureNameLabels()
+    {
+        TMPro.TextMeshProUGUI[] labels = { p1Poke1Name, p1Poke2Name, p2Poke1Name, p2Poke2Name };
+        foreach (var label in labels)
+        {
+            if (label == null) continue;
+
+            label.enableAutoSizing = false;
+            label.fontSizeMin = CreatureNameFontSize;
+            label.fontSizeMax = CreatureNameFontSize;
+            label.fontSize = CreatureNameFontSize;
+
+            RectTransform rt = label.rectTransform;
+            if (rt.sizeDelta.y < CreatureNameFontSize + 6f)
+                rt.sizeDelta = new Vector2(rt.sizeDelta.x, CreatureNameFontSize + 6f);
+        }
     }
 
     private void EnsureEvolutionUI(int playerIndex)
@@ -2288,9 +2307,15 @@ public class BoardInputHandler : MonoBehaviour
         }
     }
 
-    private string GetCreatureDisplayName(CreatureState poke)
+    private void UpdateCreatureNameRow(int badgeIndex, TMPro.TextMeshProUGUI nameLabel, CreatureState poke)
     {
-        return poke.Name + " (" + GetCategoryName(poke.Type) + ")";
+        if (nameLabel == null) return;
+
+        string displayName = poke.Name;
+        if (nameLabel.text != displayName)
+            nameLabel.text = displayName;
+
+        SetCreatureEvoBadgeVisible(badgeIndex, poke.IsEvolved);
     }
 
     private Sprite GetEvolutionBadgeSprite()
@@ -2324,27 +2349,6 @@ public class BoardInputHandler : MonoBehaviour
         badgeRt.pivot = new Vector2(0f, 0.5f);
         badgeRt.sizeDelta = new Vector2(size, size);
         badgeRt.anchoredPosition = Vector2.zero;
-    }
-
-    private void UpdateCreatureNameRow(int badgeIndex, TMPro.TextMeshProUGUI nameLabel, CreatureState poke)
-    {
-        if (nameLabel == null) return;
-
-        nameLabel.text = GetCreatureDisplayName(poke);
-
-        RectTransform nameRt = nameLabel.rectTransform;
-        if (!_creatureNameOffsetCached[badgeIndex])
-        {
-            _creatureNameDefaultOffsetMin[badgeIndex] = nameRt.offsetMin;
-            _creatureNameOffsetCached[badgeIndex] = true;
-        }
-
-        Vector2 baseOffset = _creatureNameDefaultOffsetMin[badgeIndex];
-        nameRt.offsetMin = poke.IsEvolved
-            ? new Vector2(baseOffset.x + CreatureEvoBadgeSize + 2f, baseOffset.y)
-            : baseOffset;
-
-        SetCreatureEvoBadgeVisible(badgeIndex, poke.IsEvolved);
     }
 
     private void EnsureCreatureEvoBadges()

@@ -86,7 +86,7 @@ public class BattlePrepController : MonoBehaviour
     private static readonly Color PopupTitleColor = new Color(0.745283f, 0.56290144f, 0.28475437f, 1f);
     private static readonly Color PopupBodyColor  = new Color(1f, 0.7273872f, 0.5518868f, 1f);
 
-    private static readonly Vector2 InfoButtonSize = new Vector2(250f, 100f);
+    private static readonly Vector2 InfoButtonSize = new Vector2(250f, 175f);
 
     private static Sprite GetLoginLogoutSprite(string spriteName)
     {
@@ -158,6 +158,7 @@ public class BattlePrepController : MonoBehaviour
 
         // Setup static BattleInfoPanel
         SetupStaticBattleInfoPanel();
+        SetupStaticHeaderPanel();
 
         // Verify affordability
         var p2 = PlayerProfileManager.GetInstance();
@@ -239,6 +240,51 @@ public class BattlePrepController : MonoBehaviour
                 }
             }
         }
+    }
+
+    private void SetupStaticHeaderPanel()
+    {
+        var canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var canvas in canvases)
+        {
+            var allTexts = canvas.GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (var t in allTexts)
+            {
+                string n = t.name.ToLower();
+                if (usernameText == null && (n.Contains("username") || n.Contains("name"))) usernameText = t;
+                if (levelText == null && n.Contains("level")) levelText = t;
+                if (avatarInitialText == null && n.Contains("initial")) avatarInitialText = t;
+                if (xpProgressText == null && (n.Contains("xpprogress") || n.Contains("progress"))) xpProgressText = t;
+                if (xpToNextText == null && (n.Contains("xptonext") || n.Contains("tonext") || n.Contains("next"))) xpToNextText = t;
+                if (coinsValueText == null && (n.Equals("coinsvalue") || n.Contains("coin"))) coinsValueText = t;
+            }
+
+            var allImages = canvas.GetComponentsInChildren<Image>(true);
+            foreach (var img in allImages)
+            {
+                if (avatarBg == null && (img.name.Equals("AvatarBg") || img.name.Equals("AvatarBackground"))) avatarBg = img;
+                if (xpBar == null && (img.name.Equals("XPBarFill") || img.name.Equals("Fill") || img.name.Equals("FillArea")))
+                {
+                    if (img.transform.parent != null && img.transform.parent.name.Contains("XP"))
+                        xpBar = img;
+                }
+            }
+        }
+    }
+
+    private Transform FindDeepChild(Transform aParent, string aName)
+    {
+        Queue<Transform> queue = new Queue<Transform>();
+        queue.Enqueue(aParent);
+        while (queue.Count > 0)
+        {
+            var c = queue.Dequeue();
+            if (c.name == aName)
+                return c;
+            foreach(Transform t in c)
+                queue.Enqueue(t);
+        }
+        return null;
     }
 
 
@@ -325,7 +371,39 @@ public class BattlePrepController : MonoBehaviour
 
     private void RefreshBetSelectionUI()
     {
-        // Runtime value and state modifications removed as requested.
+        var profile = PlayerProfileManager.GetInstance();
+        if (profile == null) return;
+
+        int selected = profile.SelectedBet;
+        int[] betAmounts = { 250, 500, 1000 };
+
+        for (int i = 0; i < 3; i++)
+        {
+            if (_betButtons[i] != null)
+            {
+                var shadow = _betButtons[i].gameObject.GetComponent<UnityEngine.UI.Shadow>();
+                bool isSelected = (betAmounts[i] == selected && _betConfirmedThisVisit);
+
+                if (isSelected)
+                {
+                    if (shadow == null)
+                    {
+                        shadow = _betButtons[i].gameObject.AddComponent<UnityEngine.UI.Shadow>();
+                        shadow.effectColor = new Color(0f, 0f, 0f, 0.8f); // Dark shadow
+                        shadow.effectDistance = new Vector2(8f, -8f);
+                    }
+                    shadow.enabled = true;
+                    // Much larger scale with a bouncy pop animation
+                    _betButtons[i].transform.DOScale(new Vector3(1.18f, 1.18f, 1f), 0.25f).SetEase(Ease.OutBack);
+                }
+                else
+                {
+                    if (shadow != null) shadow.enabled = false;
+                    // Slightly shrink unselected buttons to maximize contrast
+                    _betButtons[i].transform.DOScale(new Vector3(0.92f, 0.92f, 1f), 0.2f).SetEase(Ease.OutCubic);
+                }
+            }
+        }
     }
 
 
@@ -340,7 +418,8 @@ public class BattlePrepController : MonoBehaviour
             return;
         }
 
-        ShowBetConfirmPopup(amount);
+        // Direct selection if they have enough coins
+        ConfirmBetSelection(amount);
     }
 
     private void ConfirmBetSelection(int amount)
@@ -839,30 +918,7 @@ public class BattlePrepController : MonoBehaviour
 
     private void RefreshBattleButtonState()
     {
-        if (startBattleButton == null || startBattleButtonText == null || startBattleButtonImg == null) return;
-
-        var profile = PlayerProfileManager.GetInstance();
-        if (profile == null) return;
-
-        bool hasTwo = profile.BattleTeam.Count == 2;
-        bool canAfford = profile.CanAffordBattle;
-        bool ready = hasTwo && canAfford && _betConfirmedThisVisit;
-
-        int betFee = profile.SelectedBet;
-        startBattleButtonText.text = $"START BATTLE ({betFee})";
-
-        if (ready)
-        {
-            startBattleButton.interactable = true;
-            startBattleButtonImg.color = new Color(0.15f, 0.75f, 0.3f, 1f); // ready green
-            startBattleButtonText.color = Color.white;
-        }
-        else
-        {
-            startBattleButton.interactable = true; // Let them click to get warning message
-            startBattleButtonImg.color = new Color(0.4f, 0.4f, 0.4f, 1f); // grayed out
-            startBattleButtonText.color = new Color(1f, 1f, 1f, 0.7f);
-        }
+        // Removed dynamic button state change per user request
     }
 
     private void OnStartBattleClick()
@@ -1000,7 +1056,7 @@ public class BattlePrepController : MonoBehaviour
 
         Sprite okBtnSprite = GetInfoOkButtonSprite();
 
-        CreateModalButton(modalWindow.transform, "OkButton", okBtnSprite, new Vector2(0f, 65f), () =>
+        CreateModalButton(modalWindow.transform, "OkButton", okBtnSprite, new Vector2(0f, 90f), () =>
         {
             CloseModalPopup();
             onOk?.Invoke();
@@ -1136,7 +1192,7 @@ public class BattlePrepController : MonoBehaviour
             okRt.anchorMax        = new Vector2(0.5f, 0f);
             okRt.pivot            = new Vector2(0.5f, 0f);
             okRt.sizeDelta        = InfoButtonSize;
-            okRt.anchoredPosition = new Vector2(0f, 65f);
+            okRt.anchoredPosition = new Vector2(0f, 90f);
 
             ApplyLoginLogoutButtonImage(noCoinsOkBtn.GetComponent<Image>(), okBtnSprite);
 

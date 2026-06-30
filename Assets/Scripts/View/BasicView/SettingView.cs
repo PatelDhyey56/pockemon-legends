@@ -9,6 +9,8 @@ using System;
 using AdsManager;
 using IAPPurchasing;
 using TMPro;
+using DG.Tweening;
+using UnityEngine.EventSystems;
 
 public class SettingView : View
 {
@@ -68,6 +70,38 @@ public class SettingView : View
                     }
                 }
             }
+        }
+
+        // Add scale animation on press to all buttons
+        Button[] allButtons = GetComponentsInChildren<Button>(true);
+        foreach (var btn in allButtons)
+        {
+            EventTrigger trigger = btn.gameObject.GetComponent<EventTrigger>();
+            if (trigger == null) trigger = btn.gameObject.AddComponent<EventTrigger>();
+
+            EventTrigger.Entry entryDown = new EventTrigger.Entry();
+            entryDown.eventID = EventTriggerType.PointerDown;
+            entryDown.callback.AddListener((data) => {
+                btn.transform.DOKill();
+                btn.transform.DOScale(1.1f, 0.1f).SetUpdate(true);
+            });
+            trigger.triggers.Add(entryDown);
+
+            EventTrigger.Entry entryUp = new EventTrigger.Entry();
+            entryUp.eventID = EventTriggerType.PointerUp;
+            entryUp.callback.AddListener((data) => {
+                btn.transform.DOKill();
+                btn.transform.DOScale(1.0f, 0.1f).SetUpdate(true);
+            });
+            trigger.triggers.Add(entryUp);
+
+            EventTrigger.Entry entryExit = new EventTrigger.Entry();
+            entryExit.eventID = EventTriggerType.PointerExit;
+            entryExit.callback.AddListener((data) => {
+                btn.transform.DOKill();
+                btn.transform.DOScale(1.0f, 0.1f).SetUpdate(true);
+            });
+            trigger.triggers.Add(entryExit);
         }
     }
 
