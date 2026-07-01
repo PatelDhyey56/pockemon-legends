@@ -4,6 +4,7 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using System.Collections.Generic;
 using DG.Tweening;
+using AdsManager;
 
 /// <summary>
 /// Creature Store — purchase new Creature with coins.
@@ -84,6 +85,8 @@ public class CreatureStoreController : MonoBehaviour
 
         try
         {
+            FirebaseManager.LogEvent(Constants.EVENT_STORE_SCENE_OPEN);
+
             // Hide legacy scene popup if wired up
             if (confirmPopup != null) confirmPopup.SetActive(false);
             if (resultPopup  != null) resultPopup.SetActive(false);
@@ -785,6 +788,18 @@ public class CreatureStoreController : MonoBehaviour
 
     public void OnBackButtonClick()
     {
+        Debug.Log("[CreatureStoreController] OnBackButtonClick called.");
+        if (AdMobManager.GetInstance() != null)
+        {
+            AdMobManager.GetInstance().ShowInterstitial();
+        }
+        StartCoroutine(LoadMenuSceneDelayed());
+    }
+
+    private System.Collections.IEnumerator LoadMenuSceneDelayed()
+    {
+        // Give the AdMob SDK a moment to transition to the native Ad activity
+        yield return new WaitForSecondsRealtime(0.15f);
         SceneManager.LoadScene(Constants.SCENE_MENU);
     }
 

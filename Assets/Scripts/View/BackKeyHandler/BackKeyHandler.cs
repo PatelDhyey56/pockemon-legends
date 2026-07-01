@@ -39,10 +39,11 @@ public class BackKeyHandler : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            OnBackKeyPressedEvent();
-        }
+        // Hardware back button functionality disabled
+        // if (Input.GetKeyDown(KeyCode.Escape))
+        // {
+        //     OnBackKeyPressedEvent();
+        // }
     }
 
     private void OnBackKeyPressedEvent()

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -18,10 +18,11 @@ public class WebViewUI : MonoBehaviour
 
     public void OnBackKeyPress()
     {
-        if (Input.GetKey(KeyCode.Escape))
-        {
-            OnBackButtonClick();
-        }
+        // Hardware back button functionality disabled
+        // if (Input.GetKey(KeyCode.Escape))
+        // {
+        //     OnBackButtonClick();
+        // }
     }
     public void OnBackButtonClick()
     {

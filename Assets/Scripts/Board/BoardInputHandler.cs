@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using DG.Tweening;
+using AdsManager;
 
 public class BoardInputHandler : MonoBehaviour
 {
@@ -259,6 +260,58 @@ public class BoardInputHandler : MonoBehaviour
 
         board.InitBoard();
         ResetInactivityTimer();
+        
+        StartCoroutine(ShowAdBannerRoutine());
+    }
+
+    private IEnumerator ShowAdBannerRoutine()
+    {
+        yield return new WaitForSeconds(0.5f); // Wait for scene transition to settle
+
+        if (AdMobManager.GetInstance() != null)
+        {
+            yield return new WaitUntil(() => AdMobManager.GetInstance().IsSdkInitialized);
+            
+            // Temporarily disable destroying the old banner so we can reuse it instantly
+            bool originalSetting = AdMobManager.GetInstance().LoadNewBannerOnEachRequest;
+            AdMobManager.GetInstance().LoadNewBannerOnEachRequest = false;
+            
+            AdMobManager.GetInstance().RequestBanner(BannerAdPosition.Bottom, AdStatusDelegate: OnAdStatus);
+            
+            // Restore the original setting
+            AdMobManager.GetInstance().LoadNewBannerOnEachRequest = originalSetting;
+        }
+    }
+
+    private void OnAdStatus(AdStatusCode code)
+    {
+        if (code == AdStatusCode.ADLoadSuccess && AdMobManager.GetInstance() != null)
+        {
+            // Call ShowBanner via a coroutine to ensure it doesn't conflict with HideBanner in the same frame
+            StartCoroutine(ShowBannerNextFrame());
+        }
+    }
+
+    private IEnumerator ShowBannerNextFrame()
+    {
+        yield return null; // Wait one frame
+        
+        if (AdMobManager.GetInstance() != null)
+        {
+            AdMobManager.GetInstance().ShowBanner();
+
+
+        }
+    }
+
+    private void OnDestroy()
+    {
+        BoardManager.OnBoardInitialized -= OnBoardInit;
+        if (AdMobManager.GetInstance() != null)
+        {
+            AdMobManager.GetInstance().HideBanner();
+            AdMobManager.GetInstance().DestroyBanner();
+        }
     }
 
     /// <summary>

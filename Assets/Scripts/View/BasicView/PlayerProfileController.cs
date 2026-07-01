@@ -96,6 +96,8 @@ public class PlayerProfileController : MonoBehaviour
 
         profile.LoadProfile(); // Force reload latest saved data to avoid caching/stale XP issues
 
+        FirebaseManager.LogEvent(Constants.EVENT_PROFILE_SCENE_OPEN);
+
         if (backButton != null)
             backButton.onClick.AddListener(OnBackButtonClick);
 

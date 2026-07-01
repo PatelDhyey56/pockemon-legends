@@ -1852,6 +1852,8 @@ RectTransform:
   m_Children:
   - {fileID: 7100000000000000001}
   - {fileID: 7200000000000000001}
+  - {fileID: 8100000000000000001}
+  - {fileID: 8200000000000000001}
   - {fileID: 5348622846076715839}
   - {fileID: 5348622846047376318}
   - {fileID: 5348622846031662588}
@@ -1859,8 +1861,6 @@ RectTransform:
   - {fileID: 5348622844617922443}
   - {fileID: 5348622846149235925}
   - {fileID: 5348622845249082172}
-  - {fileID: 8100000000000000001}
-  - {fileID: 8200000000000000001}
   m_Father: {fileID: 5348622845455209106}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -3674,7 +3674,7 @@ GameObject:
   - component: {fileID: 8100000000000000003}
   - component: {fileID: 8100000000000000004}
   m_Layer: 5
-  m_Name: SoundOffBtn
+  m_Name: VolumeOnBtn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

@@ -36,6 +36,8 @@ public class ProfileSetupController : MonoBehaviour
 
         if (errorText != null) errorText.text = "";
 
+        FirebaseManager.LogEvent(Constants.EVENT_PROFILE_CREATE_OPEN);
+
         // Bounce-in animation using unscaled update to prevent freeze
         if (cardRect != null)
         {

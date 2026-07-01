@@ -126,10 +126,18 @@ public class HomeMenuController : MonoBehaviour
         if (PreferenceHelper.IsAdRemoved() && noAdsButton != null)
             noAdsButton.SetActive(false);
 
-        if (AdMobManager.GetInstance() != null)
+        yield return new WaitForSeconds(0.5f);
+
+        if (AdMobManager.GetInstance() != null && !PreferenceHelper.IsAdRemoved())
         {
             yield return new WaitUntil(() => AdMobManager.GetInstance().IsSdkInitialized);
+            
+            bool originalSetting = AdMobManager.GetInstance().LoadNewBannerOnEachRequest;
+            AdMobManager.GetInstance().LoadNewBannerOnEachRequest = false;
+            
             AdMobManager.GetInstance().RequestBanner(BannerAdPosition.Bottom, AdStatusDelegate: OnAdStatus);
+            
+            AdMobManager.GetInstance().LoadNewBannerOnEachRequest = originalSetting;
         }
 
         // Add pop animation to navigation buttons
@@ -187,7 +195,19 @@ public class HomeMenuController : MonoBehaviour
     private void OnAdStatus(AdStatusCode code)
     {
         if (code == AdStatusCode.ADLoadSuccess && !_isIAPOpen && AdMobManager.GetInstance() != null)
+        {
+            StartCoroutine(ShowBannerNextFrame());
+        }
+    }
+
+    private IEnumerator ShowBannerNextFrame()
+    {
+        yield return null; // Wait one frame
+        
+        if (AdMobManager.GetInstance() != null && !_isIAPOpen && !PreferenceHelper.IsAdRemoved())
+        {
             AdMobManager.GetInstance().ShowBanner();
+        }
     }
 
     // ─── UI Refresh ──────────────────────────────────────────────
@@ -312,6 +332,8 @@ public class HomeMenuController : MonoBehaviour
 
     public void OnLogoutButtonClick()
     {
+        FirebaseManager.LogEvent(Constants.EVENT_LOGOUT_CLICK);
+
         if (logoutPopup == null) return;
         logoutPopup.SetActive(true);
 

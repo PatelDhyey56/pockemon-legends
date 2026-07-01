@@ -147,6 +147,11 @@ freely, subject to the following restrictions:</p>
     #region ANALYTICS
 
     public const string EVENT_GAME_LAUNCH ="game_launch";
+    public const string EVENT_APP_OPEN = "app_open_event";
+    public const string EVENT_STORE_SCENE_OPEN = "store_scene_open";
+    public const string EVENT_PROFILE_SCENE_OPEN = "profile_scene_open";
+    public const string EVENT_LOGOUT_CLICK = "logout_click";
+    public const string EVENT_PROFILE_CREATE_OPEN = "profile_create_open";
 
     #endregion
 

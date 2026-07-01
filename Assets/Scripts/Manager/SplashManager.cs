@@ -50,6 +50,7 @@ public class SplashManager : MonoBehaviour
     private void GameLaunchFirebaseEvent()
     {
         FirebaseManager.LogEvent(Constants.EVENT_GAME_LAUNCH);
+        FirebaseManager.LogEvent(Constants.EVENT_APP_OPEN);
     }
 
     public IEnumerator LoadScene()
