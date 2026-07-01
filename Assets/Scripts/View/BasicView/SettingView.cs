@@ -236,7 +236,6 @@ public class SettingView : View
         if (_soundOnBtn != null) _soundOnBtn.SetActive(isSoundOn);
         if (_soundOffBtn != null) _soundOffBtn.SetActive(!isSoundOn);
         
-        // Ensure game sound is set to 100 (1f) when Sound is ON, 0f when OFF
         AudioListener.volume = isSoundOn ? 1f : 0f;
     }
 
@@ -263,15 +262,7 @@ public class SettingView : View
             BackgroundMusicManager.GetInstance().UpdateVolumeState();
         }
 
-        // Apply global volume mute if volume is turned off
-        if (!isVolumeOn)
-        {
-            AudioListener.volume = 0f;
-        }
-        else if (PreferenceHelper.IsSoundOn())
-        {
-            AudioListener.volume = 1f;
-        }
+        AudioListener.volume = isVolumeOn ? 1f : 0f;
     }
 
     private void SetShareMessage()

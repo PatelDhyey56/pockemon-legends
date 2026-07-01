@@ -100,7 +100,11 @@ public class BackgroundMusicManager : MonoBehaviour
     {
         if (_isDestroyed) return;
         if (!_useProceduralAudio) return;
-        if (_currentVolume <= 0f) return;
+        if (_currentVolume <= 0f)
+        {
+            for (int i = 0; i < data.Length; i++) data[i] = 0f;
+            return;
+        }
 
         double sampleRate = _sampleRate;
         double noteDuration = 0.15; // Fast arpeggio
@@ -138,9 +142,18 @@ public class BackgroundMusicManager : MonoBehaviour
     {
         if (_audioSource != null)
         {
-            bool isSoundOn = PreferenceHelper.IsVolumeOn();
-            _currentVolume = isSoundOn ? baseVolume : 0f;
+            bool isVolumeOn = PreferenceHelper.IsVolumeOn();
+            _currentVolume = isVolumeOn ? baseVolume : 0f;
             _audioSource.volume = _currentVolume;
+            
+            if (!isVolumeOn)
+            {
+                _audioSource.Pause();
+            }
+            else if (!_audioSource.isPlaying)
+            {
+                _audioSource.Play();
+            }
         }
     }
 
