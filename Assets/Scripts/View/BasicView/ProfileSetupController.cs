@@ -66,13 +66,19 @@ public class ProfileSetupController : MonoBehaviour
 
         if (string.IsNullOrEmpty(name))
         {
-            ShowError("Please enter a trainer name!");
+            ShowError("Please enter a username!");
             return;
         }
 
         if (name.Length < 2)
         {
-            ShowError("Name must be at least 2 characters.");
+            ShowError("Username must be at least 2 characters.");
+            return;
+        }
+
+        if (name.Length > 12)
+        {
+            ShowError("Username cannot exceed 12 characters.");
             return;
         }
 

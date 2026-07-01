@@ -54,6 +54,7 @@ public class PlayerProfileManager : MonoBehaviour
     private const string KEY_BATTLE_TEAM      = "battle_team";      // comma-separated names
     private const string KEY_SELECTED_BET     = "selected_bet";
     private const string KEY_ACTIVE_BET       = "active_bet";
+    private const string KEY_EVALUATED_CREATURES = "evaluated_creatures";
 
     // Game balance constants
     public const int INITIAL_COINS    = 1000;
@@ -112,6 +113,9 @@ public class PlayerProfileManager : MonoBehaviour
 
     /// <summary>Names of selected battle Creature (exactly 2).</summary>
     public List<string> BattleTeam { get; private set; } = new List<string>();
+
+    /// <summary>Names of evaluated Creature.</summary>
+    public List<string> EvaluatedCreatures { get; private set; } = new List<string>();
 
     public int SelectedBet { get; private set; } = 250;
     public int ActiveBet { get; private set; } = 250;
@@ -210,6 +214,7 @@ public class PlayerProfileManager : MonoBehaviour
 
         OwnedCreatures.Clear();
         BattleTeam.Clear();
+        EvaluatedCreatures.Clear();
         // Grant starter Creature
         foreach (var entry in AllCreatures)
         {
@@ -299,6 +304,33 @@ public class PlayerProfileManager : MonoBehaviour
         OnCoinsChanged?.Invoke();
         OnProfileChanged?.Invoke();
         return true;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Creature Evaluation
+    // ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Evaluates a creature. 
+    /// If evaluated for the first time, returns true (system evaluates).
+    /// If already evaluated, returns false (requires match 3 game for power speed up) and loads the match 3 scene.
+    /// </summary>
+    public bool EvaluateCreature(string name)
+    {
+        if (EvaluatedCreatures.Contains(name))
+        {
+            // Already evaluated: load match 3 game for power speed up
+            UnityEngine.SceneManagement.SceneManager.LoadScene(Constants.SCENE_CREATURE);
+            return false;
+        }
+        else
+        {
+            // First time: system evaluates
+            EvaluatedCreatures.Add(name);
+            SaveProfile();
+            OnProfileChanged?.Invoke();
+            return true;
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -443,6 +475,7 @@ public class PlayerProfileManager : MonoBehaviour
         IsProfileCreated = false;
         OwnedCreatures.Clear();
         BattleTeam.Clear();
+        EvaluatedCreatures.Clear();
         SelectedBet      = 250;
         ActiveBet        = 250;
         
@@ -494,6 +527,7 @@ public class PlayerProfileManager : MonoBehaviour
         GamePlayerPrefs.SetInt(KEY_LOSSES, Losses);
         GamePlayerPrefs.SetString(KEY_OWNED_CREATURES, string.Join(",", OwnedCreatures));
         GamePlayerPrefs.SetString(KEY_BATTLE_TEAM, string.Join(",", BattleTeam));
+        GamePlayerPrefs.SetString(KEY_EVALUATED_CREATURES, string.Join(",", EvaluatedCreatures));
         GamePlayerPrefs.SetInt(KEY_SELECTED_BET, SelectedBet);
         GamePlayerPrefs.SetInt(KEY_ACTIVE_BET,   ActiveBet);
         GamePlayerPrefs.Save();
@@ -595,7 +629,73 @@ public class PlayerProfileManager : MonoBehaviour
             }
         }
 
+        // Load Evaluated Creatures
+        string evalRaw = GamePlayerPrefs.GetString(KEY_EVALUATED_CREATURES, "");
+        EvaluatedCreatures.Clear();
+        if (!string.IsNullOrEmpty(evalRaw))
+        {
+            foreach (var name in evalRaw.Split(','))
+            {
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    string migrated = MigrateCreatureNameToCreature(name.Trim());
+                    if (!EvaluatedCreatures.Contains(migrated))
+                        EvaluatedCreatures.Add(migrated);
+                }
+            }
+        }
+
         SelectedBet = GamePlayerPrefs.GetInt(KEY_SELECTED_BET, 250);
         ActiveBet   = GamePlayerPrefs.GetInt(KEY_ACTIVE_BET,   250);
     }
+
+    #region UI Helpers
+    
+    /// <summary>
+    /// Dynamically attaches the Coin Sprite to the right side of the text bounds.
+    /// Used globally in all scenes where coins are displayed.
+    /// </summary>
+    public static void AttachCoinSprite(TMPro.TextMeshProUGUI txt)
+    {
+        if (txt == null) return;
+        txt.ForceMeshUpdate();
+
+        Transform existing = txt.transform.Find("DynamicCoinIcon");
+        GameObject coinIconGo;
+        if (existing != null)
+        {
+            coinIconGo = existing.gameObject;
+        }
+        else
+        {
+            coinIconGo = new GameObject("DynamicCoinIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+            coinIconGo.transform.SetParent(txt.transform, false);
+            var coinIcon = coinIconGo.GetComponent<UnityEngine.UI.Image>();
+            Sprite[] uiSprites = Resources.LoadAll<Sprite>("UI/UI-pack_Sprite_1");
+            Sprite cSprite = Array.Find(uiSprites, s => s.name.EndsWith("11"));
+            if (cSprite != null) coinIcon.sprite = cSprite;
+        }
+
+        // Match size exactly to the actual rendered text height (handles Auto Size properly)
+        float size = txt.textBounds.size.y;
+        if (size <= 0) size = txt.fontSize;
+        if (size <= 0) size = 45f;
+        
+        var rt = coinIconGo.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(size, size);
+
+        // Align anchors to the parent's pivot so anchoredPosition perfectly matches local space coordinates
+        Vector2 parentPivot = txt.rectTransform.pivot;
+        rt.anchorMin = parentPivot;
+        rt.anchorMax = parentPivot;
+        rt.pivot = new Vector2(0f, 0.5f); // Left-middle pivot for the icon
+
+        // Position slightly to the right of the text bounds
+        float textRightX = txt.textBounds.max.x;
+        float textCenterY = txt.textBounds.center.y;
+        float padding = size * 0.15f; // small padding relative to rendered size
+        rt.anchoredPosition = new Vector2(textRightX + padding, textCenterY);
+    }
+    
+    #endregion
 }

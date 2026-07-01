@@ -227,7 +227,7 @@ public class CreatureStoreController : MonoBehaviour
                 var statsRt = statsText.GetComponent<RectTransform>();
                 if (statsRt != null)
                 {
-                    statsRt.anchoredPosition = new Vector2(0f, -200f);
+                    statsRt.anchoredPosition = new Vector2(0f, -210f);
                 }
             }
 
@@ -294,9 +294,20 @@ public class CreatureStoreController : MonoBehaviour
                     if (btnLabel != null)
                     {
                         btnLabel.text  = entry.Price > 0
-                            ? (canAfford ? $"Buy {entry.Price} Coins" : $"Need {entry.Price} Coins")
+                            ? (canAfford ? $"Buy {entry.Price}" : $"Need {entry.Price}")
                             : "Free";
                         btnLabel.color = Color.white; // always white on coloured button
+                        
+                        var coinIcon = btnLabel.transform.Find("DynamicCoinIcon");
+                        if (entry.Price > 0)
+                        {
+                            if (coinIcon != null) coinIcon.gameObject.SetActive(true);
+                            PlayerProfileManager.AttachCoinSprite(btnLabel);
+                        }
+                        else if (coinIcon != null)
+                        {
+                            coinIcon.gameObject.SetActive(false);
+                        }
                     }
 
                     buyBtn.onClick.RemoveAllListeners();
@@ -343,7 +354,10 @@ public class CreatureStoreController : MonoBehaviour
     {
         var profile = PlayerProfileManager.GetInstance();
         if (coinsText != null && profile != null)
+        {
             coinsText.text = $"<color=#FFD700>{profile.Coins}</color>";
+            PlayerProfileManager.AttachCoinSprite(coinsText);
+        }
         RefreshCards();
     }
 
@@ -670,6 +684,10 @@ public class CreatureStoreController : MonoBehaviour
             _popupEffectText.text =
                 $"<color=#333333>Effect:</color> <b><color=#444466>{abilityDesc}</color></b>";
 
+        // Show popup before updating text so that ForceMeshUpdate works properly for the coin sprite
+        _purchasePopup.SetActive(true);
+        _purchasePopup.transform.SetAsLastSibling();
+
         if (isOwned)
         {
             if (_popupBuyBtn != null)
@@ -712,8 +730,6 @@ public class CreatureStoreController : MonoBehaviour
         }
 
         // ── Show with animation ───────────────────────────────────────
-        _purchasePopup.SetActive(true);
-        _purchasePopup.transform.SetAsLastSibling();
         _purchasePopup.transform.localScale = Vector3.zero;
         _purchasePopup.transform.DOScale(1f, 0.28f).SetEase(Ease.OutBack).SetUpdate(true);
     }
@@ -828,25 +844,33 @@ public class CreatureStoreController : MonoBehaviour
         r.anchorMax = Vector2.one;
         r.offsetMin = Vector2.zero;
         r.offsetMax = Vector2.zero;
+        r.pivot = new Vector2(0.5f, 0.5f);
         _popupBuyBtnLabel.alignment = TextAlignmentOptions.Center;
         _popupBuyBtnLabel.text = text;
+
+        var coinIcon = _popupBuyBtnLabel.transform.Find("DynamicCoinIcon");
+        if (coinIcon != null) coinIcon.gameObject.SetActive(false);
     }
 
     private void SetPurchaseBtnPriceLabel(int price)
     {
         if (_popupBuyBtnCoinText != null)
-            _popupBuyBtnCoinText.gameObject.SetActive(true);
+            _popupBuyBtnCoinText.gameObject.SetActive(false); // replaced by sprite
 
         if (_popupBuyBtnLabel == null) return;
 
         var r = _popupBuyBtnLabel.rectTransform;
-        r.anchorMin        = new Vector2(0.5f, 0.5f);
-        r.anchorMax        = new Vector2(0.5f, 0.5f);
-        r.pivot            = new Vector2(1f, 0.5f);
-        r.anchoredPosition = new Vector2(-4f, 0f);
-        r.sizeDelta        = new Vector2(160f, 65f);
-        _popupBuyBtnLabel.alignment = TextAlignmentOptions.MidlineRight;
+        r.anchorMin = Vector2.zero;
+        r.anchorMax = Vector2.one;
+        r.offsetMin = Vector2.zero;
+        r.offsetMax = Vector2.zero;
+        r.pivot = new Vector2(0.5f, 0.5f);
+        _popupBuyBtnLabel.alignment = TextAlignmentOptions.Center;
         _popupBuyBtnLabel.text = price.ToString();
+
+        var coinIcon = _popupBuyBtnLabel.transform.Find("DynamicCoinIcon");
+        if (coinIcon != null) coinIcon.gameObject.SetActive(true);
+        PlayerProfileManager.AttachCoinSprite(_popupBuyBtnLabel);
     }
 }
 

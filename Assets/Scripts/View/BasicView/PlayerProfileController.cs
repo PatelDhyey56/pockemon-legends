@@ -191,7 +191,10 @@ public class PlayerProfileController : MonoBehaviour
         if (p == null) return;
 
         if (coinsValueText != null)
-            coinsValueText.text = $"{p.Coins}";
+        {
+            coinsValueText.text = $"<color=#FFD700>{p.Coins}</color>";
+            PlayerProfileManager.AttachCoinSprite(coinsValueText);
+        }
 
         int totalBattles = p.Wins + p.Losses;
         float winRate    = totalBattles > 0 ? (float)p.Wins / totalBattles * 100f : 0f;

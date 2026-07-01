@@ -210,7 +210,11 @@ public class HomeMenuController : MonoBehaviour
         var p = PlayerProfileManager.GetInstance();
         if (p == null) return;
 
-        if (coinsText != null) coinsText.text = $"{p.Coins}";
+        if (coinsText != null)
+        {
+            coinsText.text = $"<color=#FFD700>{p.Coins}</color>";
+            PlayerProfileManager.AttachCoinSprite(coinsText);
+        }
 
         // Pulse coins text when updated
         if (coinsText != null)
@@ -319,7 +323,7 @@ public class HomeMenuController : MonoBehaviour
 
         if (dialog != null)
         {
-            dialog.sizeDelta = new Vector2(700f, 550f);
+            dialog.sizeDelta = new Vector2(700f, 600f);
 
             var titleTrans = dialog.Find("Title") as RectTransform;
             if (titleTrans != null)
@@ -334,7 +338,7 @@ public class HomeMenuController : MonoBehaviour
             {
                 msgTrans.anchoredPosition = new Vector2(0f, -20f);
                 var msgText = msgTrans.GetComponent<TextMeshProUGUI>();
-                if (msgText != null) msgText.fontSize = 28f;
+                if (msgText != null) msgText.fontSize = 32f;
             }
 
             if (logoutYesBtn != null)

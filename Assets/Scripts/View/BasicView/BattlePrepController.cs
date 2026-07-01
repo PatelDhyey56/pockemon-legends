@@ -359,6 +359,7 @@ public class BattlePrepController : MonoBehaviour
         if (p != null && coinsValueText != null)
         {
             coinsValueText.text = $"<color=#FFD700>{p.Coins}</color>";
+            PlayerProfileManager.AttachCoinSprite(coinsValueText);
 
             // Pulse coins text when updated
             coinsValueText.transform.DOPunchScale(Vector3.one * 0.15f, 0.3f, 5, 0.5f).SetUpdate(true);
