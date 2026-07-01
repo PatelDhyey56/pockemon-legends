@@ -44,7 +44,7 @@ public class ExitBattleButton : MonoBehaviour
         modalRt.anchorMin = new Vector2(0.5f, 0.5f);
         modalRt.anchorMax = new Vector2(0.5f, 0.5f);
         modalRt.pivot = new Vector2(0.5f, 0.5f);
-        modalRt.sizeDelta = new Vector2(780f, 700f);
+        modalRt.sizeDelta = new Vector2(780f, 600f);
         modalRt.anchoredPosition = Vector2.zero;
 
         Image modalImg = modalWindow.GetComponent<Image>();
@@ -69,7 +69,7 @@ public class ExitBattleButton : MonoBehaviour
 
         TextMeshProUGUI titleTxt = titleGo.GetComponent<TextMeshProUGUI>();
         titleTxt.text = "EXIT BATTLE";
-        titleTxt.fontSize = 50f;
+        titleTxt.fontSize = 54f;
         titleTxt.fontStyle = FontStyles.Bold;
         titleTxt.alignment = TextAlignmentOptions.Center;
         titleTxt.color = new Color(0.745283f, 0.56290144f, 0.28475437f, 1f);
@@ -82,11 +82,11 @@ public class ExitBattleButton : MonoBehaviour
         descRt.anchorMax = new Vector2(0.5f, 0.5f);
         descRt.pivot = new Vector2(0.5f, 0.5f);
         descRt.sizeDelta = new Vector2(680f, 200f);
-        descRt.anchoredPosition = new Vector2(0f, 0f);
+        descRt.anchoredPosition = new Vector2(0f, -40f);
 
         TextMeshProUGUI descTxt = descGo.GetComponent<TextMeshProUGUI>();
         descTxt.text = "Are you sure you want to quit the battle?";
-        descTxt.fontSize = 36f;
+        descTxt.fontSize = 38f;
         descTxt.enableWordWrapping = true;
         descTxt.lineSpacing = 1.15f;
         descTxt.alignment = TextAlignmentOptions.Center;

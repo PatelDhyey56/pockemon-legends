@@ -44,6 +44,7 @@ public class BackgroundMusicManager : MonoBehaviour
             {
                 _instance.ChangeMusic(this.backgroundMusic);
             }
+            _isDestroyed = true;
             Destroy(gameObject);
             return;
         }
@@ -55,6 +56,13 @@ public class BackgroundMusicManager : MonoBehaviour
     private float[] _arpeggio = { 261.63f, 329.63f, 392.00f, 523.25f }; // C, E, G, C
     private float _currentVolume = 0f;
     private int _sampleRate = 48000;
+    private bool _useProceduralAudio = false;
+    private bool _isDestroyed = false;
+
+    private void OnDestroy()
+    {
+        _isDestroyed = true;
+    }
 
     private void InitializeAudioSource()
     {
@@ -77,10 +85,12 @@ public class BackgroundMusicManager : MonoBehaviour
         
         if (backgroundMusic != null)
         {
+            _useProceduralAudio = false;
             _audioSource.Play();
         }
         else
         {
+            _useProceduralAudio = true;
             // If still no clip, start playing the procedural synth by enabling the AudioSource
             _audioSource.Play();
         }
@@ -88,8 +98,8 @@ public class BackgroundMusicManager : MonoBehaviour
 
     void OnAudioFilterRead(float[] data, int channels)
     {
-        if (_instance != this) return; // Prevent duplicates from making noise while being destroyed
-        if (backgroundMusic != null) return; // Use actual music if it exists
+        if (_isDestroyed) return;
+        if (!_useProceduralAudio) return;
         if (_currentVolume <= 0f) return;
 
         double sampleRate = _sampleRate;
@@ -128,7 +138,7 @@ public class BackgroundMusicManager : MonoBehaviour
     {
         if (_audioSource != null)
         {
-            bool isSoundOn = PreferenceHelper.IsSoundOn();
+            bool isSoundOn = PreferenceHelper.IsVolumeOn();
             _currentVolume = isSoundOn ? baseVolume : 0f;
             _audioSource.volume = _currentVolume;
         }
@@ -140,6 +150,7 @@ public class BackgroundMusicManager : MonoBehaviour
         if (_audioSource != null && newClip != null && _audioSource.clip != newClip)
         {
             this.backgroundMusic = newClip;
+            _useProceduralAudio = false;
             _audioSource.clip = newClip;
             _audioSource.Play();
         }

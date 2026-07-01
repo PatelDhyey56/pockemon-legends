@@ -27,6 +27,8 @@ public class SettingView : View
     private WebViewObject webViewObject;
     private GameObject _soundOnBtn;
     private GameObject _soundOffBtn;
+    private GameObject _volumeOnBtn;
+    private GameObject _volumeOffBtn;
 
     public override void Awake()
     {
@@ -57,6 +59,8 @@ public class SettingView : View
                     if (soundOnTrans != null)
                     {
                         _soundOnBtn = soundOnTrans.gameObject;
+                        RectTransform rt = _soundOnBtn.GetComponent<RectTransform>();
+                        if (rt != null) rt.sizeDelta = new Vector2(450, 300);
                         Button btn = _soundOnBtn.GetComponent<Button>();
                         if (btn != null) btn.onClick.AddListener(OnSoundOnButtonClick);
                     }
@@ -65,8 +69,44 @@ public class SettingView : View
                     if (soundOffTrans != null)
                     {
                         _soundOffBtn = soundOffTrans.gameObject;
+                        RectTransform rt = _soundOffBtn.GetComponent<RectTransform>();
+                        if (rt != null) rt.sizeDelta = new Vector2(450, 300);
                         Button btn = _soundOffBtn.GetComponent<Button>();
                         if (btn != null) btn.onClick.AddListener(OnSoundOffButtonClick);
+                    }
+
+                    Transform volumeOnTrans = null;
+                    int soundOffCount = 0;
+                    foreach (Transform child in contentTrans)
+                    {
+                        if (child.name == "SoundOffBtn")
+                        {
+                            soundOffCount++;
+                            if (soundOffCount == 2)
+                            {
+                                volumeOnTrans = child;
+                                break;
+                            }
+                        }
+                    }
+                    if (volumeOnTrans == null) volumeOnTrans = contentTrans.Find("VolumeOnBtn");
+                    if (volumeOnTrans != null)
+                    {
+                        _volumeOnBtn = volumeOnTrans.gameObject;
+                        RectTransform rt = _volumeOnBtn.GetComponent<RectTransform>();
+                        if (rt != null) rt.sizeDelta = new Vector2(450, 300);
+                        Button btn = _volumeOnBtn.GetComponent<Button>();
+                        if (btn != null) btn.onClick.AddListener(OnVolumeOnButtonClick);
+                    }
+
+                    Transform volumeOffTrans = contentTrans.Find("VolumeOffBtn");
+                    if (volumeOffTrans != null)
+                    {
+                        _volumeOffBtn = volumeOffTrans.gameObject;
+                        RectTransform rt = _volumeOffBtn.GetComponent<RectTransform>();
+                        if (rt != null) rt.sizeDelta = new Vector2(450, 300);
+                        Button btn = _volumeOffBtn.GetComponent<Button>();
+                        if (btn != null) btn.onClick.AddListener(OnVolumeOffButtonClick);
                     }
                 }
             }
@@ -124,6 +164,7 @@ public class SettingView : View
             HideConsentAndBuyAdsButtons();
             
         UpdateSoundButtons();
+        UpdateVolumeButtons();
     }
 
     private void OnEnable()
@@ -195,6 +236,30 @@ public class SettingView : View
         if (_soundOnBtn != null) _soundOnBtn.SetActive(isSoundOn);
         if (_soundOffBtn != null) _soundOffBtn.SetActive(!isSoundOn);
         AudioListener.volume = isSoundOn ? 1f : 0f;
+    }
+
+    private void OnVolumeOnButtonClick()
+    {
+        PreferenceHelper.SetVolumeOn(false);
+        UpdateVolumeButtons();
+    }
+
+    private void OnVolumeOffButtonClick()
+    {
+        PreferenceHelper.SetVolumeOn(true);
+        UpdateVolumeButtons();
+    }
+
+    private void UpdateVolumeButtons()
+    {
+        bool isVolumeOn = PreferenceHelper.IsVolumeOn();
+        if (_volumeOnBtn != null) _volumeOnBtn.SetActive(isVolumeOn);
+        if (_volumeOffBtn != null) _volumeOffBtn.SetActive(!isVolumeOn);
+        
+        if (BackgroundMusicManager.GetInstance() != null)
+        {
+            BackgroundMusicManager.GetInstance().UpdateVolumeState();
+        }
     }
 
     private void SetShareMessage()

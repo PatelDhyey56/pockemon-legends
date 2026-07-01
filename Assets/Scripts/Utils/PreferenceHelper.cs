@@ -12,6 +12,7 @@ namespace Utils
         private const string PREF_AD_REMOVED = "wpk1u25xwt";
         private const string PREF_WEB_TITTLE = "wt";
         private const string PREF_SOUND = "ps_snd";
+        private const string PREF_VOLUME = "ps_vol";
         private static bool _isPremiumUser = false;
         private static bool _isUserRateThisApp = false;
 
@@ -28,6 +29,16 @@ namespace Utils
         public static void SetSoundOn(bool value)
         {
             GamePlayerPrefs.SetBool(PREF_SOUND, value);
+        }
+
+        public static bool IsVolumeOn()
+        {
+            return GamePlayerPrefs.GetBool(PREF_VOLUME, true);
+        }
+
+        public static void SetVolumeOn(bool value)
+        {
+            GamePlayerPrefs.SetBool(PREF_VOLUME, value);
         }
 
         public static void RemoveAd()

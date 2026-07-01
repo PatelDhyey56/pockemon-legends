@@ -317,11 +317,7 @@ public class BattlePrepController : MonoBehaviour
 
         if (avatarBg != null)
         {
-            Color bg = p.Level < 20  ? new Color(0.72f, 0.45f, 0.20f)  // bronze
-                     : p.Level < 50  ? new Color(0.65f, 0.65f, 0.70f)  // silver
-                     : p.Level < 80  ? new Color(0.85f, 0.72f, 0.10f)  // gold
-                                     : new Color(0.40f, 0.85f, 0.95f); // platinum
-            avatarBg.DOColor(bg, 0.4f).SetUpdate(true);
+            avatarBg.DOColor(Color.white, 0.4f).SetUpdate(true);
         }
 
         // Display XP bar & details dynamically
